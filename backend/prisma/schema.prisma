@@ -1,0 +1,3845 @@
+generator client {
+
+provider = "prisma-client-js"
+
+}
+
+
+datasource db {
+
+provider = "postgresql"
+
+url      = env("DATABASE_URL")
+
+}
+
+
+enum UserRole {
+
+SUPER_ADMIN
+
+ADMIN
+
+MANAGER
+
+ACCOUNTANT
+
+CASHIER
+
+SALES
+
+INVENTORY
+
+EMPLOYEE
+
+CUSTOMER
+
+}
+
+
+enum UserStatus {
+
+ACTIVE
+
+INACTIVE
+
+SUSPENDED
+
+}
+
+
+model User {
+
+id          String      @id @default(cuid())
+
+
+firstName   String
+
+lastName    String
+
+
+email       String      @unique
+
+phone       String?     @unique
+
+
+password    String
+
+
+role        UserRole    @default(EMPLOYEE)
+
+status      UserStatus  @default(ACTIVE)
+
+
+avatar      String?
+
+
+companyId   String?
+
+company     Company?    @relation(fields: [companyId], references: [id])
+
+
+sales       Sale[]
+
+
+createdAt   DateTime    @default(now())
+
+updatedAt   DateTime    @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+model Company {
+
+id          String       @id @default(cuid())
+
+
+name        String
+
+legalName   String?
+
+
+phone       String?
+
+email       String?
+
+website     String?
+
+
+country     String?
+
+city        String?
+
+address     String?
+
+
+taxNumber   String?
+
+logo        String?
+
+
+users       User[]
+
+branches    Branch[]
+
+
+customers   Customer[]
+
+suppliers   Supplier[]
+
+
+warehouses  Warehouse[]
+
+
+categories  Category[]
+
+products    Product[]
+
+
+purchases   Purchase[]
+
+sales       Sale[]
+
+
+cashBoxes   CashBox[]
+
+
+expenses    Expense[]
+
+accounts    Account[]
+
+
+buildingPermits    BuildingPermit[]
+
+buildingViolations BuildingViolation[]
+
+
+fireStations       FireStation[]
+
+fireIncidents      FireIncident[]
+
+safetyInspections  SafetyInspection[]
+
+
+complaints         CitizenComplaint[]
+
+municipalBills     MunicipalBill[]
+
+cheques            Cheque[]
+
+attachments        Attachment[]
+
+posTerminals       PosTerminal[]
+
+treasuryAccounts     TreasuryAccount[]
+
+treasuryTransactions TreasuryTransaction[]
+
+contracts            Contract[]
+
+employees            Employee[]
+
+payrollSlips         PayrollSlip[]
+
+budgets              Budget[]
+assets               Asset[]
+tenders              Tender[]
+attendanceRecords    AttendanceRecord[]
+leaveRequests        LeaveRequest[]
+performanceReviews   PerformanceReview[]
+constructionProjects ConstructionProject[]
+fleetVehicles        FleetVehicle[]
+serviceZones         ServiceZone[]
+letters              Letter[]
+loyaltyAccounts      LoyaltyAccount[]
+coupons              Coupon[]
+salesOrders          SalesOrder[]
+approvalRequests     ApprovalRequest[]
+citizenProfiles      CitizenProfile[]
+cityServiceRequests  CityServiceRequest[]
+cityAnnouncements    CityAnnouncement[]
+cemeteries           Cemetery[]
+burialPermits        BurialPermit[]
+taxiDrivers          TaxiDriver[]
+businessLicenses     BusinessLicense[]
+municipalProperties  MunicipalProperty[]
+propertyAudits       PropertyAudit[]
+crisisEvents         CrisisEvent[]
+parkingLots          ParkingLot[]
+streetLights         StreetLight[]
+councilMeetings      CouncilMeeting[]
+helpTickets          HelpTicket[]
+trainingCourses      TrainingCourse[]
+documentFolders      DocumentFolder[]
+appointments         Appointment[]
+surveys              Survey[]
+auditLogs            AuditLog[]
+clinicRecords        ClinicRecord[]
+iotSensors           IotSensor[]
+cctv                 CctvCamera[]
+utilityMeters        UtilityMeter[]
+newsPosts            NewsPost[]
+loans                Loan[]
+investments          Investment[]
+appointments2        Void[] @ignore
+webhooks             Webhook[]
+productReturns       ProductReturn[]
+shipments            Shipment[]
+serialNumbers        SerialNumber[]
+batchNumbers         BatchNumber[]
+priceLevels          PriceLevel[]
+discountRules        DiscountRule[]
+projects             Project[]
+salesAgents          SalesAgent[]
+quotations           Quotation[]
+customerTickets      CustomerTicket[]
+emailCampaigns       EmailCampaign[]
+apiKeys              ApiKey[]
+healthChecks         HealthCheckLog[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+}
+
+
+model Branch {
+
+id          String   @id @default(cuid())
+
+
+companyId   String
+
+company     Company  @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+code        String   @unique
+
+
+phone       String?
+
+email       String?
+
+address     String?
+
+
+isActive    Boolean  @default(true)
+
+
+warehouses  Warehouse[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+}
+
+
+model Customer {
+
+id            String   @id @default(cuid())
+
+
+companyId     String
+
+company       Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+firstName     String
+
+lastName      String?
+
+
+phone         String?
+
+email         String?
+
+
+nationalCode  String?
+
+address       String?
+
+
+creditLimit   Decimal @default(0) @db.Decimal(18,2)
+
+
+isActive      Boolean @default(true)
+
+
+sales         Sale[]
+loyaltyAccount LoyaltyAccount?
+salesOrders    SalesOrder[]
+appointments   Appointment[]
+customerTickets CustomerTicket[]
+
+
+createdAt     DateTime @default(now())
+
+updatedAt     DateTime @updatedAt
+
+}
+
+
+model Supplier {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+
+phone       String?
+
+email       String?
+
+address     String?
+
+
+isActive    Boolean @default(true)
+
+
+purchases   Purchase[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+}
+
+model Warehouse {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+branchId    String?
+
+branch      Branch? @relation(fields:[branchId], references:[id])
+
+
+name        String
+
+code        String @unique
+
+
+description String?
+
+
+inventories Inventory[]
+
+
+purchases   Purchase[]
+
+sales       Sale[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+enum ProductStatus {
+
+ACTIVE
+
+INACTIVE
+
+OUT_OF_STOCK
+
+}
+
+
+enum InventoryTransactionType {
+
+PURCHASE
+
+SALE
+
+RETURN
+
+TRANSFER
+
+ADJUSTMENT
+
+}
+
+
+model Category {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+description String?
+
+
+parentId    String?
+
+
+parent      Category? @relation("CategoryTree", fields:[parentId], references:[id])
+
+children    Category[] @relation("CategoryTree")
+
+
+products    Product[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+model Product {
+  salesOrderItems SalesOrderItem[]
+  serialNumbers   SerialNumber[]
+  batchNumbers    BatchNumber[]
+  productPrices   ProductPrice[]
+  quotationItems  QuotationItem[]
+
+id             String @id @default(cuid())
+
+
+companyId      String
+
+company        Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+categoryId     String?
+
+category       Category? @relation(fields:[categoryId], references:[id])
+
+
+name           String
+
+
+sku            String
+
+barcode        String?
+
+
+description    String?
+
+
+purchasePrice  Decimal @db.Decimal(18,2)
+
+
+salePrice      Decimal @db.Decimal(18,2)
+
+
+taxRate        Decimal? @db.Decimal(5,2)
+
+
+unit           String
+
+
+status         ProductStatus @default(ACTIVE)
+
+
+trackInventory Boolean @default(true)
+
+
+minStock       Decimal @default(5) @db.Decimal(18,3)
+
+
+expiryDate     DateTime?
+
+
+variants       ProductVariant[]
+
+
+inventories    Inventory[]
+
+
+purchaseItems  PurchaseItem[]
+
+
+saleItems      SaleItem[]
+
+
+createdAt      DateTime @default(now())
+
+updatedAt      DateTime @updatedAt
+
+
+@@unique([companyId, sku])
+
+@@index([companyId])
+
+}
+
+
+model ProductVariant {
+
+
+id          String @id @default(cuid())
+
+
+productId   String
+
+
+product     Product @relation(fields:[productId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+
+sku         String?
+
+
+barcode     String?
+
+
+price       Decimal? @db.Decimal(18,2)
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+}
+
+
+model Inventory {
+
+
+id          String @id @default(cuid())
+
+
+warehouseId String
+
+
+warehouse   Warehouse @relation(fields:[warehouseId], references:[id], onDelete:Cascade)
+
+
+productId   String
+
+
+product     Product @relation(fields:[productId], references:[id], onDelete:Cascade)
+
+
+quantity    Decimal @default(0) @db.Decimal(18,3)
+
+
+createdAt   DateTime @default(now())
+
+
+updatedAt   DateTime @updatedAt
+
+
+@@unique([warehouseId, productId])
+
+}
+
+enum PurchaseStatus {
+
+DRAFT
+
+PENDING
+
+APPROVED
+
+RECEIVED
+
+CANCELLED
+
+}
+
+
+model Purchase {
+
+
+id            String @id @default(cuid())
+
+
+companyId     String
+
+
+company       Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+supplierId    String
+
+
+supplier      Supplier @relation(fields:[supplierId], references:[id])
+
+
+warehouseId   String
+
+
+warehouse     Warehouse @relation(fields:[warehouseId], references:[id])
+
+
+purchaseNo    String
+
+
+status        PurchaseStatus @default(DRAFT)
+
+
+subtotal      Decimal @db.Decimal(18,2)
+
+
+discount      Decimal @default(0) @db.Decimal(18,2)
+
+
+tax           Decimal @default(0) @db.Decimal(18,2)
+
+
+total         Decimal @db.Decimal(18,2)
+
+
+items         PurchaseItem[]
+
+
+note          String?
+
+
+createdAt     DateTime @default(now())
+
+
+updatedAt     DateTime @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+model PurchaseItem {
+
+
+id            String @id @default(cuid())
+
+
+purchaseId    String
+
+
+purchase      Purchase @relation(fields:[purchaseId], references:[id], onDelete:Cascade)
+
+
+productId     String
+
+
+product       Product @relation(fields:[productId], references:[id])
+
+
+quantity      Decimal @db.Decimal(18,3)
+
+
+purchasePrice Decimal @db.Decimal(18,2)
+
+
+total         Decimal @db.Decimal(18,2)
+
+
+createdAt     DateTime @default(now())
+
+}
+
+
+enum SaleStatus {
+
+
+DRAFT
+
+
+PENDING
+
+
+PAID
+
+
+PARTIAL
+
+
+CANCELLED
+
+
+RETURNED
+
+
+}
+
+
+model Sale {
+
+
+id            String @id @default(cuid())
+
+
+companyId     String
+
+
+company       Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+customerId    String?
+
+
+customer      Customer? @relation(fields:[customerId], references:[id])
+
+
+userId        String
+
+
+user          User @relation(fields:[userId], references:[id])
+
+
+warehouseId   String
+
+
+warehouse     Warehouse @relation(fields:[warehouseId], references:[id])
+
+
+invoiceNo     String
+
+
+status        SaleStatus @default(DRAFT)
+
+
+subtotal      Decimal @db.Decimal(18,2)
+
+
+discount      Decimal @default(0) @db.Decimal(18,2)
+
+
+tax           Decimal @default(0) @db.Decimal(18,2)
+
+
+total         Decimal @db.Decimal(18,2)
+
+
+items         SaleItem[]
+
+
+payments      Payment[]
+
+
+installments  Installment[]
+
+cheques       Cheque[]
+
+
+note          String?
+
+
+createdAt     DateTime @default(now())
+
+
+updatedAt     DateTime @updatedAt
+
+
+@@index([companyId])
+
+
+}
+
+
+model SaleItem {
+
+
+id          String @id @default(cuid())
+
+
+saleId      String
+
+
+sale        Sale @relation(fields:[saleId], references:[id], onDelete:Cascade)
+
+
+productId   String
+
+
+product     Product @relation(fields:[productId], references:[id])
+
+
+quantity    Decimal @db.Decimal(18,3)
+
+
+price       Decimal @db.Decimal(18,2)
+
+
+discount    Decimal @default(0) @db.Decimal(18,2)
+
+
+total       Decimal @db.Decimal(18,2)
+
+
+createdAt   DateTime @default(now())
+
+
+}
+
+enum PaymentMethod {
+
+CASH
+
+CARD
+
+BANK_TRANSFER
+
+CHEQUE
+
+ONLINE
+
+WALLET
+
+}
+
+
+enum PaymentStatus {
+
+PENDING
+
+COMPLETED
+
+FAILED
+
+CANCELLED
+
+}
+
+
+model CashBox {
+
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+
+code        String @unique
+
+
+balance     Decimal @default(0) @db.Decimal(18,2)
+
+
+payments    Payment[]
+
+
+createdAt   DateTime @default(now())
+
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+
+
+  posTerminals PosTerminal[]
+}
+
+
+model Payment {
+
+
+id            String @id @default(cuid())
+
+
+saleId        String?
+
+
+sale          Sale? @relation(fields:[saleId], references:[id], onDelete:SetNull)
+
+
+cashBoxId     String?
+
+
+cashBox       CashBox? @relation(fields:[cashBoxId], references:[id], onDelete:SetNull)
+
+
+method        PaymentMethod
+
+
+status        PaymentStatus @default(PENDING)
+
+
+amount        Decimal @db.Decimal(18,2)
+
+
+referenceNo   String?
+
+
+note          String?
+
+
+createdAt     DateTime @default(now())
+
+
+updatedAt     DateTime @updatedAt
+
+
+@@index([saleId])
+
+
+}
+
+
+enum ExpenseStatus {
+
+
+DRAFT
+
+
+PAID
+
+
+CANCELLED
+
+
+}
+
+
+model Expense {
+
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+title       String
+
+
+amount      Decimal @db.Decimal(18,2)
+
+
+status      ExpenseStatus @default(DRAFT)
+
+
+note        String?
+
+
+createdAt   DateTime @default(now())
+
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+
+}
+
+
+
+enum AccountType {
+
+ASSET
+
+LIABILITY
+
+EQUITY
+
+INCOME
+
+EXPENSE
+
+}
+
+
+model Account {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+code        String @unique
+
+
+type        AccountType
+
+
+balance     Decimal @default(0) @db.Decimal(18,2)
+
+
+isActive    Boolean @default(true)
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+// ==========================================
+// Technical Office (دفتر فنی شهرداری)
+// ==========================================
+
+
+enum PermitType {
+
+CONSTRUCTION
+
+RENOVATION
+
+DEMOLITION
+
+EXTENSION
+
+}
+
+
+enum PermitStatus {
+
+PENDING
+
+UNDER_REVIEW
+
+APPROVED
+
+REJECTED
+
+EXPIRED
+
+}
+
+
+model BuildingPermit {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+permitNo    String @unique
+
+
+type        PermitType @default(CONSTRUCTION)
+
+status      PermitStatus @default(PENDING)
+
+
+ownerName   String
+
+ownerPhone  String?
+
+nationalCode String?
+
+
+address     String
+
+plateNumber String?
+
+
+area        Decimal @default(0) @db.Decimal(18,2)
+
+floors      Int @default(1)
+
+
+description String?
+
+rejectReason String?
+
+
+issuedAt    DateTime?
+
+expiresAt   DateTime?
+
+
+inspections TechnicalInspection[]
+
+bills       MunicipalBill[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([status])
+
+}
+
+
+enum InspectionResult {
+
+PASSED
+
+FAILED
+
+NEEDS_REWORK
+
+}
+
+
+model TechnicalInspection {
+
+id          String @id @default(cuid())
+
+
+permitId    String
+
+permit      BuildingPermit @relation(fields:[permitId], references:[id], onDelete:Cascade)
+
+
+inspectorName String
+
+
+result      InspectionResult
+
+
+notes       String?
+
+
+inspectedAt DateTime @default(now())
+
+
+createdAt   DateTime @default(now())
+
+
+@@index([permitId])
+
+}
+
+
+enum ViolationStatus {
+
+REPORTED
+
+UNDER_REVIEW
+
+FINED
+
+RESOLVED
+
+DISMISSED
+
+}
+
+
+model BuildingViolation {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+caseNo      String @unique
+
+
+ownerName   String
+
+address     String
+
+
+description String
+
+
+status      ViolationStatus @default(REPORTED)
+
+
+fineAmount  Decimal? @db.Decimal(18,2)
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([status])
+
+}
+
+
+// ==========================================
+// Fire Department (مدیریت آتش‌نشانی)
+// ==========================================
+
+
+model FireStation {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+code        String @unique
+
+
+address     String?
+
+phone       String?
+
+
+firefighters FireFighter[]
+
+vehicles    FireVehicle[]
+
+incidents   FireIncident[]
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+}
+
+
+enum FireFighterRank {
+
+CHIEF
+
+DEPUTY_CHIEF
+
+CAPTAIN
+
+LIEUTENANT
+
+FIREFIGHTER
+
+DRIVER
+
+OPERATOR
+
+}
+
+
+model FireFighter {
+
+id          String @id @default(cuid())
+
+
+stationId   String
+
+station     FireStation @relation(fields:[stationId], references:[id], onDelete:Cascade)
+
+
+firstName   String
+
+lastName    String
+
+
+rank        FireFighterRank @default(FIREFIGHTER)
+
+
+phone       String?
+
+nationalCode String?
+
+
+isOnDuty    Boolean @default(false)
+
+isActive    Boolean @default(true)
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([stationId])
+
+}
+
+
+enum FireVehicleStatus {
+
+READY
+
+IN_MISSION
+
+MAINTENANCE
+
+OUT_OF_SERVICE
+
+}
+
+
+model FireVehicle {
+
+id          String @id @default(cuid())
+
+
+stationId   String
+
+station     FireStation @relation(fields:[stationId], references:[id], onDelete:Cascade)
+
+
+name        String
+
+plateNo     String @unique
+
+
+vehicleType String
+
+
+status      FireVehicleStatus @default(READY)
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([stationId])
+
+}
+
+
+enum IncidentType {
+
+FIRE
+
+RESCUE
+
+ACCIDENT
+
+FLOOD
+
+HAZMAT
+
+FALSE_ALARM
+
+OTHER
+
+}
+
+
+enum IncidentStatus {
+
+REPORTED
+
+DISPATCHED
+
+ON_SCENE
+
+CONTAINED
+
+RESOLVED
+
+CANCELLED
+
+}
+
+
+model FireIncident {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+stationId   String?
+
+station     FireStation? @relation(fields:[stationId], references:[id])
+
+
+incidentNo  String @unique
+
+
+type        IncidentType @default(FIRE)
+
+status      IncidentStatus @default(REPORTED)
+
+
+address     String
+
+
+reporterName  String?
+
+reporterPhone String?
+
+
+description String?
+
+
+casualties  Int @default(0)
+
+injuries    Int @default(0)
+
+
+reportedAt   DateTime @default(now())
+
+dispatchedAt DateTime?
+
+resolvedAt   DateTime?
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([stationId])
+
+@@index([status])
+
+}
+
+
+enum SafetyResult {
+
+PASSED
+
+FAILED
+
+CONDITIONAL
+
+}
+
+
+model SafetyInspection {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+propertyName String
+
+address      String
+
+
+ownerName   String
+
+ownerPhone  String?
+
+
+result      SafetyResult
+
+
+certificateNo String? @unique
+
+validUntil    DateTime?
+
+
+notes       String?
+
+
+inspectedAt DateTime @default(now())
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([result])
+
+}
+
+
+// ==========================================
+// سامانه ۱۳۷ (Citizen Complaints)
+// ==========================================
+
+
+enum ComplaintCategory {
+
+ROADS
+
+WASTE
+
+GREEN_SPACE
+
+LIGHTING
+
+WATER_SEWAGE
+
+CONSTRUCTION
+
+TRAFFIC
+
+OTHER
+
+}
+
+
+enum ComplaintStatus {
+
+REGISTERED
+
+REFERRED
+
+IN_PROGRESS
+
+RESOLVED
+
+CLOSED
+
+REJECTED
+
+}
+
+
+model CitizenComplaint {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+trackingNo  String @unique
+
+
+category    ComplaintCategory @default(OTHER)
+
+status      ComplaintStatus @default(REGISTERED)
+
+
+citizenName  String?
+
+citizenPhone String?
+
+
+address     String?
+
+
+subject     String
+
+description String?
+
+
+referredTo   String?
+
+responseNote String?
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([status])
+
+}
+
+
+// ==========================================
+// عوارض و درآمد شهرداری (Municipal Bills)
+// ==========================================
+
+
+enum MunicipalBillType {
+
+NOSAZI
+
+KASB
+
+PERMIT_FEE
+
+VIOLATION_FINE
+
+OTHER
+
+}
+
+
+enum MunicipalBillStatus {
+
+UNPAID
+
+PAID
+
+CANCELLED
+
+}
+
+
+model MunicipalBill {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+billNo      String @unique
+
+
+type        MunicipalBillType @default(OTHER)
+
+status      MunicipalBillStatus @default(UNPAID)
+
+
+payerName   String
+
+payerPhone  String?
+
+
+address     String?
+
+
+amount      Decimal @db.Decimal(18,2)
+
+
+description String?
+
+
+permitId    String?
+
+permit      BuildingPermit? @relation(fields:[permitId], references:[id])
+
+
+paidAt      DateTime?
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([status])
+
+}
+
+
+// ==========================================
+// چک (Cheques)
+// ==========================================
+
+
+enum ChequeType {
+
+RECEIVED
+
+ISSUED
+
+}
+
+
+enum ChequeStatus {
+
+REGISTERED
+
+DEPOSITED
+
+CLEARED
+
+BOUNCED
+
+RETURNED
+
+}
+
+
+model Cheque {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+saleId      String?
+
+sale        Sale? @relation(fields:[saleId], references:[id])
+
+
+chequeNo    String
+
+bankName    String?
+
+
+dueDate     DateTime
+
+
+amount      Decimal @db.Decimal(18,2)
+
+
+type        ChequeType @default(RECEIVED)
+
+status      ChequeStatus @default(REGISTERED)
+
+
+ownerName   String?
+
+note        String?
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([companyId])
+
+@@index([status])
+
+@@index([dueDate])
+
+}
+
+
+// ==========================================
+// اقساط (Installments)
+// ==========================================
+
+
+enum InstallmentStatus {
+
+PENDING
+
+PAID
+
+OVERDUE
+
+}
+
+
+model Installment {
+
+id          String @id @default(cuid())
+
+
+saleId      String
+
+sale        Sale @relation(fields:[saleId], references:[id], onDelete:Cascade)
+
+
+seq         Int
+
+
+dueDate     DateTime
+
+
+amount      Decimal @db.Decimal(18,2)
+
+
+status      InstallmentStatus @default(PENDING)
+
+
+paidAt      DateTime?
+
+
+createdAt   DateTime @default(now())
+
+updatedAt   DateTime @updatedAt
+
+
+@@index([saleId])
+
+}
+
+
+// ==========================================
+// پیوست‌ها (Attachments)
+// ==========================================
+
+
+model Attachment {
+
+id          String @id @default(cuid())
+
+
+companyId   String
+
+company     Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+
+
+entityType  String
+
+entityId    String
+
+
+fileName    String
+
+filePath    String
+
+
+mimeType    String?
+
+size        Int @default(0)
+
+
+createdAt   DateTime @default(now())
+
+
+@@index([companyId])
+
+@@index([entityType, entityId])
+
+}
+
+
+// ==================== کارت‌خوان (POS) ====================
+
+enum PosType {
+  FIXED
+  MOBILE
+}
+
+enum PosStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REPAIR
+  RETURNED
+}
+
+model PosTerminal {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  terminalNo String @unique
+
+  serialNo String?
+
+  merchantId String?
+
+  bankName String
+
+  pspName String?
+
+  type PosType @default(FIXED)
+
+  status PosStatus @default(ACTIVE)
+
+  accountNo String?
+
+  iban String?
+
+  holderName String?
+
+  location String?
+
+  simNumber String?
+
+  cashBoxId String?
+  cashBox   CashBox? @relation(fields: [cashBoxId], references: [id], onDelete: SetNull)
+
+  installedAt DateTime?
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+
+// ==========================================
+// خزانه‌داری (Treasury)
+// ==========================================
+
+enum TreasuryAccountType {
+  BANK
+  CASH
+  FUND
+}
+
+enum TreasuryTxType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+model TreasuryAccount {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+
+  type TreasuryAccountType @default(BANK)
+
+  bankName  String?
+  accountNo String?
+  iban      String?
+
+  balance Decimal @default(0) @db.Decimal(18, 2)
+
+  isActive Boolean @default(true)
+
+  note String?
+
+  transactions TreasuryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model TreasuryTransaction {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  accountId String
+  account   TreasuryAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  type TreasuryTxType
+
+  amount Decimal @db.Decimal(18, 2)
+
+  reference   String?
+  description String?
+
+  date DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([accountId])
+  @@index([date])
+}
+
+// ==========================================
+// قراردادها (Contracts)
+// ==========================================
+
+enum ContractType {
+  PURCHASE
+  SALE
+  SERVICE
+  CONSTRUCTION
+  EMPLOYMENT
+  RENT
+  OTHER
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  COMPLETED
+  TERMINATED
+}
+
+model Contract {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  contractNo String @unique
+
+  title String
+
+  type ContractType @default(SERVICE)
+
+  status ContractStatus @default(DRAFT)
+
+  partyName       String
+  partyPhone      String?
+  partyNationalId String?
+
+  amount Decimal @default(0) @db.Decimal(18, 2)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  description String?
+
+  payments ContractPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model ContractPayment {
+  id String @id @default(cuid())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  amount Decimal @db.Decimal(18, 2)
+
+  dueDate DateTime
+
+  paidAt DateTime?
+
+  status InstallmentStatus @default(PENDING)
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([contractId])
+  @@index([dueDate])
+}
+
+// ==========================================
+// حقوق و دستمزد (Payroll)
+// ==========================================
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+model Employee {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeNo String @unique
+
+  firstName String
+  lastName  String
+
+  nationalId String?
+
+  position   String?
+  department String?
+
+  phone String?
+
+  hireDate DateTime?
+
+  baseSalary       Decimal @default(0) @db.Decimal(18, 2)
+  housingAllowance Decimal @default(0) @db.Decimal(18, 2)
+  foodAllowance    Decimal @default(0) @db.Decimal(18, 2)
+
+  isActive Boolean @default(true)
+
+  note String?
+
+  payrollSlips PayrollSlip[]
+  attendanceRecords  AttendanceRecord[]
+  leaveRequests      LeaveRequest[]
+  performanceReviews PerformanceReview[]
+  trainingEnrollments TrainingEnrollment[]
+  helpTicketsAssigned HelpTicket[] @relation("assignedTickets")
+  timeEntries         TimeEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model PayrollSlip {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  period String // YYYY-MM
+
+  baseSalary    Decimal @default(0) @db.Decimal(18, 2)
+  allowances    Decimal @default(0) @db.Decimal(18, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(10, 2)
+  overtimePay   Decimal @default(0) @db.Decimal(18, 2)
+  bonus         Decimal @default(0) @db.Decimal(18, 2)
+  deductions    Decimal @default(0) @db.Decimal(18, 2)
+  insurance     Decimal @default(0) @db.Decimal(18, 2)
+  tax           Decimal @default(0) @db.Decimal(18, 2)
+  netPay        Decimal @default(0) @db.Decimal(18, 2)
+
+  status PayrollStatus @default(DRAFT)
+
+  paidAt DateTime?
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, period])
+  @@index([companyId])
+  @@index([period])
+}
+
+
+// ============ 1) Budgeting ============
+
+enum BudgetStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+model Budget {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  year       Int
+  title      String
+  department String?
+
+  totalAmount Decimal @default(0) @db.Decimal(18, 2)
+  spentAmount Decimal @default(0) @db.Decimal(18, 2)
+
+  status BudgetStatus @default(ACTIVE)
+
+  description String?
+
+  lines BudgetLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model BudgetLine {
+  id String @id @default(cuid())
+
+  budgetId String
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  title  String
+  amount Decimal @default(0) @db.Decimal(18, 2)
+  spent  Decimal @default(0) @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([budgetId])
+}
+
+// ============ 2) Fixed assets ============
+
+enum AssetStatus {
+  IN_USE
+  IN_REPAIR
+  SOLD
+  SCRAPPED
+}
+
+model Asset {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  assetNo String @unique
+  name    String
+
+  category   String?
+  location   String?
+  assignedTo String?
+
+  purchaseDate    DateTime?
+  purchasePrice   Decimal   @default(0) @db.Decimal(18, 2)
+  salvageValue    Decimal   @default(0) @db.Decimal(18, 2)
+  usefulLifeYears Int       @default(10)
+
+  status AssetStatus @default(IN_USE)
+
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ============ 3) Tenders & auctions ============
+
+enum TenderKind {
+  TENDER
+  AUCTION
+}
+
+enum TenderStatus {
+  OPEN
+  EVALUATING
+  AWARDED
+  CANCELLED
+}
+
+model Tender {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  tenderNo String @unique
+  title    String
+
+  kind TenderKind @default(TENDER)
+
+  baseAmount Decimal?  @db.Decimal(18, 2)
+  deadline   DateTime?
+
+  status      TenderStatus @default(OPEN)
+  winnerBidId String?
+
+  description String?
+
+  bids TenderBid[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model TenderBid {
+  id String @id @default(cuid())
+
+  tenderId String
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  bidderName  String
+  bidderPhone String?
+
+  amount Decimal @db.Decimal(18, 2)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenderId])
+}
+
+// ============ 4) Attendance & leave ============
+
+enum LeaveKind {
+  PAID
+  SICK
+  UNPAID
+  MISSION
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AttendanceRecord {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date DateTime
+
+  checkIn  String?
+  checkOut String?
+
+  workedHours   Decimal @default(0) @db.Decimal(5, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(5, 2)
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model LeaveRequest {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  kind LeaveKind @default(PAID)
+
+  startDate DateTime
+  endDate   DateTime
+  days      Decimal  @default(1) @db.Decimal(5, 2)
+
+  reason String?
+
+  status    LeaveStatus @default(PENDING)
+  decidedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+// ============ 5) Performance reviews ============
+
+model PerformanceReview {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  period String
+  score  Decimal @db.Decimal(5, 2)
+
+  strengths    String?
+  weaknesses   String?
+  reviewerName String?
+
+  suggestedBonus Decimal @default(0) @db.Decimal(18, 2)
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+// ============ 6) Construction projects ============
+
+enum CityProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  SUSPENDED
+  COMPLETED
+}
+
+model ConstructionProject {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  projectNo String @unique
+  title     String
+
+  contractorName String?
+  location       String?
+
+  budgetAmount      Decimal @default(0) @db.Decimal(18, 2)
+  physicalProgress  Decimal @default(0) @db.Decimal(5, 2)
+  financialProgress Decimal @default(0) @db.Decimal(5, 2)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  status CityProjectStatus @default(PLANNING)
+
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ============ 7) Fleet management ============
+
+enum FleetStatus {
+  ACTIVE
+  IN_REPAIR
+  OUT_OF_SERVICE
+}
+
+model FleetVehicle {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  plateNo String @unique
+  name    String
+
+  vehicleType String?
+  modelYear   Int?
+  driverName  String?
+
+  insuranceExpiry  DateTime?
+  inspectionExpiry DateTime?
+
+  status FleetStatus @default(ACTIVE)
+
+  note String?
+
+  services FleetService[]
+  fuelLogs FleetFuelLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model FleetService {
+  id String @id @default(cuid())
+
+  vehicleId String
+  vehicle   FleetVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  date        DateTime
+  serviceType String
+  cost        Decimal  @default(0) @db.Decimal(18, 2)
+
+  description String?
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId])
+}
+
+model FleetFuelLog {
+  id String @id @default(cuid())
+
+  vehicleId String
+  vehicle   FleetVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  date     DateTime
+  liters   Decimal  @default(0) @db.Decimal(10, 2)
+  cost     Decimal  @default(0) @db.Decimal(18, 2)
+  odometer Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId])
+}
+
+// ============ 8) Green space & waste ============
+
+enum ZoneKind {
+  GREEN_SPACE
+  WASTE
+}
+
+model ServiceZone {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+  kind ZoneKind @default(GREEN_SPACE)
+
+  areaSqm        Decimal @default(0) @db.Decimal(14, 2)
+  contractorName String?
+  schedule       String?
+  monthlyCost    Decimal @default(0) @db.Decimal(18, 2)
+
+  isActive Boolean @default(true)
+
+  logs ZoneWorkLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model ZoneWorkLog {
+  id String @id @default(cuid())
+
+  zoneId String
+  zone   ServiceZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  date        DateTime
+  description String
+  isDone      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([zoneId])
+}
+
+// ============ 9) Secretariat ============
+
+enum LetterDirection {
+  INCOMING
+  OUTGOING
+  INTERNAL
+}
+
+enum LetterStatus {
+  REGISTERED
+  REFERRED
+  ANSWERED
+  ARCHIVED
+}
+
+model Letter {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  indicatorNo String @unique
+
+  direction LetterDirection @default(INCOMING)
+
+  subject    String
+  fromEntity String?
+  toEntity   String?
+
+  letterDate DateTime @default(now())
+
+  referredTo String?
+
+  status LetterStatus @default(REGISTERED)
+
+  fileUrl     String?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ============ 10) CRM & loyalty ============
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  VIP
+}
+
+model LoyaltyAccount {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  customerId String   @unique
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  points Int         @default(0)
+  tier   LoyaltyTier @default(BRONZE)
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model Coupon {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  code String @unique
+
+  percent Int?
+  amount  Decimal? @db.Decimal(18, 2)
+
+  expiresAt DateTime?
+  maxUses   Int       @default(0)
+  usedCount Int       @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ============ 11) Sales orders ============
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  DELIVERED
+  CANCELLED
+}
+
+model SalesOrder {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  orderNo String @unique
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  totalAmount Decimal @default(0) @db.Decimal(18, 2)
+
+  note String?
+
+  items SalesOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model SalesOrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  name String
+
+  qty       Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice Decimal @default(0) @db.Decimal(18, 2)
+  total     Decimal @default(0) @db.Decimal(18, 2)
+
+  @@index([orderId])
+}
+
+// ============ 12) Approval workflow ============
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model ApprovalRequest {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  entityType String
+  entityId   String?
+
+  title  String
+  amount Decimal? @db.Decimal(18, 2)
+
+  requestedBy String?
+
+  currentStep Int @default(1)
+
+  status ApprovalStatus @default(PENDING)
+
+  steps ApprovalStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model ApprovalStep {
+  id String @id @default(cuid())
+
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  stepNo       Int
+  approverRole String
+
+  status ApprovalStatus @default(PENDING)
+
+  comment   String?
+  decidedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+}
+
+// ============ 13) E-city (urban management) ============
+
+enum CityServiceStatus {
+  SUBMITTED
+  IN_REVIEW
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+model CitizenProfile {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  nationalId String @unique
+
+  firstName String
+  lastName  String
+
+  phone   String?
+  address String?
+
+  requests CityServiceRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model CityServiceRequest {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  trackingCode String @unique
+
+  citizenId String?
+  citizen   CitizenProfile? @relation(fields: [citizenId], references: [id])
+
+  serviceType String
+  subject     String
+  details     String?
+
+  status CityServiceStatus @default(SUBMITTED)
+
+  assignedTo String?
+  response   String?
+  answeredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model CityAnnouncement {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  title String
+  body  String
+
+  category String?
+
+  publishedAt DateTime @default(now())
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+
+// ===== CEMETERY =====
+model Cemetery {
+  id String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name     String
+  location String?
+  capacity Int @default(0)
+  graves   Grave[]
+  permits  BurialPermit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model Grave {
+  id         String @id @default(cuid())
+  cemeteryId String
+  cemetery   Cemetery @relation(fields:[cemeteryId],references:[id],onDelete:Cascade)
+  section    String?
+  row        Int?
+  number     Int?
+  deceasedName String?
+  buriedAt   DateTime?
+  isOccupied Boolean @default(false)
+  createdAt  DateTime @default(now())
+  @@index([cemeteryId])
+}
+model BurialPermit {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  cemeteryId String?
+  cemetery   Cemetery? @relation(fields:[cemeteryId],references:[id])
+  permitNo   String @unique
+  deceasedName String
+  issueDate  DateTime @default(now())
+  fee        Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  createdAt  DateTime @default(now())
+  @@index([companyId])
+}
+
+// ===== TAXI =====
+enum TaxiLicenseStatus { ACTIVE SUSPENDED EXPIRED REVOKED }
+model TaxiDriver {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  licenseNo String @unique
+  firstName String
+  lastName  String
+  phone     String?
+  plateNo   String?
+  vehicleModel String?
+  licenseExpiry DateTime?
+  status    TaxiLicenseStatus @default(ACTIVE)
+  violations TaxiViolation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model TaxiViolation {
+  id       String @id @default(cuid())
+  driverId String
+  driver   TaxiDriver @relation(fields:[driverId],references:[id],onDelete:Cascade)
+  date     DateTime
+  description String
+  fine     Decimal @default(0) @db.Decimal(18,2)
+  isPaid   Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([driverId])
+}
+
+// ===== BUSINESS LICENSE =====
+enum LicenseStatus { ACTIVE EXPIRED SUSPENDED REVOKED }
+model BusinessLicense {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  licenseNo String @unique
+  businessName String
+  ownerName    String?
+  phone        String?
+  address      String?
+  businessType String?
+  issueDate    DateTime?
+  expiryDate   DateTime?
+  annualFee    Decimal @default(0) @db.Decimal(18,2)
+  status       LicenseStatus @default(ACTIVE)
+  inspections  GuildInspection[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model GuildInspection {
+  id        String @id @default(cuid())
+  licenseId String
+  license   BusinessLicense @relation(fields:[licenseId],references:[id],onDelete:Cascade)
+  date      DateTime
+  inspector String?
+  result    String?
+  note      String?
+  createdAt DateTime @default(now())
+  @@index([licenseId])
+}
+
+// ===== MUNICIPAL PROPERTY =====
+enum MunicipalPropertyStatus { OWNED LEASED SOLD }
+model MunicipalProperty {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  propNo    String @unique
+  name      String
+  address   String?
+  areaSqm   Decimal? @db.Decimal(14,2)
+  status    MunicipalPropertyStatus @default(OWNED)
+  monthlyRent Decimal @default(0) @db.Decimal(18,2)
+  tenantName  String?
+  leaseExpiry DateTime?
+  note        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== PROPERTY AUDIT =====
+model PropertyAudit {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  auditNo   String @unique
+  ownerName String?
+  address   String?
+  areaSqm   Decimal? @db.Decimal(14,2)
+  zone      String?
+  annualTax Decimal @default(0) @db.Decimal(18,2)
+  lastAuditYear Int?
+  isPaid    Boolean @default(false)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== CRISIS MANAGEMENT =====
+enum CrisisSeverity { LOW MEDIUM HIGH CRITICAL }
+enum CrisisStatus { ACTIVE MONITORING RESOLVED }
+model CrisisEvent {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  crisisType String?
+  location  String?
+  severity  CrisisSeverity @default(MEDIUM)
+  status    CrisisStatus @default(ACTIVE)
+  reportedAt DateTime @default(now())
+  resolvedAt DateTime?
+  description String?
+  casualties  Int @default(0)
+  actions     CrisisAction[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model CrisisAction {
+  id       String @id @default(cuid())
+  eventId  String
+  event    CrisisEvent @relation(fields:[eventId],references:[id],onDelete:Cascade)
+  actionDate DateTime @default(now())
+  description String
+  responsibleTeam String?
+  isDone   Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([eventId])
+}
+
+// ===== PARKING =====
+model ParkingLot {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  address   String?
+  capacity  Int @default(0)
+  hourlyRate Decimal @default(0) @db.Decimal(10,2)
+  isActive  Boolean @default(true)
+  sessions  ParkingSession[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model ParkingSession {
+  id       String @id @default(cuid())
+  lotId    String
+  lot      ParkingLot @relation(fields:[lotId],references:[id],onDelete:Cascade)
+  plateNo  String
+  enteredAt DateTime @default(now())
+  exitedAt  DateTime?
+  fee       Decimal @default(0) @db.Decimal(10,2)
+  isPaid    Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([lotId])
+}
+
+// ===== STREET LIGHTS =====
+enum LightStatus { WORKING FAULTY REPLACED }
+model StreetLight {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  lightCode String @unique
+  address   String?
+  zone      String?
+  lightType String?
+  installDate DateTime?
+  status    LightStatus @default(WORKING)
+  reports   StreetLightReport[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model StreetLightReport {
+  id      String @id @default(cuid())
+  lightId String
+  light   StreetLight @relation(fields:[lightId],references:[id],onDelete:Cascade)
+  reportDate DateTime @default(now())
+  fault   String?
+  isDone  Boolean @default(false)
+  fixedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([lightId])
+}
+
+// ===== COUNCIL MEETINGS =====
+enum MeetingStatus { SCHEDULED HELD CANCELLED }
+model CouncilMeeting {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  meetingDate DateTime
+  location  String?
+  status    MeetingStatus @default(SCHEDULED)
+  agenda    String?
+  decisions CouncilDecision[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model CouncilDecision {
+  id        String @id @default(cuid())
+  meetingId String
+  meeting   CouncilMeeting @relation(fields:[meetingId],references:[id],onDelete:Cascade)
+  decisionNo Int?
+  subject   String
+  content   String
+  isDone    Boolean @default(false)
+  deadline  DateTime?
+  createdAt DateTime @default(now())
+  @@index([meetingId])
+}
+
+// ===== HELPDESK =====
+enum TicketPriority { LOW MEDIUM HIGH URGENT }
+enum TicketStatus { OPEN IN_PROGRESS RESOLVED CLOSED }
+model HelpTicket {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  ticketNo  String @unique
+  category  String?
+  subject   String
+  description String?
+  priority  TicketPriority @default(MEDIUM)
+  status    TicketStatus @default(OPEN)
+  assignedToId String?
+  assignedTo   Employee? @relation("assignedTickets",fields:[assignedToId],references:[id])
+  slaHours  Int @default(24)
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== TRAINING / LMS =====
+model TrainingCourse {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  instructor String?
+  hours     Int @default(0)
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean @default(true)
+  enrollments TrainingEnrollment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model TrainingEnrollment {
+  id        String @id @default(cuid())
+  courseId  String
+  course    TrainingCourse @relation(fields:[courseId],references:[id],onDelete:Cascade)
+  employeeId String
+  employee  Employee @relation(fields:[employeeId],references:[id],onDelete:Cascade)
+  score     Decimal? @db.Decimal(5,2)
+  passed    Boolean @default(false)
+  certUrl   String?
+  createdAt DateTime @default(now())
+  @@index([courseId])
+  @@index([employeeId])
+}
+
+// ===== DMS =====
+model DocumentFolder {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  parentId  String?
+  parent    DocumentFolder? @relation("FolderTree",fields:[parentId],references:[id])
+  children  DocumentFolder[] @relation("FolderTree")
+  documents Document[]
+  createdAt DateTime @default(now())
+  @@index([companyId])
+}
+model Document {
+  id       String @id @default(cuid())
+  folderId String
+  folder   DocumentFolder @relation(fields:[folderId],references:[id],onDelete:Cascade)
+  title    String
+  fileUrl  String?
+  version  Int @default(1)
+  tags     String?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([folderId])
+}
+
+// ===== APPOINTMENT =====
+enum AppointmentStatus { BOOKED CONFIRMED DONE CANCELLED }
+model Appointment {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  serviceUnit String
+  customerId  String?
+  customer    Customer? @relation(fields:[customerId],references:[id])
+  appointmentDate DateTime
+  slot        String?
+  status      AppointmentStatus @default(BOOKED)
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== SURVEY =====
+model Survey {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  description String?
+  isActive  Boolean @default(true)
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model SurveyQuestion {
+  id       String @id @default(cuid())
+  surveyId String
+  survey   Survey @relation(fields:[surveyId],references:[id],onDelete:Cascade)
+  text     String
+  qtype    String @default("text")
+  options  String?
+  sortOrder Int @default(0)
+  answers  SurveyAnswer[]
+  @@index([surveyId])
+}
+model SurveyResponse {
+  id       String @id @default(cuid())
+  surveyId String
+  survey   Survey @relation(fields:[surveyId],references:[id],onDelete:Cascade)
+  respondentName String?
+  submittedAt DateTime @default(now())
+  answers  SurveyAnswer[]
+  @@index([surveyId])
+}
+model SurveyAnswer {
+  id         String @id @default(cuid())
+  questionId String
+  question   SurveyQuestion @relation(fields:[questionId],references:[id],onDelete:Cascade)
+  responseId String
+  response   SurveyResponse @relation(fields:[responseId],references:[id],onDelete:Cascade)
+  value      String?
+  @@index([questionId])
+  @@index([responseId])
+}
+
+
+// ===== AUDIT LOG =====
+model AuditLog {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  userId    String?
+  userEmail String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  String?
+  newValue  String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  @@index([companyId])
+  @@index([entity])
+}
+
+// ===== CLINIC / HEALTH =====
+enum ClinicVisitType { CHECKUP SICK INJURY DENTAL OTHER }
+model ClinicRecord {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  employeeId String?
+  patientName String
+  visitDate  DateTime @default(now())
+  visitType  ClinicVisitType @default(CHECKUP)
+  diagnosis  String?
+  prescription String?
+  doctorName String?
+  cost       Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== IoT SENSORS =====
+enum SensorKind { AIR_QUALITY TRAFFIC PARKING NOISE TEMPERATURE OTHER }
+enum SensorStatus { ACTIVE OFFLINE MAINTENANCE }
+model IotSensor {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  sensorCode String @unique
+  name       String
+  kind       SensorKind @default(OTHER)
+  location   String?
+  lat        Decimal? @db.Decimal(10,7)
+  lng        Decimal? @db.Decimal(10,7)
+  status     SensorStatus @default(ACTIVE)
+  threshold  Decimal? @db.Decimal(14,4)
+  readings   SensorReading[]
+  alerts     SensorAlert[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model SensorReading {
+  id       String @id @default(cuid())
+  sensorId String
+  sensor   IotSensor @relation(fields:[sensorId],references:[id],onDelete:Cascade)
+  value    Decimal @db.Decimal(14,4)
+  unit     String?
+  recordedAt DateTime @default(now())
+  @@index([sensorId])
+}
+model SensorAlert {
+  id       String @id @default(cuid())
+  sensorId String
+  sensor   IotSensor @relation(fields:[sensorId],references:[id],onDelete:Cascade)
+  value    Decimal @db.Decimal(14,4)
+  message  String
+  isRead   Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([sensorId])
+}
+
+// ===== CCTV =====
+enum CctvStatus { WORKING FAULTY OFFLINE }
+model CctvCamera {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  cameraCode String @unique
+  location  String?
+  zone      String?
+  streamUrl String?
+  status    CctvStatus @default(WORKING)
+  installDate DateTime?
+  reports   CctvReport[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model CctvReport {
+  id       String @id @default(cuid())
+  cameraId String
+  camera   CctvCamera @relation(fields:[cameraId],references:[id],onDelete:Cascade)
+  fault    String
+  isDone   Boolean @default(false)
+  fixedAt  DateTime?
+  createdAt DateTime @default(now())
+  @@index([cameraId])
+}
+
+// ===== UTILITY (WATER/GAS) =====
+enum UtilityKind { WATER GAS ELECTRICITY }
+model UtilityMeter {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  meterNo   String @unique
+  kind      UtilityKind @default(WATER)
+  address   String?
+  ownerName String?
+  readings  UtilityReading[]
+  bills     UtilityBill[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model UtilityReading {
+  id      String @id @default(cuid())
+  meterId String
+  meter   UtilityMeter @relation(fields:[meterId],references:[id],onDelete:Cascade)
+  readDate DateTime
+  value   Decimal @db.Decimal(14,3)
+  reader  String?
+  createdAt DateTime @default(now())
+  @@index([meterId])
+}
+model UtilityBill {
+  id      String @id @default(cuid())
+  meterId String
+  meter   UtilityMeter @relation(fields:[meterId],references:[id],onDelete:Cascade)
+  period  String
+  usage   Decimal @db.Decimal(14,3)
+  amount  Decimal @db.Decimal(18,2)
+  isPaid  Boolean @default(false)
+  paidAt  DateTime?
+  createdAt DateTime @default(now())
+  @@index([meterId])
+}
+
+// ===== NEWS / PR =====
+enum NewsStatus { DRAFT PUBLISHED ARCHIVED }
+model NewsPost {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  body      String
+  category  String?
+  imageUrl  String?
+  status    NewsStatus @default(DRAFT)
+  publishedAt DateTime?
+  authorName  String?
+  viewCount   Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== LOANS =====
+enum LoanStatus { ACTIVE PAID DEFAULTED }
+model Loan {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  loanNo    String @unique
+  borrowerName String
+  borrowerType String @default("employee")
+  borrowerId   String?
+  amount    Decimal @db.Decimal(18,2)
+  interestRate Decimal @default(0) @db.Decimal(5,2)
+  months    Int @default(12)
+  startDate DateTime
+  status    LoanStatus @default(ACTIVE)
+  repayments LoanRepayment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model LoanRepayment {
+  id      String @id @default(cuid())
+  loanId  String
+  loan    Loan @relation(fields:[loanId],references:[id],onDelete:Cascade)
+  dueDate DateTime
+  amount  Decimal @db.Decimal(18,2)
+  paidAt  DateTime?
+  isPaid  Boolean @default(false)
+  @@index([loanId])
+}
+
+// ===== INVESTMENTS =====
+enum InvestmentKind { BOND STOCK DEPOSIT REAL_ESTATE OTHER }
+enum InvestmentStatus { ACTIVE MATURED SOLD }
+model Investment {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  kind      InvestmentKind @default(OTHER)
+  principal Decimal @db.Decimal(18,2)
+  currentValue Decimal @default(0) @db.Decimal(18,2)
+  returnRate   Decimal @default(0) @db.Decimal(5,2)
+  startDate DateTime
+  maturityDate DateTime?
+  status    InvestmentStatus @default(ACTIVE)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== WEBHOOKS (Telegram/WhatsApp/Online-payment) =====
+enum WebhookKind { TELEGRAM WHATSAPP PAYMENT_GATEWAY CUSTOM }
+model Webhook {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  kind      WebhookKind @default(CUSTOM)
+  url       String
+  secret    String?
+  isActive  Boolean @default(true)
+  logs      WebhookLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model WebhookLog {
+  id        String @id @default(cuid())
+  webhookId String
+  webhook   Webhook @relation(fields:[webhookId],references:[id],onDelete:Cascade)
+  payload   String?
+  status    Int @default(200)
+  sentAt    DateTime @default(now())
+  @@index([webhookId])
+}
+
+
+// ===== PRODUCT RETURNS =====
+enum ReturnReason { DEFECTIVE WRONG_ITEM CUSTOMER_CHANGE EXCESS OTHER }
+enum ReturnStatus { PENDING APPROVED REJECTED RESTOCKED REFUNDED }
+model ProductReturn {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  returnNo   String @unique
+  saleId     String?
+  customerId String?
+  reason     ReturnReason @default(OTHER)
+  status     ReturnStatus @default(PENDING)
+  totalAmount Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  items      ProductReturnItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model ProductReturnItem {
+  id       String @id @default(cuid())
+  returnId String
+  return   ProductReturn @relation(fields:[returnId],references:[id],onDelete:Cascade)
+  productId String?
+  name     String
+  qty      Decimal @db.Decimal(10,2)
+  unitPrice Decimal @db.Decimal(18,2)
+  @@index([returnId])
+}
+
+// ===== SHIPMENTS =====
+enum ShipmentStatus { PENDING PACKED SHIPPED DELIVERED RETURNED }
+model Shipment {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  trackingNo String @unique
+  saleId     String?
+  carrier    String?
+  method     String?
+  fee        Decimal @default(0) @db.Decimal(18,2)
+  estimatedAt DateTime?
+  deliveredAt DateTime?
+  status     ShipmentStatus @default(PENDING)
+  address    String?
+  note       String?
+  items      ShipmentItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model ShipmentItem {
+  id         String @id @default(cuid())
+  shipmentId String
+  shipment   Shipment @relation(fields:[shipmentId],references:[id],onDelete:Cascade)
+  productId  String?
+  name       String
+  qty        Decimal @db.Decimal(10,2)
+  @@index([shipmentId])
+}
+
+// ===== SERIAL / BATCH TRACKING =====
+enum SerialStatus { IN_STOCK SOLD RETURNED DEFECTIVE }
+model SerialNumber {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  productId String
+  product   Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  serial    String @unique
+  status    SerialStatus @default(IN_STOCK)
+  saleId    String?
+  createdAt DateTime @default(now())
+  @@index([companyId])
+  @@index([productId])
+}
+model BatchNumber {
+  id           String @id @default(cuid())
+  companyId    String
+  company      Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  productId    String
+  product      Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  batchNo      String
+  qty          Decimal @db.Decimal(10,2)
+  expiryDate   DateTime?
+  manufactureDate DateTime?
+  createdAt    DateTime @default(now())
+  @@index([companyId])
+  @@index([productId])
+}
+
+// ===== PRICE LEVELS =====
+model PriceLevel {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  description String?
+  isDefault Boolean @default(false)
+  prices    ProductPrice[]
+  createdAt DateTime @default(now())
+  @@index([companyId])
+}
+model ProductPrice {
+  id           String @id @default(cuid())
+  priceLevelId String
+  priceLevel   PriceLevel @relation(fields:[priceLevelId],references:[id],onDelete:Cascade)
+  productId    String
+  product      Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  price        Decimal @db.Decimal(18,2)
+  createdAt    DateTime @default(now())
+  @@unique([priceLevelId,productId])
+  @@index([productId])
+}
+
+// ===== DISCOUNT RULES =====
+enum DiscountType { PERCENT AMOUNT BUY_X_GET_Y }
+model DiscountRule {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  kind      DiscountType @default(PERCENT)
+  value     Decimal @db.Decimal(10,2)
+  minQty    Int @default(0)
+  minAmount Decimal @default(0) @db.Decimal(18,2)
+  getQty    Int @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  isActive  Boolean @default(true)
+  code      String?
+  maxUses   Int @default(0)
+  usedCount Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== PROJECT MANAGEMENT =====
+enum ProjectStatus { PLANNING ACTIVE ON_HOLD COMPLETED CANCELLED }
+enum TaskStatus { TODO IN_PROGRESS REVIEW DONE }
+enum TaskPriority { LOW MEDIUM HIGH URGENT }
+model Project {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  projectNo String @unique
+  title     String
+  clientName String?
+  budget    Decimal @default(0) @db.Decimal(18,2)
+  startDate DateTime?
+  endDate   DateTime?
+  status    ProjectStatus @default(PLANNING)
+  progress  Int @default(0)
+  description String?
+  tasks     ProjectTask[]
+  timeEntries TimeEntry[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model ProjectTask {
+  id         String @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields:[projectId],references:[id],onDelete:Cascade)
+  title      String
+  assigneeId String?
+  status     TaskStatus @default(TODO)
+  priority   TaskPriority @default(MEDIUM)
+  dueDate    DateTime?
+  estimatedHours Decimal @default(0) @db.Decimal(6,2)
+  description String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([projectId])
+}
+model TimeEntry {
+  id         String @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields:[projectId],references:[id],onDelete:Cascade)
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields:[employeeId],references:[id])
+  date       DateTime
+  hours      Decimal @db.Decimal(6,2)
+  description String?
+  createdAt  DateTime @default(now())
+  @@index([projectId])
+  @@index([companyId])
+}
+
+// ===== SALES AGENTS =====
+model SalesAgent {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  phone     String?
+  territory String?
+  commissionRate Decimal @default(0) @db.Decimal(5,2)
+  monthlyTarget  Decimal @default(0) @db.Decimal(18,2)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== QUOTATIONS (RFQ) =====
+enum QuotationStatus { DRAFT SENT ACCEPTED REJECTED EXPIRED }
+model Quotation {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  quoteNo    String @unique
+  customerId String?
+  validUntil DateTime?
+  status     QuotationStatus @default(DRAFT)
+  totalAmount Decimal @default(0) @db.Decimal(18,2)
+  discount   Decimal @default(0) @db.Decimal(18,2)
+  tax        Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  items      QuotationItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model QuotationItem {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields:[quotationId],references:[id],onDelete:Cascade)
+  productId   String?
+  product     Product? @relation(fields:[productId],references:[id])
+  name        String
+  qty         Decimal @db.Decimal(10,2)
+  unitPrice   Decimal @db.Decimal(18,2)
+  total       Decimal @db.Decimal(18,2)
+  @@index([quotationId])
+}
+
+// ===== CUSTOMER TICKETS =====
+enum CTicketStatus { OPEN IN_PROGRESS WAITING RESOLVED CLOSED }
+enum CTicketPriority { LOW MEDIUM HIGH URGENT }
+model CustomerTicket {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  ticketNo   String @unique
+  customerId String?
+  customer   Customer? @relation(fields:[customerId],references:[id])
+  subject    String
+  category   String?
+  priority   CTicketPriority @default(MEDIUM)
+  status     CTicketStatus @default(OPEN)
+  rating     Int?
+  messages   TicketMessage[]
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model TicketMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   CustomerTicket @relation(fields:[ticketId],references:[id],onDelete:Cascade)
+  body     String
+  isAgent  Boolean @default(false)
+  senderName String?
+  createdAt DateTime @default(now())
+  @@index([ticketId])
+}
+
+// ===== EMAIL CAMPAIGNS =====
+enum CampaignStatus { DRAFT SCHEDULED SENT CANCELLED }
+model EmailCampaign {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  subject   String
+  body      String
+  status    CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt    DateTime?
+  sentCount Int @default(0)
+  openCount Int @default(0)
+  clickCount Int @default(0)
+  recipients EmailRecipient[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model EmailRecipient {
+  id         String @id @default(cuid())
+  campaignId String
+  campaign   EmailCampaign @relation(fields:[campaignId],references:[id],onDelete:Cascade)
+  email      String
+  name       String?
+  isOpened   Boolean @default(false)
+  isClicked  Boolean @default(false)
+  @@index([campaignId])
+}
+
+// ===== API KEYS =====
+model ApiKey {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  keyHash   String @unique
+  prefix    String
+  scopes    String?
+  isActive  Boolean @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  @@index([companyId])
+}
+
+// ===== HEALTH CHECK LOG =====
+model HealthCheckLog {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  service   String
+  status    String
+  latencyMs Int?
+  message   String?
+  checkedAt DateTime @default(now())
+  @@index([companyId])
+}

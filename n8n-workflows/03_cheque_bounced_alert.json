@@ -1,0 +1,73 @@
+{
+  "name": "Molido - هشدار برگشت چک",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "molido",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-3",
+      "name": "Molido Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event }}",
+              "operation": "equals",
+              "value2": "cheque.bounced"
+            }
+          ]
+        }
+      },
+      "id": "if-cheque",
+      "name": "Filter: cheque.bounced",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚨 چک برگشت خورد!\nشماره: {{ $json.data.chequeNo }}\nمبلغ: {{ $json.data.amount }}\nبانک: {{ $json.data.bankName }}"
+      },
+      "id": "telegram-3",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [750, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond-3",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "Molido Webhook": {
+      "main": [[{ "node": "Filter: cheque.bounced", "type": "main", "index": 0 }]]
+    },
+    "Filter: cheque.bounced": {
+      "main": [
+        [{ "node": "Telegram Alert", "type": "main", "index": 0 }],
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

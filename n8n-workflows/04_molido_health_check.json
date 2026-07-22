@@ -1,0 +1,65 @@
+{
+  "name": "Molido - Health Check خودکار",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 5 }] }
+      },
+      "id": "schedule-1",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:3000/n8n/health",
+        "options": {}
+      },
+      "id": "http-1",
+      "name": "Molido Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "notEqual",
+              "value2": "ok"
+            }
+          ]
+        }
+      },
+      "id": "if-down",
+      "name": "Is Down?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "🚨 سرویس Molido AI در دسترس نیست!"
+      },
+      "id": "telegram-4",
+      "name": "Alert Down",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1000, 200]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": { "main": [[{ "node": "Molido Health", "type": "main", "index": 0 }]] },
+    "Molido Health": { "main": [[{ "node": "Is Down?", "type": "main", "index": 0 }]] },
+    "Is Down?": { "main": [[{ "node": "Alert Down", "type": "main", "index": 0 }], []] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

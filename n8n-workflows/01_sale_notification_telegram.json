@@ -1,0 +1,73 @@
+{
+  "name": "Molido - اعلان فروش جدید در Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "molido",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-1",
+      "name": "Molido Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event }}",
+              "operation": "equals",
+              "value2": "sale.created"
+            }
+          ]
+        }
+      },
+      "id": "if-sale",
+      "name": "Filter: sale.created",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=💰 فاکتور جدید\nشناسه: {{ $json.data.id }}\nمبلغ: {{ $json.data.total }}\nوضعیت: {{ $json.data.status }}\nتاریخ: {{ $json.timestamp }}"
+      },
+      "id": "telegram-1",
+      "name": "Telegram Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [750, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond-1",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "Molido Webhook": {
+      "main": [[{ "node": "Filter: sale.created", "type": "main", "index": 0 }]]
+    },
+    "Filter: sale.created": {
+      "main": [
+        [{ "node": "Telegram Message", "type": "main", "index": 0 }],
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

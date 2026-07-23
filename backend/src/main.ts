@@ -30,8 +30,13 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3000;
 
+  // CORS امن: اگر CORS_ORIGIN ست نشده باشد فقط داشبورد لوکال مجاز است.
+  // هرگز همه‌ی دامنه‌ها همراه با credentials مجاز نمی‌شوند.
+  const corsOrigin = configService.get<string>('CORS_ORIGIN');
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN') || true,
+    origin: corsOrigin
+      ? corsOrigin.split(',').map((o) => o.trim())
+      : 'http://localhost:3001',
     credentials: true,
   });
 

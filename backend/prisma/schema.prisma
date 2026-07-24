@@ -239,6 +239,11 @@ customerTickets      CustomerTicket[]
 emailCampaigns       EmailCampaign[]
 apiKeys              ApiKey[]
 healthChecks         HealthCheckLog[]
+diningTables         DiningTable[]
+menuCategories       MenuCategory[]
+menuItems            MenuItem[]
+restaurantOrders     RestaurantOrder[]
+tableReservations    TableReservation[]
 
 
 createdAt   DateTime @default(now())
@@ -3842,4 +3847,113 @@ model HealthCheckLog {
   message   String?
   checkedAt DateTime @default(now())
   @@index([companyId])
+}
+
+// ===== RESTAURANT & CAFE (کافه و رستوران) =====
+enum DiningTableStatus { AVAILABLE OCCUPIED RESERVED OUT_OF_SERVICE }
+enum RestaurantOrderType { DINE_IN TAKEAWAY DELIVERY }
+enum RestaurantOrderStatus { PENDING PREPARING READY SERVED DELIVERED PAID CANCELLED }
+enum ReservationStatus { BOOKED CONFIRMED SEATED CANCELLED NO_SHOW }
+model DiningTable {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  tableNo   String
+  hall      String?
+  capacity  Int @default(4)
+  status    DiningTableStatus @default(AVAILABLE)
+  isActive  Boolean @default(true)
+  orders    RestaurantOrder[]
+  reservations TableReservation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([companyId, tableNo])
+  @@index([companyId])
+}
+model MenuCategory {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  sortOrder Int @default(0)
+  isActive  Boolean @default(true)
+  items     MenuItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model MenuItem {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  categoryId String?
+  category   MenuCategory? @relation(fields:[categoryId],references:[id])
+  name       String
+  description String?
+  price      Decimal @db.Decimal(18,2)
+  imageUrl   String?
+  prepMinutes Int @default(10)
+  isAvailable Boolean @default(true)
+  orderItems RestaurantOrderItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+  @@index([categoryId])
+}
+model RestaurantOrder {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  orderNo   String @unique
+  tableId   String?
+  table     DiningTable? @relation(fields:[tableId],references:[id])
+  type      RestaurantOrderType @default(DINE_IN)
+  status    RestaurantOrderStatus @default(PENDING)
+  customerName  String?
+  customerPhone String?
+  deliveryAddress String?
+  guests    Int @default(1)
+  subtotal  Decimal @default(0) @db.Decimal(18,2)
+  discount  Decimal @default(0) @db.Decimal(18,2)
+  tax       Decimal @default(0) @db.Decimal(18,2)
+  serviceCharge Decimal @default(0) @db.Decimal(18,2)
+  total     Decimal @default(0) @db.Decimal(18,2)
+  note      String?
+  items     RestaurantOrderItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+  @@index([status])
+  @@index([tableId])
+}
+model RestaurantOrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  order      RestaurantOrder @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields:[menuItemId],references:[id])
+  name       String
+  qty        Decimal @default(1) @db.Decimal(10,2)
+  unitPrice  Decimal @default(0) @db.Decimal(18,2)
+  total      Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  @@index([orderId])
+}
+model TableReservation {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  tableId   String
+  table     DiningTable @relation(fields:[tableId],references:[id],onDelete:Cascade)
+  customerName  String
+  customerPhone String?
+  reservedAt DateTime
+  guests    Int @default(2)
+  status    ReservationStatus @default(BOOKED)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+  @@index([tableId])
+  @@index([reservedAt])
 }

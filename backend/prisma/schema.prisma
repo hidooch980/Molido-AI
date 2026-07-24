@@ -224,6 +224,7 @@ utilityMeters        UtilityMeter[]
 newsPosts            NewsPost[]
 loans                Loan[]
 investments          Investment[]
+appointments2        Void[] @ignore
 webhooks             Webhook[]
 productReturns       ProductReturn[]
 shipments            Shipment[]
@@ -2908,12 +2909,7 @@ model BurialPermit {
 }
 
 // ===== TAXI =====
-enum TaxiLicenseStatus {
-  ACTIVE
-  SUSPENDED
-  EXPIRED
-  REVOKED
-}
+enum TaxiLicenseStatus { ACTIVE SUSPENDED EXPIRED REVOKED }
 model TaxiDriver {
   id        String @id @default(cuid())
   companyId String
@@ -2944,12 +2940,7 @@ model TaxiViolation {
 }
 
 // ===== BUSINESS LICENSE =====
-enum LicenseStatus {
-  ACTIVE
-  EXPIRED
-  SUSPENDED
-  REVOKED
-}
+enum LicenseStatus { ACTIVE EXPIRED SUSPENDED REVOKED }
 model BusinessLicense {
   id        String @id @default(cuid())
   companyId String
@@ -2982,11 +2973,7 @@ model GuildInspection {
 }
 
 // ===== MUNICIPAL PROPERTY =====
-enum MunicipalPropertyStatus {
-  OWNED
-  LEASED
-  SOLD
-}
+enum MunicipalPropertyStatus { OWNED LEASED SOLD }
 model MunicipalProperty {
   id        String @id @default(cuid())
   companyId String
@@ -3025,17 +3012,8 @@ model PropertyAudit {
 }
 
 // ===== CRISIS MANAGEMENT =====
-enum CrisisSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-enum CrisisStatus {
-  ACTIVE
-  MONITORING
-  RESOLVED
-}
+enum CrisisSeverity { LOW MEDIUM HIGH CRITICAL }
+enum CrisisStatus { ACTIVE MONITORING RESOLVED }
 model CrisisEvent {
   id        String @id @default(cuid())
   companyId String
@@ -3095,11 +3073,7 @@ model ParkingSession {
 }
 
 // ===== STREET LIGHTS =====
-enum LightStatus {
-  WORKING
-  FAULTY
-  REPLACED
-}
+enum LightStatus { WORKING FAULTY REPLACED }
 model StreetLight {
   id        String @id @default(cuid())
   companyId String
@@ -3128,11 +3102,7 @@ model StreetLightReport {
 }
 
 // ===== COUNCIL MEETINGS =====
-enum MeetingStatus {
-  SCHEDULED
-  HELD
-  CANCELLED
-}
+enum MeetingStatus { SCHEDULED HELD CANCELLED }
 model CouncilMeeting {
   id        String @id @default(cuid())
   companyId String
@@ -3161,18 +3131,8 @@ model CouncilDecision {
 }
 
 // ===== HELPDESK =====
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-}
+enum TicketPriority { LOW MEDIUM HIGH URGENT }
+enum TicketStatus { OPEN IN_PROGRESS RESOLVED CLOSED }
 model HelpTicket {
   id        String @id @default(cuid())
   companyId String
@@ -3250,12 +3210,7 @@ model Document {
 }
 
 // ===== APPOINTMENT =====
-enum AppointmentStatus {
-  BOOKED
-  CONFIRMED
-  DONE
-  CANCELLED
-}
+enum AppointmentStatus { BOOKED CONFIRMED DONE CANCELLED }
 model Appointment {
   id        String @id @default(cuid())
   companyId String
@@ -3337,13 +3292,7 @@ model AuditLog {
 }
 
 // ===== CLINIC / HEALTH =====
-enum ClinicVisitType {
-  CHECKUP
-  SICK
-  INJURY
-  DENTAL
-  OTHER
-}
+enum ClinicVisitType { CHECKUP SICK INJURY DENTAL OTHER }
 model ClinicRecord {
   id         String @id @default(cuid())
   companyId  String
@@ -3363,19 +3312,8 @@ model ClinicRecord {
 }
 
 // ===== IoT SENSORS =====
-enum SensorKind {
-  AIR_QUALITY
-  TRAFFIC
-  PARKING
-  NOISE
-  TEMPERATURE
-  OTHER
-}
-enum SensorStatus {
-  ACTIVE
-  OFFLINE
-  MAINTENANCE
-}
+enum SensorKind { AIR_QUALITY TRAFFIC PARKING NOISE TEMPERATURE OTHER }
+enum SensorStatus { ACTIVE OFFLINE MAINTENANCE }
 model IotSensor {
   id        String @id @default(cuid())
   companyId String
@@ -3415,11 +3353,7 @@ model SensorAlert {
 }
 
 // ===== CCTV =====
-enum CctvStatus {
-  WORKING
-  FAULTY
-  OFFLINE
-}
+enum CctvStatus { WORKING FAULTY OFFLINE }
 model CctvCamera {
   id        String @id @default(cuid())
   companyId String
@@ -3447,11 +3381,7 @@ model CctvReport {
 }
 
 // ===== UTILITY (WATER/GAS) =====
-enum UtilityKind {
-  WATER
-  GAS
-  ELECTRICITY
-}
+enum UtilityKind { WATER GAS ELECTRICITY }
 model UtilityMeter {
   id        String @id @default(cuid())
   companyId String
@@ -3490,11 +3420,7 @@ model UtilityBill {
 }
 
 // ===== NEWS / PR =====
-enum NewsStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
+enum NewsStatus { DRAFT PUBLISHED ARCHIVED }
 model NewsPost {
   id        String @id @default(cuid())
   companyId String
@@ -3513,11 +3439,7 @@ model NewsPost {
 }
 
 // ===== LOANS =====
-enum LoanStatus {
-  ACTIVE
-  PAID
-  DEFAULTED
-}
+enum LoanStatus { ACTIVE PAID DEFAULTED }
 model Loan {
   id        String @id @default(cuid())
   companyId String
@@ -3548,18 +3470,8 @@ model LoanRepayment {
 }
 
 // ===== INVESTMENTS =====
-enum InvestmentKind {
-  BOND
-  STOCK
-  DEPOSIT
-  REAL_ESTATE
-  OTHER
-}
-enum InvestmentStatus {
-  ACTIVE
-  MATURED
-  SOLD
-}
+enum InvestmentKind { BOND STOCK DEPOSIT REAL_ESTATE OTHER }
+enum InvestmentStatus { ACTIVE MATURED SOLD }
 model Investment {
   id        String @id @default(cuid())
   companyId String
@@ -3579,12 +3491,7 @@ model Investment {
 }
 
 // ===== WEBHOOKS (Telegram/WhatsApp/Online-payment) =====
-enum WebhookKind {
-  TELEGRAM
-  WHATSAPP
-  PAYMENT_GATEWAY
-  CUSTOM
-}
+enum WebhookKind { TELEGRAM WHATSAPP PAYMENT_GATEWAY CUSTOM }
 model Webhook {
   id        String @id @default(cuid())
   companyId String
@@ -3611,20 +3518,8 @@ model WebhookLog {
 
 
 // ===== PRODUCT RETURNS =====
-enum ReturnReason {
-  DEFECTIVE
-  WRONG_ITEM
-  CUSTOMER_CHANGE
-  EXCESS
-  OTHER
-}
-enum ReturnStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  RESTOCKED
-  REFUNDED
-}
+enum ReturnReason { DEFECTIVE WRONG_ITEM CUSTOMER_CHANGE EXCESS OTHER }
+enum ReturnStatus { PENDING APPROVED REJECTED RESTOCKED REFUNDED }
 model ProductReturn {
   id         String @id @default(cuid())
   companyId  String
@@ -3653,5 +3548,412 @@ model ProductReturnItem {
 }
 
 // ===== SHIPMENTS =====
-enum ShipmentStatus {
-  PEND
+enum ShipmentStatus { PENDING PACKED SHIPPED DELIVERED RETURNED }
+model Shipment {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  trackingNo String @unique
+  saleId     String?
+  carrier    String?
+  method     String?
+  fee        Decimal @default(0) @db.Decimal(18,2)
+  estimatedAt DateTime?
+  deliveredAt DateTime?
+  status     ShipmentStatus @default(PENDING)
+  address    String?
+  note       String?
+  items      ShipmentItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model ShipmentItem {
+  id         String @id @default(cuid())
+  shipmentId String
+  shipment   Shipment @relation(fields:[shipmentId],references:[id],onDelete:Cascade)
+  productId  String?
+  name       String
+  qty        Decimal @db.Decimal(10,2)
+  @@index([shipmentId])
+}
+
+// ===== SERIAL / BATCH TRACKING =====
+enum SerialStatus { IN_STOCK SOLD RETURNED DEFECTIVE }
+model SerialNumber {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  productId String
+  product   Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  serial    String @unique
+  status    SerialStatus @default(IN_STOCK)
+  saleId    String?
+  createdAt DateTime @default(now())
+  @@index([companyId])
+  @@index([productId])
+}
+model BatchNumber {
+  id           String @id @default(cuid())
+  companyId    String
+  company      Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  productId    String
+  product      Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  batchNo      String
+  qty          Decimal @db.Decimal(10,2)
+  expiryDate   DateTime?
+  manufactureDate DateTime?
+  createdAt    DateTime @default(now())
+  @@index([companyId])
+  @@index([productId])
+}
+
+// ===== PRICE LEVELS =====
+model PriceLevel {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  description String?
+  isDefault Boolean @default(false)
+  prices    ProductPrice[]
+  createdAt DateTime @default(now())
+  @@index([companyId])
+}
+model ProductPrice {
+  id           String @id @default(cuid())
+  priceLevelId String
+  priceLevel   PriceLevel @relation(fields:[priceLevelId],references:[id],onDelete:Cascade)
+  productId    String
+  product      Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  price        Decimal @db.Decimal(18,2)
+  createdAt    DateTime @default(now())
+  @@unique([priceLevelId,productId])
+  @@index([productId])
+}
+
+// ===== DISCOUNT RULES =====
+enum DiscountType { PERCENT AMOUNT BUY_X_GET_Y }
+model DiscountRule {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  kind      DiscountType @default(PERCENT)
+  value     Decimal @db.Decimal(10,2)
+  minQty    Int @default(0)
+  minAmount Decimal @default(0) @db.Decimal(18,2)
+  getQty    Int @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  isActive  Boolean @default(true)
+  code      String?
+  maxUses   Int @default(0)
+  usedCount Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== PROJECT MANAGEMENT =====
+enum ProjectStatus { PLANNING ACTIVE ON_HOLD COMPLETED CANCELLED }
+enum TaskStatus { TODO IN_PROGRESS REVIEW DONE }
+enum TaskPriority { LOW MEDIUM HIGH URGENT }
+model Project {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  projectNo String @unique
+  title     String
+  clientName String?
+  budget    Decimal @default(0) @db.Decimal(18,2)
+  startDate DateTime?
+  endDate   DateTime?
+  status    ProjectStatus @default(PLANNING)
+  progress  Int @default(0)
+  description String?
+  tasks     ProjectTask[]
+  timeEntries TimeEntry[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model ProjectTask {
+  id         String @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields:[projectId],references:[id],onDelete:Cascade)
+  title      String
+  assigneeId String?
+  status     TaskStatus @default(TODO)
+  priority   TaskPriority @default(MEDIUM)
+  dueDate    DateTime?
+  estimatedHours Decimal @default(0) @db.Decimal(6,2)
+  description String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([projectId])
+}
+model TimeEntry {
+  id         String @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields:[projectId],references:[id],onDelete:Cascade)
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields:[employeeId],references:[id])
+  date       DateTime
+  hours      Decimal @db.Decimal(6,2)
+  description String?
+  createdAt  DateTime @default(now())
+  @@index([projectId])
+  @@index([companyId])
+}
+
+// ===== SALES AGENTS =====
+model SalesAgent {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  phone     String?
+  territory String?
+  commissionRate Decimal @default(0) @db.Decimal(5,2)
+  monthlyTarget  Decimal @default(0) @db.Decimal(18,2)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+
+// ===== QUOTATIONS (RFQ) =====
+enum QuotationStatus { DRAFT SENT ACCEPTED REJECTED EXPIRED }
+model Quotation {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  quoteNo    String @unique
+  customerId String?
+  validUntil DateTime?
+  status     QuotationStatus @default(DRAFT)
+  totalAmount Decimal @default(0) @db.Decimal(18,2)
+  discount   Decimal @default(0) @db.Decimal(18,2)
+  tax        Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  items      QuotationItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model QuotationItem {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields:[quotationId],references:[id],onDelete:Cascade)
+  productId   String?
+  product     Product? @relation(fields:[productId],references:[id])
+  name        String
+  qty         Decimal @db.Decimal(10,2)
+  unitPrice   Decimal @db.Decimal(18,2)
+  total       Decimal @db.Decimal(18,2)
+  @@index([quotationId])
+}
+
+// ===== CUSTOMER TICKETS =====
+enum CTicketStatus { OPEN IN_PROGRESS WAITING RESOLVED CLOSED }
+enum CTicketPriority { LOW MEDIUM HIGH URGENT }
+model CustomerTicket {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  ticketNo   String @unique
+  customerId String?
+  customer   Customer? @relation(fields:[customerId],references:[id])
+  subject    String
+  category   String?
+  priority   CTicketPriority @default(MEDIUM)
+  status     CTicketStatus @default(OPEN)
+  rating     Int?
+  messages   TicketMessage[]
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+}
+model TicketMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   CustomerTicket @relation(fields:[ticketId],references:[id],onDelete:Cascade)
+  body     String
+  isAgent  Boolean @default(false)
+  senderName String?
+  createdAt DateTime @default(now())
+  @@index([ticketId])
+}
+
+// ===== EMAIL CAMPAIGNS =====
+enum CampaignStatus { DRAFT SCHEDULED SENT CANCELLED }
+model EmailCampaign {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  title     String
+  subject   String
+  body      String
+  status    CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt    DateTime?
+  sentCount Int @default(0)
+  openCount Int @default(0)
+  clickCount Int @default(0)
+  recipients EmailRecipient[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model EmailRecipient {
+  id         String @id @default(cuid())
+  campaignId String
+  campaign   EmailCampaign @relation(fields:[campaignId],references:[id],onDelete:Cascade)
+  email      String
+  name       String?
+  isOpened   Boolean @default(false)
+  isClicked  Boolean @default(false)
+  @@index([campaignId])
+}
+
+// ===== API KEYS =====
+model ApiKey {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  keyHash   String @unique
+  prefix    String
+  scopes    String?
+  isActive  Boolean @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  @@index([companyId])
+}
+
+// ===== HEALTH CHECK LOG =====
+model HealthCheckLog {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  service   String
+  status    String
+  latencyMs Int?
+  message   String?
+  checkedAt DateTime @default(now())
+  @@index([companyId])
+}
+
+// ===== RESTAURANT & CAFE (کافه و رستوران) =====
+enum DiningTableStatus { AVAILABLE OCCUPIED RESERVED OUT_OF_SERVICE }
+enum RestaurantOrderType { DINE_IN TAKEAWAY DELIVERY }
+enum RestaurantOrderStatus { PENDING PREPARING READY SERVED DELIVERED PAID CANCELLED }
+enum ReservationStatus { BOOKED CONFIRMED SEATED CANCELLED NO_SHOW }
+model DiningTable {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  tableNo   String
+  hall      String?
+  capacity  Int @default(4)
+  status    DiningTableStatus @default(AVAILABLE)
+  isActive  Boolean @default(true)
+  orders    RestaurantOrder[]
+  reservations TableReservation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([companyId, tableNo])
+  @@index([companyId])
+}
+model MenuCategory {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  name      String
+  sortOrder Int @default(0)
+  isActive  Boolean @default(true)
+  items     MenuItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+}
+model MenuItem {
+  id         String @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  categoryId String?
+  category   MenuCategory? @relation(fields:[categoryId],references:[id])
+  name       String
+  description String?
+  price      Decimal @db.Decimal(18,2)
+  imageUrl   String?
+  prepMinutes Int @default(10)
+  isAvailable Boolean @default(true)
+  orderItems RestaurantOrderItem[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([companyId])
+  @@index([categoryId])
+}
+model RestaurantOrder {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  orderNo   String @unique
+  tableId   String?
+  table     DiningTable? @relation(fields:[tableId],references:[id])
+  type      RestaurantOrderType @default(DINE_IN)
+  status    RestaurantOrderStatus @default(PENDING)
+  customerName  String?
+  customerPhone String?
+  deliveryAddress String?
+  guests    Int @default(1)
+  subtotal  Decimal @default(0) @db.Decimal(18,2)
+  discount  Decimal @default(0) @db.Decimal(18,2)
+  tax       Decimal @default(0) @db.Decimal(18,2)
+  serviceCharge Decimal @default(0) @db.Decimal(18,2)
+  total     Decimal @default(0) @db.Decimal(18,2)
+  note      String?
+  items     RestaurantOrderItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+  @@index([status])
+  @@index([tableId])
+}
+model RestaurantOrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  order      RestaurantOrder @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields:[menuItemId],references:[id])
+  name       String
+  qty        Decimal @default(1) @db.Decimal(10,2)
+  unitPrice  Decimal @default(0) @db.Decimal(18,2)
+  total      Decimal @default(0) @db.Decimal(18,2)
+  note       String?
+  @@index([orderId])
+}
+model TableReservation {
+  id        String @id @default(cuid())
+  companyId String
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+  tableId   String
+  table     DiningTable @relation(fields:[tableId],references:[id],onDelete:Cascade)
+  customerName  String
+  customerPhone String?
+  reservedAt DateTime
+  guests    Int @default(2)
+  status    ReservationStatus @default(BOOKED)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([companyId])
+  @@index([tableId])
+  @@index([reservedAt])
+}

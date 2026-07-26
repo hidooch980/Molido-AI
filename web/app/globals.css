@@ -136,10 +136,12 @@ input:focus {
 /* ---------- صفحه ورود ---------- */
 .auth-wrap {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: calc(24px + var(--safe-top, 0px)) calc(24px + var(--safe-end, 0px))
+    calc(24px + var(--safe-bottom, 0px)) calc(24px + var(--safe-start, 0px));
 }
 
 .auth-card {
@@ -448,13 +450,507 @@ input:focus {
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
-/* ---------- رسپانسیو ---------- */
-@media (max-width: 860px) {
+/* =============================================
+   PWA — موبایل، آیفون و دسکتاپ
+   ============================================= */
+
+:root {
+  /* حاشیه امن آیفون (ناچ و نوار خانه) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-start: env(safe-area-inset-left, 0px);
+  --safe-end: env(safe-area-inset-right, 0px);
+  --bottom-nav-h: 62px;
+}
+
+html {
+  /* جلوگیری از بزرگ‌شدن خودکار متن هنگام چرخش آیفون */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* حذف هایلایت آبی هنگام لمس در iOS */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* در حالت نصب‌شده (standalone) انتخاب متن مزاحم است */
+@media (display-mode: standalone) {
+  .nav-item,
+  .bottom-item,
+  .stat-card,
+  .lang-pill {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* ---------- ناوبری پایین (موبایل) ---------- */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  padding-bottom: var(--safe-bottom);
+  background: rgba(10, 16, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+}
+
+.bottom-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* حداقل ۴۴px برای لمس راحت طبق راهنمای اپل */
+  min-height: 56px;
+  padding: 8px 4px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bottom-item:hover,
+.bottom-item:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.bottom-item.active {
+  color: #fff;
+}
+
+.bottom-item.active .bi-icon {
+  transform: translateY(-2px) scale(1.12);
+}
+
+.bi-icon {
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.bi-label {
+  font-size: 10.5px;
+}
+
+/* ---------- منوی کشویی (موبایل) ---------- */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.18s ease;
+}
+
+.drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 51;
+  width: min(82vw, 300px);
+  padding: calc(24px + var(--safe-top)) 18px calc(24px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  background: rgba(12, 19, 36, 0.98);
+  border-inline-end: 1px solid var(--border);
+  animation: slide-in 0.22s ease;
+}
+
+.drawer .brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.drawer .mini-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.drawer .danger {
+  margin-top: auto;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in {
+  from { transform: translateX(var(--slide-from, -100%)); }
+  to { transform: translateX(0); }
+}
+
+[dir='rtl'] .drawer {
+  --slide-from: 100%;
+}
+
+/* ---------- دکمه آیکونی ---------- */
+.icon-btn {
+  display: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  font-size: 20px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text);
+}
+
+.icon-btn:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-logout {
+  margin-top: auto;
+}
+
+.page {
+  min-width: 0;
+}
+
+/* ---------- نوار آفلاین ---------- */
+.offline-bar {
+  margin-bottom: 14px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.13);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+}
+
+/* ---------- صفحه آفلاین ---------- */
+.offline-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px;
+}
+
+.offline-icon {
+  font-size: 56px;
+}
+
+.offline-page h1 {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.offline-page .muted {
+  max-width: 380px;
+  line-height: 1.9;
+}
+
+.offline-btn {
+  margin-top: 10px;
+  padding: 12px 26px;
+  border-radius: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+}
+
+/* ---------- بنر نصب اپ ---------- */
+.install-banner {
+  position: fixed;
+  z-index: 60;
+  inset-inline: 12px;
+  bottom: calc(12px + var(--safe-bottom) + var(--bottom-nav-h));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: fade-in 0.3s ease;
+}
+
+.install-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.install-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.install-text span {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.install-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.install-actions button {
+  padding: 9px 16px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+/* ---------- جدول ریسپانسیو ---------- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table-wrap th {
+  text-align: start;
+  padding: 10px 8px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-wrap td {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* ---------- شبکه‌های کمکی ---------- */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 10px;
+  min-height: 38px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+}
+
+/* =============================================
+   نقاط شکست
+   ============================================= */
+
+/* ── تبلت و موبایل ── */
+@media (max-width: 900px) {
   .sidebar {
     display: none;
   }
 
+  .bottom-nav {
+    display: flex;
+  }
+
+  .icon-btn.menu-btn {
+    display: flex;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
   .main {
-    padding: 20px;
+    /* فضای ناچ بالا و نوار پایین */
+    padding: calc(14px + var(--safe-top)) 16px
+      calc(var(--bottom-nav-h) + var(--safe-bottom) + 20px);
+  }
+
+  .topbar {
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: nowrap;
+  }
+
+  .topbar h1 {
+    font-size: 18px;
+  }
+
+  .topbar .sub {
+    font-size: 12px;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-card:hover {
+    transform: none;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 17px;
+    margin-bottom: 10px;
+    border-radius: 11px;
+  }
+
+  .stat-value {
+    font-size: 19px;
+  }
+
+  .stat-label {
+    font-size: 11.5px;
+  }
+
+  .skeleton {
+    height: 96px;
+  }
+
+  /* iOS روی input زیر ۱۶px خودکار زوم می‌کند */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button {
+    min-height: 44px;
+  }
+
+  .grid-auto {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+/* ── موبایل کوچک ── */
+@media (max-width: 400px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bi-label {
+    font-size: 9.5px;
+  }
+
+  .install-text span {
+    font-size: 11px;
+  }
+}
+
+/* ── دسکتاپ ── */
+@media (min-width: 901px) {
+  .bottom-nav,
+  .drawer,
+  .drawer-backdrop {
+    display: none;
+  }
+
+  .install-banner {
+    bottom: 20px;
+    inset-inline: auto 20px;
+    max-width: 400px;
+  }
+}
+
+/* ── چاپ ── */
+@media print {
+  .sidebar,
+  .bottom-nav,
+  .topbar .actions,
+  .install-banner,
+  .icon-btn {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .main {
+    padding: 0;
   }
 }

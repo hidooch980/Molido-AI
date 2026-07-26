@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { API_URL, api, getToken } from '../../lib/api';
+import AppShell from '../../components/AppShell';
 
 type Stats = {
   openOrders?: number;
@@ -115,8 +115,6 @@ const STAT_CARDS: Array<{ key: keyof Stats; label: string; icon: string; money?:
 ];
 
 export default function RestaurantPage() {
-  const router = useRouter();
-
   const [tab, setTab] = useState<TabKey>('tables');
   const [stats, setStats] = useState<Stats | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
@@ -155,21 +153,13 @@ export default function RestaurantPage() {
   }, []);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace('/');
-      return;
-    }
-
-    document.documentElement.dir = 'rtl';
-    document.documentElement.lang = 'fa';
-
     void load();
 
     // به‌روزرسانی خودکار برای صفحه آشپزخانه
     const timer = setInterval(() => void load(), 30_000);
 
     return () => clearInterval(timer);
-  }, [router, load]);
+  }, [load]);
 
   async function act(path: string, body?: unknown) {
     try {
@@ -224,20 +214,15 @@ export default function RestaurantPage() {
   }, [kitchen]);
 
   return (
-    <div className="main" style={{ padding: 24 }}>
-      <div className="topbar">
-        <div>
-          <h1>☕ کافه رستوران</h1>
-          <div className="sub">مدیریت میز، منو، سفارش و آشپزخانه</div>
-        </div>
-
-        <div className="actions">
-          <button type="button" onClick={() => void load()}>
-            بروزرسانی
-          </button>
-        </div>
-      </div>
-
+    <AppShell
+      title="☕ کافه رستوران"
+      subtitle="میز، منو، سفارش و آشپزخانه"
+      actions={
+        <button type="button" className="btn-sm" onClick={() => void load()}>
+          بروزرسانی
+        </button>
+      }
+    >
       {error ? <div className="error">{error}</div> : null}
 
       {/* آمار */}
@@ -340,7 +325,8 @@ export default function RestaurantPage() {
           {orders.length === 0 ? (
             <p className="muted">سفارش بازی وجود ندارد.</p>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="table-wrap">
+            <table>
               <thead>
                 <tr style={{ textAlign: 'right', color: 'var(--text-dim)' }}>
                   <th style={{ padding: 8 }}>شماره</th>
@@ -387,6 +373,7 @@ export default function RestaurantPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       ) : null}
@@ -535,6 +522,6 @@ export default function RestaurantPage() {
           )}
         </div>
       ) : null}
-    </div>
+    </AppShell>
   );
 }

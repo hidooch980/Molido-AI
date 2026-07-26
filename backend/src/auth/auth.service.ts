@@ -168,8 +168,9 @@ export class AuthService {
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, {
         secret: this.refreshSecret(),
-        expiresIn:
-          this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '30d',
+        // نوع string عام؛ jsonwebtoken نوع دقیق‌تری می‌خواهد — کست صریح
+        expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ||
+          '30d') as never,
       }),
       user: {
         id: user.id,

@@ -29,7 +29,10 @@ import { JwtStrategy } from './jwt.strategy';
         return {
           secret,
           signOptions: {
-            expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '7d',
+            // خروجی ConfigService از نوع string عام است؛ jsonwebtoken نوع
+            // دقیق‌تری مثل "7d" می‌خواهد (StringValue) — کست صریح لازم است
+            expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ||
+              '7d') as never,
           },
         };
       },

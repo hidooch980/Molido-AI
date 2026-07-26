@@ -8,7 +8,7 @@ export class HealthService {
   async findAll(companyId: string, query: any = {}) {
     return this.prisma.healthCheckLog.findMany({
       where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { checkedAt: 'desc' },
       take: query.limit ? Number(query.limit) : 50,
     });
   }

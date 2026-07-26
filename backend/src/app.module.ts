@@ -88,6 +88,7 @@ import { CustomerTicketsModule } from './customer-tickets/customer-tickets.modul
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
+import { RestaurantModule } from './restaurant/restaurant.module';
 
 @Module({
   imports: [
@@ -185,6 +186,7 @@ import { HealthModule } from './health/health.module';
     EmailCampaignsModule,
     ApiKeysModule,
     HealthModule,
+    RestaurantModule,
   ],
   controllers: [
     AppController,

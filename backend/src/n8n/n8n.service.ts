@@ -16,7 +16,10 @@ export type N8nEventType =
   | 'municipal_bill.created'
   | 'pos.status_changed'
   | 'user.registered'
-  | 'fire.incident_created';
+  | 'fire.incident_created'
+  | 'restaurant.order_created'
+  | 'restaurant.sent_to_kitchen'
+  | 'restaurant.order_settled';
 
 export interface N8nPayload {
   event: N8nEventType;
@@ -118,6 +121,18 @@ export class N8nService {
 
   complaintCreated(complaint: Record<string, unknown>, companyId?: string) {
     return this.emit('complaint.created', complaint, companyId);
+  }
+
+  restaurantOrderCreated(order: Record<string, unknown>, companyId: string) {
+    return this.emit('restaurant.order_created', order, companyId);
+  }
+
+  restaurantSentToKitchen(data: Record<string, unknown>, companyId: string) {
+    return this.emit('restaurant.sent_to_kitchen', data, companyId);
+  }
+
+  restaurantOrderSettled(order: Record<string, unknown>, companyId: string) {
+    return this.emit('restaurant.order_settled', order, companyId);
   }
 
   complaintResolved(complaint: Record<string, unknown>, companyId?: string) {

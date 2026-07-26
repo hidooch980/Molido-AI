@@ -2916,7 +2916,12 @@ model BurialPermit {
 }
 
 // ===== TAXI =====
-enum TaxiLicenseStatus { ACTIVE SUSPENDED EXPIRED REVOKED }
+enum TaxiLicenseStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+}
 model TaxiDriver {
   id        String @id @default(cuid())
   companyId String
@@ -2947,7 +2952,12 @@ model TaxiViolation {
 }
 
 // ===== BUSINESS LICENSE =====
-enum LicenseStatus { ACTIVE EXPIRED SUSPENDED REVOKED }
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
 model BusinessLicense {
   id        String @id @default(cuid())
   companyId String
@@ -2980,7 +2990,11 @@ model GuildInspection {
 }
 
 // ===== MUNICIPAL PROPERTY =====
-enum MunicipalPropertyStatus { OWNED LEASED SOLD }
+enum MunicipalPropertyStatus {
+  OWNED
+  LEASED
+  SOLD
+}
 model MunicipalProperty {
   id        String @id @default(cuid())
   companyId String
@@ -3019,8 +3033,17 @@ model PropertyAudit {
 }
 
 // ===== CRISIS MANAGEMENT =====
-enum CrisisSeverity { LOW MEDIUM HIGH CRITICAL }
-enum CrisisStatus { ACTIVE MONITORING RESOLVED }
+enum CrisisSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+enum CrisisStatus {
+  ACTIVE
+  MONITORING
+  RESOLVED
+}
 model CrisisEvent {
   id        String @id @default(cuid())
   companyId String
@@ -3080,7 +3103,11 @@ model ParkingSession {
 }
 
 // ===== STREET LIGHTS =====
-enum LightStatus { WORKING FAULTY REPLACED }
+enum LightStatus {
+  WORKING
+  FAULTY
+  REPLACED
+}
 model StreetLight {
   id        String @id @default(cuid())
   companyId String
@@ -3109,7 +3136,11 @@ model StreetLightReport {
 }
 
 // ===== COUNCIL MEETINGS =====
-enum MeetingStatus { SCHEDULED HELD CANCELLED }
+enum MeetingStatus {
+  SCHEDULED
+  HELD
+  CANCELLED
+}
 model CouncilMeeting {
   id        String @id @default(cuid())
   companyId String
@@ -3138,8 +3169,18 @@ model CouncilDecision {
 }
 
 // ===== HELPDESK =====
-enum TicketPriority { LOW MEDIUM HIGH URGENT }
-enum TicketStatus { OPEN IN_PROGRESS RESOLVED CLOSED }
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
 model HelpTicket {
   id        String @id @default(cuid())
   companyId String
@@ -3217,7 +3258,12 @@ model Document {
 }
 
 // ===== APPOINTMENT =====
-enum AppointmentStatus { BOOKED CONFIRMED DONE CANCELLED }
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  DONE
+  CANCELLED
+}
 model Appointment {
   id        String @id @default(cuid())
   companyId String
@@ -3299,7 +3345,13 @@ model AuditLog {
 }
 
 // ===== CLINIC / HEALTH =====
-enum ClinicVisitType { CHECKUP SICK INJURY DENTAL OTHER }
+enum ClinicVisitType {
+  CHECKUP
+  SICK
+  INJURY
+  DENTAL
+  OTHER
+}
 model ClinicRecord {
   id         String @id @default(cuid())
   companyId  String
@@ -3319,8 +3371,19 @@ model ClinicRecord {
 }
 
 // ===== IoT SENSORS =====
-enum SensorKind { AIR_QUALITY TRAFFIC PARKING NOISE TEMPERATURE OTHER }
-enum SensorStatus { ACTIVE OFFLINE MAINTENANCE }
+enum SensorKind {
+  AIR_QUALITY
+  TRAFFIC
+  PARKING
+  NOISE
+  TEMPERATURE
+  OTHER
+}
+enum SensorStatus {
+  ACTIVE
+  OFFLINE
+  MAINTENANCE
+}
 model IotSensor {
   id        String @id @default(cuid())
   companyId String
@@ -3360,7 +3423,11 @@ model SensorAlert {
 }
 
 // ===== CCTV =====
-enum CctvStatus { WORKING FAULTY OFFLINE }
+enum CctvStatus {
+  WORKING
+  FAULTY
+  OFFLINE
+}
 model CctvCamera {
   id        String @id @default(cuid())
   companyId String
@@ -3388,7 +3455,11 @@ model CctvReport {
 }
 
 // ===== UTILITY (WATER/GAS) =====
-enum UtilityKind { WATER GAS ELECTRICITY }
+enum UtilityKind {
+  WATER
+  GAS
+  ELECTRICITY
+}
 model UtilityMeter {
   id        String @id @default(cuid())
   companyId String
@@ -3427,7 +3498,11 @@ model UtilityBill {
 }
 
 // ===== NEWS / PR =====
-enum NewsStatus { DRAFT PUBLISHED ARCHIVED }
+enum NewsStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
 model NewsPost {
   id        String @id @default(cuid())
   companyId String
@@ -3446,7 +3521,11 @@ model NewsPost {
 }
 
 // ===== LOANS =====
-enum LoanStatus { ACTIVE PAID DEFAULTED }
+enum LoanStatus {
+  ACTIVE
+  PAID
+  DEFAULTED
+}
 model Loan {
   id        String @id @default(cuid())
   companyId String
@@ -3477,8 +3556,18 @@ model LoanRepayment {
 }
 
 // ===== INVESTMENTS =====
-enum InvestmentKind { BOND STOCK DEPOSIT REAL_ESTATE OTHER }
-enum InvestmentStatus { ACTIVE MATURED SOLD }
+enum InvestmentKind {
+  BOND
+  STOCK
+  DEPOSIT
+  REAL_ESTATE
+  OTHER
+}
+enum InvestmentStatus {
+  ACTIVE
+  MATURED
+  SOLD
+}
 model Investment {
   id        String @id @default(cuid())
   companyId String
@@ -3498,7 +3587,12 @@ model Investment {
 }
 
 // ===== WEBHOOKS (Telegram/WhatsApp/Online-payment) =====
-enum WebhookKind { TELEGRAM WHATSAPP PAYMENT_GATEWAY CUSTOM }
+enum WebhookKind {
+  TELEGRAM
+  WHATSAPP
+  PAYMENT_GATEWAY
+  CUSTOM
+}
 model Webhook {
   id        String @id @default(cuid())
   companyId String
@@ -3525,8 +3619,20 @@ model WebhookLog {
 
 
 // ===== PRODUCT RETURNS =====
-enum ReturnReason { DEFECTIVE WRONG_ITEM CUSTOMER_CHANGE EXCESS OTHER }
-enum ReturnStatus { PENDING APPROVED REJECTED RESTOCKED REFUNDED }
+enum ReturnReason {
+  DEFECTIVE
+  WRONG_ITEM
+  CUSTOMER_CHANGE
+  EXCESS
+  OTHER
+}
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESTOCKED
+  REFUNDED
+}
 model ProductReturn {
   id         String @id @default(cuid())
   companyId  String
@@ -3555,7 +3661,13 @@ model ProductReturnItem {
 }
 
 // ===== SHIPMENTS =====
-enum ShipmentStatus { PENDING PACKED SHIPPED DELIVERED RETURNED }
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  SHIPPED
+  DELIVERED
+  RETURNED
+}
 model Shipment {
   id         String @id @default(cuid())
   companyId  String
@@ -3586,7 +3698,12 @@ model ShipmentItem {
 }
 
 // ===== SERIAL / BATCH TRACKING =====
-enum SerialStatus { IN_STOCK SOLD RETURNED DEFECTIVE }
+enum SerialStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+  DEFECTIVE
+}
 model SerialNumber {
   id        String @id @default(cuid())
   companyId String
@@ -3640,7 +3757,11 @@ model ProductPrice {
 }
 
 // ===== DISCOUNT RULES =====
-enum DiscountType { PERCENT AMOUNT BUY_X_GET_Y }
+enum DiscountType {
+  PERCENT
+  AMOUNT
+  BUY_X_GET_Y
+}
 model DiscountRule {
   id        String @id @default(cuid())
   companyId String
@@ -3663,9 +3784,25 @@ model DiscountRule {
 }
 
 // ===== PROJECT MANAGEMENT =====
-enum ProjectStatus { PLANNING ACTIVE ON_HOLD COMPLETED CANCELLED }
-enum TaskStatus { TODO IN_PROGRESS REVIEW DONE }
-enum TaskPriority { LOW MEDIUM HIGH URGENT }
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
 model Project {
   id        String @id @default(cuid())
   companyId String
@@ -3733,7 +3870,13 @@ model SalesAgent {
 }
 
 // ===== QUOTATIONS (RFQ) =====
-enum QuotationStatus { DRAFT SENT ACCEPTED REJECTED EXPIRED }
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
 model Quotation {
   id         String @id @default(cuid())
   companyId  String
@@ -3765,8 +3908,19 @@ model QuotationItem {
 }
 
 // ===== CUSTOMER TICKETS =====
-enum CTicketStatus { OPEN IN_PROGRESS WAITING RESOLVED CLOSED }
-enum CTicketPriority { LOW MEDIUM HIGH URGENT }
+enum CTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+enum CTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
 model CustomerTicket {
   id         String @id @default(cuid())
   companyId  String
@@ -3797,7 +3951,12 @@ model TicketMessage {
 }
 
 // ===== EMAIL CAMPAIGNS =====
-enum CampaignStatus { DRAFT SCHEDULED SENT CANCELLED }
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  CANCELLED
+}
 model EmailCampaign {
   id        String @id @default(cuid())
   companyId String
@@ -3857,12 +4016,48 @@ model HealthCheckLog {
 }
 
 // ===== CAFE / RESTAURANT =====
-enum TableStatus { FREE OCCUPIED RESERVED CLEANING OUT_OF_SERVICE }
-enum RestOrderType { DINE_IN TAKEAWAY DELIVERY }
-enum RestOrderStatus { OPEN IN_KITCHEN READY SERVED PAID CANCELLED }
-enum RestItemStatus { PENDING PREPARING READY SERVED CANCELLED }
-enum KitchenStation { KITCHEN GRILL COLD BAR COFFEE DESSERT }
-enum ReservationStatus { PENDING CONFIRMED SEATED CANCELLED NO_SHOW }
+enum TableStatus {
+  FREE
+  OCCUPIED
+  RESERVED
+  CLEANING
+  OUT_OF_SERVICE
+}
+enum RestOrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+enum RestOrderStatus {
+  OPEN
+  IN_KITCHEN
+  READY
+  SERVED
+  PAID
+  CANCELLED
+}
+enum RestItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+enum KitchenStation {
+  KITCHEN
+  GRILL
+  COLD
+  BAR
+  COFFEE
+  DESSERT
+}
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  CANCELLED
+  NO_SHOW
+}
 
 model RestaurantArea {
   id        String @id @default(cuid())

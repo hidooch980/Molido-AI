@@ -95,6 +95,16 @@ function stageBackend() {
   // اجرا برای «db push» لازم است، بنابراین از prune جان سالم به در می‌برد.
   sh(npm, ['prune', '--omit=dev'], BACKEND_SRC);
 
+  step('تولید مجدد کلاینت Prisma پس از prune');
+  // کلاینت تولیدشده در node_modules/.prisma هیچ بسته‌ای در package.json
+  // نیست، پس prune می‌تواند آن را حذف کند. دوباره می‌سازیم تا موتور
+  // کوئری حتماً در بسته نهایی باشد (موتور از کش می‌آید و سریع است).
+  sh(npm, ['exec', '--', 'prisma', 'generate'], BACKEND_SRC);
+
+  if (!fs.existsSync(path.join(BACKEND_SRC, 'node_modules', '.prisma', 'client'))) {
+    throw new Error('کلاینت Prisma پس از prune ساخته نشد.');
+  }
+
   step('کپی بک‌اند به staging');
   copyDir(path.join(BACKEND_SRC, 'dist'), path.join(out, 'dist'));
   copyDir(path.join(BACKEND_SRC, 'prisma'), path.join(out, 'prisma'));

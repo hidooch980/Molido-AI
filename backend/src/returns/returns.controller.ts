@@ -34,6 +34,28 @@ export class ReturnsController {
     return this.service.findOne(user.companyId!, id);
   }
 
+  /** بازگشت کالا به انبار — موجودی افزایش می‌یابد. */
+  @Patch(':id/restock')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'INVENTORY')
+  restock(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { warehouseId: string },
+  ) {
+    return this.service.restock(user.companyId!, id, dto.warehouseId);
+  }
+
+  /** بازپرداخت وجه مرجوعی از صندوق. */
+  @Patch(':id/refund')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  refund(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { cashBoxId?: string },
+  ) {
+    return this.service.refund(user.companyId!, id, dto?.cashBoxId);
+  }
+
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {

@@ -1349,3 +1349,71 @@ a {
     margin: 6px 0;
   }
 }
+
+/* ═══════════════ برچسب بارکد ═══════════════ */
+
+.label-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.label {
+  width: 210px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  text-align: center;
+}
+
+.label-name {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-price {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.label-barcode svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.label-nobarcode {
+  font-family: monospace;
+  font-size: 12px;
+  padding: 14px 0;
+}
+
+/* ورق برچسب فقط هنگام چاپ */
+.label-sheet {
+  display: none;
+}
+
+@media print {
+  .label-sheet {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 4mm;
+    padding: 5mm;
+  }
+
+  .label-preview {
+    display: none !important;
+  }
+
+  .label {
+    border: 1px solid #ccc;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

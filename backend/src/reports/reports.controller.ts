@@ -27,6 +27,16 @@ export class ReportsController {
     );
   }
 
+  /** گزارش بستن صندوق — تفکیک روش پرداخت برای تسویه پایان شیفت. */
+  @Get('shift-close')
+  shiftClose(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.shiftClose(user.companyId as string, from, to);
+  }
+
   /**
    * خروجی CSV گزارش فروش (قابل بازشدن در Excel)
    */

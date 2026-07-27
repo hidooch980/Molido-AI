@@ -21,6 +21,11 @@ export const NAV: NavItem[] = [
   { href: '/products', label: 'کالاها', icon: '📦', primary: true },
   { href: '/customers', label: 'مشتریان', icon: '👥' },
   { href: '/sales', label: 'فروش', icon: '🧾' },
+  { href: '/purchases', label: 'ورود کالا', icon: '📥' },
+  { href: '/inventory', label: 'انبار', icon: '🏬' },
+  { href: '/returns', label: 'مرجوعی', icon: '↩️' },
+  { href: '/shift', label: 'بستن صندوق', icon: '🧮' },
+  { href: '/labels', label: 'چاپ برچسب', icon: '🏷️' },
 ];
 
 /**

@@ -131,6 +131,78 @@ export class ReportsService {
   }
 
   /**
+   * گزارش بستن صندوق (X/Z Report).
+   *
+   * بدون تفکیک روش پرداخت نمی‌توان صندوق را در پایان شیفت تسویه کرد:
+   * مبلغ نقدی باید با شمارش فیزیکی صندوق مطابقت داشته باشد، در حالی که
+   * مبالغ کارتی از طریق بانک تسویه می‌شوند.
+   */
+  async shiftClose(companyId: string, from?: string, to?: string) {
+    // پیش‌فرض: از ابتدای امروز تا لحظه درخواست
+    const start = from ? new Date(from) : new Date(new Date().setHours(0, 0, 0, 0));
+    const end = to ? new Date(to) : new Date();
+
+    const range = { gte: start, lte: end };
+
+    const [sales, payments, returns, cashBoxes] = await Promise.all([
+      this.prisma.sale.findMany({
+        where: {
+          companyId,
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+          createdAt: range,
+        },
+        select: { total: true, discount: true, tax: true, subtotal: true },
+      }),
+      this.prisma.payment.findMany({
+        where: {
+          status: 'COMPLETED',
+          createdAt: range,
+          sale: { companyId },
+        },
+        select: { method: true, amount: true },
+      }),
+      this.prisma.productReturn.findMany({
+        where: { companyId, createdAt: range },
+        select: { totalAmount: true, status: true },
+      }),
+      this.prisma.cashBox.findMany({
+        where: { companyId },
+        select: { id: true, name: true, balance: true },
+      }),
+    ]);
+
+    const byMethod: Record<string, { count: number; amount: number }> = {};
+
+    for (const p of payments) {
+      const key = String(p.method);
+      const entry = byMethod[key] ?? { count: 0, amount: 0 };
+
+      entry.count += 1;
+      entry.amount += Number(p.amount);
+      byMethod[key] = entry;
+    }
+
+    const refunded = returns
+      .filter((r: any) => r.status === 'REFUNDED')
+      .reduce((sum: number, r: any) => sum + Number(r.totalAmount), 0);
+
+    return {
+      from: start.toISOString(),
+      to: end.toISOString(),
+      totalInvoices: sales.length,
+      totalRevenue: sales.reduce((s: number, x: any) => s + Number(x.total), 0),
+      totalDiscount: sales.reduce((s: number, x: any) => s + Number(x.discount), 0),
+      totalTax: sales.reduce((s: number, x: any) => s + Number(x.tax), 0),
+      byMethod,
+      returnsCount: returns.length,
+      refundedAmount: refunded,
+      // مبلغی که باید در صندوق فیزیکی باشد
+      expectedCash: (byMethod.CASH?.amount ?? 0) - refunded,
+      cashBoxes,
+    };
+  }
+
+  /**
    * گزارش سود: درآمد فروش منهای قیمت خرید کالاهای فروخته‌شده
    */
   async profitReport(companyId: string, from?: string, to?: string) {

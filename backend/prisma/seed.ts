@@ -79,14 +79,14 @@ async function main() {
   // ----- کالاهای نمونه -----
   // بارکدها EAN-13 نمونه‌اند تا جریان اسکن در صندوق قابل آزمایش باشد.
   const products = [
-    { id: 'seed-p1', name: 'برنج ایرانی ۱۰ کیلویی', sku: 'RICE-10', barcode: '6260100110017', purchasePrice: 900000, salePrice: 1100000, unit: 'کیسه' },
-    { id: 'seed-p2', name: 'روغن آفتابگردان', sku: 'OIL-01', barcode: '6260100110024', purchasePrice: 120000, salePrice: 155000, unit: 'عدد' },
-    { id: 'seed-p3', name: 'قند ۵ کیلویی', sku: 'SUGAR-5', barcode: '6260100110031', purchasePrice: 250000, salePrice: 310000, unit: 'بسته' },
-    { id: 'seed-p4', name: 'ماکارونی ۷۰۰ گرمی', sku: 'PASTA-700', barcode: '6260100110048', purchasePrice: 45000, salePrice: 62000, unit: 'عدد' },
-    { id: 'seed-p5', name: 'چای کیسه‌ای ۱۰۰ عددی', sku: 'TEA-100', barcode: '6260100110055', purchasePrice: 180000, salePrice: 240000, unit: 'بسته' },
-    { id: 'seed-p6', name: 'شیر پرچرب ۱ لیتری', sku: 'MILK-1L', barcode: '6260100110062', purchasePrice: 38000, salePrice: 52000, unit: 'عدد' },
-    { id: 'seed-p7', name: 'تخم‌مرغ بسته ۲۰ عددی', sku: 'EGG-20', barcode: '6260100110079', purchasePrice: 195000, salePrice: 260000, unit: 'بسته' },
-    { id: 'seed-p8', name: 'ماست موسیر ۹۰۰ گرمی', sku: 'YOG-900', barcode: '6260100110086', purchasePrice: 88000, salePrice: 119000, unit: 'عدد' },
+    { id: 'seed-p1', name: 'برنج ایرانی ۱۰ کیلویی', sku: 'RICE-10', barcode: '6260100110014', purchasePrice: 900000, salePrice: 1100000, unit: 'کیسه' },
+    { id: 'seed-p2', name: 'روغن آفتابگردان', sku: 'OIL-01', barcode: '6260100110021', purchasePrice: 120000, salePrice: 155000, unit: 'عدد' },
+    { id: 'seed-p3', name: 'قند ۵ کیلویی', sku: 'SUGAR-5', barcode: '6260100110038', purchasePrice: 250000, salePrice: 310000, unit: 'بسته' },
+    { id: 'seed-p4', name: 'ماکارونی ۷۰۰ گرمی', sku: 'PASTA-700', barcode: '6260100110045', purchasePrice: 45000, salePrice: 62000, unit: 'عدد' },
+    { id: 'seed-p5', name: 'چای کیسه‌ای ۱۰۰ عددی', sku: 'TEA-100', barcode: '6260100110052', purchasePrice: 180000, salePrice: 240000, unit: 'بسته' },
+    { id: 'seed-p6', name: 'شیر پرچرب ۱ لیتری', sku: 'MILK-1L', barcode: '6260100110069', purchasePrice: 38000, salePrice: 52000, unit: 'عدد' },
+    { id: 'seed-p7', name: 'تخم‌مرغ بسته ۲۰ عددی', sku: 'EGG-20', barcode: '6260100110076', purchasePrice: 195000, salePrice: 260000, unit: 'بسته' },
+    { id: 'seed-p8', name: 'ماست موسیر ۹۰۰ گرمی', sku: 'YOG-900', barcode: '6260100110083', purchasePrice: 88000, salePrice: 119000, unit: 'عدد' },
   ];
 
   for (const p of products) {

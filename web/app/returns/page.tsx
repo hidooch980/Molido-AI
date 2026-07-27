@@ -18,6 +18,9 @@ type ProductReturn = {
   totalAmount: string | number;
   note?: string | null;
   createdAt: string;
+  /** دو اقدام مستقل — هر کدام می‌تواند جدا انجام شود. */
+  restockedAt?: string | null;
+  refundedAt?: string | null;
   items?: ReturnItem[];
 };
 
@@ -365,7 +368,8 @@ export default function ReturnsPage() {
                   <th>شماره</th>
                   <th>علت</th>
                   <th>مبلغ</th>
-                  <th>وضعیت</th>
+                  <th>بازگشت انبار</th>
+                  <th>بازپرداخت</th>
                   <th>عملیات</th>
                 </tr>
               </thead>
@@ -376,10 +380,25 @@ export default function ReturnsPage() {
                     <td>{REASONS.find((x) => x.value === r.reason)?.label ?? r.reason}</td>
                     <td>{fa(r.totalAmount)}</td>
                     <td>
-                      <span className="badge">{STATUS_FA[r.status] ?? r.status}</span>
+                      {r.restockedAt ? (
+                        <span className="badge done">
+                          ✅ {new Date(r.restockedAt).toLocaleDateString('fa-IR')}
+                        </span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.refundedAt ? (
+                        <span className="badge done">
+                          ✅ {new Date(r.refundedAt).toLocaleDateString('fa-IR')}
+                        </span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </td>
                     <td className="row-actions">
-                      {r.status !== 'RESTOCKED' ? (
+                      {!r.restockedAt ? (
                         <button
                           type="button"
                           className="btn-sm"
@@ -388,7 +407,7 @@ export default function ReturnsPage() {
                           📦 بازگشت به انبار
                         </button>
                       ) : null}
-                      {r.status !== 'REFUNDED' ? (
+                      {!r.refundedAt ? (
                         <button
                           type="button"
                           className="btn-sm"
@@ -396,6 +415,9 @@ export default function ReturnsPage() {
                         >
                           💵 بازپرداخت
                         </button>
+                      ) : null}
+                      {r.restockedAt && r.refundedAt ? (
+                        <span className="muted">تکمیل شده</span>
                       ) : null}
                     </td>
                   </tr>

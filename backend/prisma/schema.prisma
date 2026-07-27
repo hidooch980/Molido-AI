@@ -3648,6 +3648,10 @@ model ProductReturn {
   status     ReturnStatus @default(PENDING)
   totalAmount Decimal @default(0) @db.Decimal(18,2)
   note       String?
+  // بازگشت به انبار و بازپرداخت وجه دو رویداد مستقل‌اند و می‌توانند
+  // هم‌زمان رخ دهند، پس در فیلدهای جدا ثبت می‌شوند نه در status.
+  restockedAt DateTime?
+  refundedAt  DateTime?
   items      ProductReturnItem[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

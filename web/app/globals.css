@@ -1417,3 +1417,11 @@ a {
     page-break-inside: avoid;
   }
 }
+
+/* نشانگر اقدام انجام‌شده در جدول مرجوعی */
+.badge.done {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+  white-space: nowrap;
+}

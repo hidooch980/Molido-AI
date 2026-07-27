@@ -111,7 +111,7 @@ export class ReturnsService {
 
       if (!ret) throw new NotFoundException('مرجوعی کالا یافت نشد');
 
-      if (ret.status === 'RESTOCKED') {
+      if (ret.restockedAt) {
         throw new BadRequestException('این مرجوعی قبلاً به انبار برگشته است');
       }
 
@@ -142,7 +142,11 @@ export class ReturnsService {
 
       return tx.productReturn.update({
         where: { id },
-        data: { status: 'RESTOCKED' },
+        data: {
+          restockedAt: new Date(),
+          // اگر وجه هم بازپرداخت شده، وضعیت نهایی همان REFUNDED می‌ماند.
+          status: ret.refundedAt ? 'REFUNDED' : 'RESTOCKED',
+        },
         include: { items: true },
       });
     });
@@ -157,7 +161,7 @@ export class ReturnsService {
 
       if (!ret) throw new NotFoundException('مرجوعی کالا یافت نشد');
 
-      if (ret.status === 'REFUNDED') {
+      if (ret.refundedAt) {
         throw new BadRequestException('وجه این مرجوعی قبلاً بازپرداخت شده است');
       }
 
@@ -182,7 +186,7 @@ export class ReturnsService {
 
       return tx.productReturn.update({
         where: { id },
-        data: { status: 'REFUNDED' },
+        data: { refundedAt: new Date(), status: 'REFUNDED' },
       });
     });
   }
@@ -205,7 +209,7 @@ export class ReturnsService {
   async remove(companyId: string, id: string) {
     const ret = await this.findOne(companyId, id);
 
-    if (ret.status === 'RESTOCKED' || ret.status === 'REFUNDED') {
+    if (ret.restockedAt || ret.refundedAt) {
       throw new BadRequestException(
         'مرجوعی پردازش‌شده قابل حذف نیست — آن را رد (REJECTED) کنید',
       );
@@ -217,14 +221,15 @@ export class ReturnsService {
   async stats(companyId: string) {
     const [total, pending, restocked, refunded] = await Promise.all([
       this.prisma.productReturn.count({ where: { companyId } }),
+      // «در انتظار» یعنی هنوز هیچ‌کدام از دو اقدام انجام نشده است.
       this.prisma.productReturn.count({
-        where: { companyId, status: 'PENDING' },
+        where: { companyId, restockedAt: null, refundedAt: null },
       }),
       this.prisma.productReturn.count({
-        where: { companyId, status: 'RESTOCKED' },
+        where: { companyId, restockedAt: { not: null } },
       }),
       this.prisma.productReturn.count({
-        where: { companyId, status: 'REFUNDED' },
+        where: { companyId, refundedAt: { not: null } },
       }),
     ]);
 

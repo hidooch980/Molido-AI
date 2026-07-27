@@ -782,6 +782,7 @@ invoiceNo     String
 status        SaleStatus @default(DRAFT)
 
 
+
 subtotal      Decimal @db.Decimal(18,2)
 
 
@@ -812,6 +813,9 @@ createdAt     DateTime @default(now())
 
 
 updatedAt     DateTime @updatedAt
+
+
+@@unique([companyId, invoiceNo])
 
 
 @@index([companyId])

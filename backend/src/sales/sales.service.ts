@@ -98,12 +98,62 @@ export class SalesService {
   }
 
   /**
+   * تولید شماره فاکتور ترتیبی روزانه: INV-YYMMDD-0001
+   *
+   * پیش‌تر از `INV-${Date.now()}` استفاده می‌شد که در فروشگاه‌های چندصندوقه
+   * قابل تصادم بود (دو فاکتور در یک میلی‌ثانیه). اکنون شماره ترتیبی است و
+   * ایندکس یکتای [companyId, invoiceNo] از تکرار جلوگیری می‌کند.
+   */
+  private async nextInvoiceNo(tx: any, companyId: string) {
+    const now = new Date();
+    const prefix =
+      `INV-${String(now.getFullYear()).slice(2)}` +
+      `${String(now.getMonth() + 1).padStart(2, '0')}` +
+      `${String(now.getDate()).padStart(2, '0')}-`;
+
+    const last = await tx.sale.findFirst({
+      where: { companyId, invoiceNo: { startsWith: prefix } },
+      orderBy: { invoiceNo: 'desc' },
+      select: { invoiceNo: true },
+    });
+
+    const seq = last ? Number(last.invoiceNo.slice(prefix.length)) + 1 : 1;
+
+    return `${prefix}${String(seq).padStart(4, '0')}`;
+  }
+
+  /**
    * ثبت فاکتور فروش:
    * - محاسبه خودکار مبالغ
    * - کاهش خودکار موجودی انبار (تراکنشی)
    * - ثبت پرداخت و به‌روزرسانی صندوق (اختیاری)
+   *
+   * اگر دو صندوق هم‌زمان یک شماره بگیرند، ایندکس یکتا یکی را رد می‌کند و
+   * کل تراکنش دوباره با شماره بعدی تلاش می‌شود.
    */
   async create(dto: CreateSaleDto, companyId: string, userId: string) {
+    const MAX_ATTEMPTS = 5;
+
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.createOnce(dto, companyId, userId);
+      } catch (error: any) {
+        const isDuplicateInvoice =
+          error?.code === 'P2002' &&
+          String(error?.meta?.target ?? '').includes('invoiceNo');
+
+        if (!isDuplicateInvoice || attempt >= MAX_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async createOnce(
+    dto: CreateSaleDto,
+    companyId: string,
+    userId: string,
+  ) {
     return this.prisma.$transaction(async (tx: any) => {
       const warehouse = await tx.warehouse.findFirst({
         where: { id: dto.warehouseId, companyId },
@@ -192,7 +242,7 @@ export class SalesService {
           customerId: dto.customerId ?? null,
           userId,
           warehouseId: dto.warehouseId,
-          invoiceNo: `INV-${Date.now()}`,
+          invoiceNo: await this.nextInvoiceNo(tx, companyId),
           status: status as never,
           subtotal,
           discount,

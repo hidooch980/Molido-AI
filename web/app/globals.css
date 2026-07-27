@@ -954,3 +954,398 @@ a {
     padding: 0;
   }
 }
+
+/* ═══════════════ صندوق فروش سوپرمارکت ═══════════════ */
+
+.ok {
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+.pos-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pos-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.pos-settings select,
+.pos-settings input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.pos-settings option {
+  color: #000;
+}
+
+/* ── نوار اسکن بارکد ── */
+.scan-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.scan-icon {
+  font-size: 26px;
+}
+
+.scan-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 16px 18px;
+  font-size: 19px;
+  font-family: inherit;
+  border-radius: 12px;
+  border: 2px solid var(--primary, #6366f1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.scan-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+}
+
+.scan-card .hint {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ── چیدمان دو ستونه ── */
+.pos-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .pos-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.empty {
+  padding: 26px 0;
+  text-align: center;
+}
+
+/* ── ردیف‌های سبد ── */
+.qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty button {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.qty input {
+  width: 66px;
+  padding: 6px;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+}
+
+.disc-input {
+  width: 86px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+}
+
+/* ── پنل پرداخت ── */
+.pay-card {
+  position: sticky;
+  top: 14px;
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--border);
+  gap: 10px;
+}
+
+.sum-row input {
+  width: 110px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+  text-align: end;
+}
+
+.sum-row.total {
+  font-size: 19px;
+  font-weight: 700;
+  border-bottom: none;
+  padding-top: 14px;
+  color: #a5b4fc;
+}
+
+.methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.method span {
+  font-size: 19px;
+}
+
+.method.on {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.recv {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.recv input {
+  padding: 13px 14px;
+  font-size: 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+  text-align: end;
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.quick button {
+  flex: 1;
+  min-width: 62px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.change {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.change.on {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fde68a;
+  font-weight: 700;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #22d3ee);
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pay-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.clear {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ── کارت کالا ── */
+.prod {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.prod:hover:not(:disabled) {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.prod.out {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.p-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.p-price {
+  color: #a5b4fc;
+  font-weight: 700;
+}
+
+.p-stock {
+  font-size: 11.5px;
+}
+
+/* ── رسید ── */
+.receipt-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.receipt-actions button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* رسید فقط هنگام چاپ دیده می‌شود */
+.receipt {
+  display: none;
+}
+
+.r-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.r-total {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.r-thanks {
+  text-align: center;
+}
+
+@media print {
+  /* هنگام چاپ فقط رسید روی کاغذ ۸۰ میلی‌متری باقی می‌ماند */
+  .card,
+  .pos-layout,
+  .scan-card,
+  .pos-settings,
+  .topbar,
+  .error,
+  .ok {
+    display: none !important;
+  }
+
+  .receipt {
+    display: block !important;
+    width: 72mm;
+    margin: 0 auto;
+    color: #000;
+    font-size: 12px;
+    line-height: 1.9;
+  }
+
+  .receipt h2 {
+    text-align: center;
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .receipt p {
+    text-align: center;
+    margin: 0;
+  }
+
+  .receipt hr {
+    border: none;
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+}

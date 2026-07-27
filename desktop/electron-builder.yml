@@ -1,0 +1,58 @@
+appId: ai.molido.desktop
+productName: Molido AI
+copyright: Copyright © 2026 Abdolnaser Mollazehi
+
+directories:
+  output: dist
+  buildResources: build
+
+# فقط کد Electron داخل asar می‌رود؛ بک‌اند/وب/پستگرس به عنوان منابع
+# بیرونی کپی می‌شوند تا مسیرهای فایل و باینری‌ها سالم بمانند.
+files:
+  - src/**/*
+  - package.json
+  - '!node_modules/@embedded-postgres/**'
+
+extraResources:
+  - from: staging/backend
+    to: backend
+  - from: staging/web
+    to: web
+  - from: staging/pgsql
+    to: pgsql
+
+asar: true
+compression: maximum
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: ${productName}-${version}-${arch}-${target}.${ext}
+
+# ---------------------------- Setup Wizard (NSIS) ----------------------------
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Molido AI
+  installerLanguages:
+    - fa_IR
+    - en_US
+  language: '1065'
+  deleteAppDataOnUninstall: false
+  artifactName: Molido-AI-Setup-${version}-x64.${ext}
+
+# -------------------------------- Portable ----------------------------------
+portable:
+  artifactName: Molido-AI-Portable-${version}-x64.${ext}
+  requestExecutionLevel: user
+  unpackDirName: MolidoAI
+
+publish: null

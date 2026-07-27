@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Molido AI</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        background: linear-gradient(150deg, #0f172a 0%, #1e293b 100%);
+        color: #e2e8f0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        user-select: none;
+        overflow: hidden;
+      }
+
+      .logo {
+        width: 68px;
+        height: 68px;
+        border-radius: 18px;
+        background: linear-gradient(140deg, #6366f1, #22d3ee);
+        display: grid;
+        place-items: center;
+        font-size: 34px;
+        font-weight: 700;
+        color: #fff;
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
+      }
+
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+
+      .bar {
+        width: 260px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #6366f1, #22d3ee);
+        animation: slide 1.3s ease-in-out infinite;
+      }
+
+      @keyframes slide {
+        0% {
+          transform: translateX(-120%);
+        }
+        100% {
+          transform: translateX(320%);
+        }
+      }
+
+      #status {
+        font-size: 13px;
+        color: #94a3b8;
+        min-height: 19px;
+        text-align: center;
+        padding: 0 24px;
+      }
+
+      #error {
+        display: none;
+        max-width: 460px;
+        margin: 0 24px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: rgba(220, 38, 38, 0.12);
+        border: 1px solid rgba(248, 113, 113, 0.35);
+        color: #fecaca;
+        font-size: 12.5px;
+        line-height: 1.9;
+        white-space: pre-wrap;
+        text-align: start;
+        max-height: 40vh;
+        overflow-y: auto;
+      }
+
+      body.failed .bar {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">M</div>
+    <h1>Molido AI</h1>
+    <div class="bar"><span></span></div>
+    <p id="status">در حال آماده‌سازی…</p>
+    <pre id="error"></pre>
+
+    <script>
+      // molidoSplash از طریق preload و contextBridge تزریق می‌شود.
+      window.molidoSplash.onStatus((text) => {
+        document.getElementById('status').textContent = text;
+      });
+
+      window.molidoSplash.onFailed((message) => {
+        document.body.classList.add('failed');
+        document.getElementById('status').textContent = 'راه‌اندازی ناموفق بود';
+
+        const box = document.getElementById('error');
+
+        box.textContent = message;
+        box.style.display = 'block';
+      });
+    </script>
+  </body>
+</html>

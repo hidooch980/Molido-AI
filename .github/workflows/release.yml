@@ -1,0 +1,113 @@
+name: Release
+
+# با push کردن یک تگ نسخه (مثلاً v1.0.0) اجرا می‌شود.
+#   git tag v1.0.0
+#   git push origin v1.0.0
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'نسخه برای build آزمایشی (بدون انتشار)'
+        required: false
+        default: '0.0.0-test'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows installers (x64)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Sync version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        working-directory: desktop
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "انتشار نسخه $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Generate application icon
+        working-directory: desktop
+        run: node scripts/make-icon.js
+
+      # بک‌اند، وب و باینری‌های PostgreSQL را در staging/ می‌چیند.
+      - name: Stage application
+        working-directory: desktop
+        run: npm run stage
+
+      - name: Build Setup Wizard and Portable
+        working-directory: desktop
+        run: npm run dist
+
+      - name: List artifacts
+        shell: bash
+        working-directory: desktop
+        run: ls -lh dist/*.exe
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: molido-ai-windows-x64
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Molido AI ${{ github.ref_name }}
+          files: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+          body: |
+            ## Molido AI ${{ github.ref_name }}
+
+            سامانه مدیریت هوشمند کسب‌وکار، فروشگاه و شهرداری.
+
+            ### دانلود
+
+            | نسخه | فایل | توضیح |
+            |------|------|-------|
+            | نصبی | `Molido-AI-Setup-*-x64.exe` | نصاب با ویزارد — انتخاب مسیر، شورتکات دسکتاپ و منوی استارت |
+            | پرتابل | `Molido-AI-Portable-*-x64.exe` | بدون نصب — مستقیم اجرا می‌شود |
+
+            ### پیش‌نیاز
+
+            ویندوز ۱۰ یا بالاتر، معماری **۶۴ بیتی**.
+            نیازی به نصب Node.js، PostgreSQL یا Docker نیست — همه داخل بسته است.
+
+            > نسخه ۳۲ بیتی ارائه نمی‌شود: موتور کوئری Prisma برای ویندوز
+            > فقط به صورت ۶۴ بیتی منتشر می‌شود.
+
+            ### اولین اجرا
+
+            اجرای اول چند دقیقه طول می‌کشد چون دیتابیس ساخته و مقداردهی می‌شود.
+
+            **ورود پیش‌فرض:** `admin@molido.ai` / `admin123`
+            پس از ورود حتماً رمز را تغییر دهید.
+
+            ### محل داده‌ها
+
+            ```
+            %APPDATA%\Molido AI\
+            ```
+            شامل دیتابیس، فایل‌های آپلودی، تنظیمات و لاگ. با حذف برنامه پاک نمی‌شود.

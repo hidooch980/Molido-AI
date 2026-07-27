@@ -1,0 +1,8 @@
+# خروجی مرحله stage — از backend/web/pgsql ساخته می‌شود
+staging/
+
+# بسته‌های نصبی
+dist/
+
+# آیکون تولیدشده (scripts/make-icon.js آن را می‌سازد)
+build/icon.ico

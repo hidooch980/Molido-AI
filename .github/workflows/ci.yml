@@ -26,9 +26,17 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      # فعلاً غیرمسدودکننده — وضعیت فعلی lint روی کل کدبیس سنجیده نشده است.
+      # پس از تمیزسازی، continue-on-error را بردارید تا گیت واقعی شود.
+      - name: Lint
+        run: npx eslint "{src,test}/**/*.ts"
+        continue-on-error: true
+
       - name: Build
         run: npm run build
 
+      # TODO: پوشش تست بسیار کم است (۲ فایل spec برای ۸۳ سرویس).
+      # تا افزوده شدن تست‌ها، passWithNoTests لازم است.
       - name: Test
         run: npm test -- --passWithNoTests
 

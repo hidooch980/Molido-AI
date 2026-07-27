@@ -1,0 +1,100 @@
+# Molido AI — نسخه دسکتاپ ویندوز
+
+بسته‌بندی کل سامانه (بک‌اند NestJS + داشبورد Next.js + PostgreSQL) در یک
+برنامه ویندوزی مستقل. کاربر نهایی به Node.js، PostgreSQL یا Docker نیاز ندارد.
+
+## خروجی‌ها
+
+| فایل | نوع |
+|------|-----|
+| `Molido-AI-Setup-<version>-x64.exe` | نصاب با ویزارد (NSIS) — انتخاب مسیر، شورتکات دسکتاپ و منوی استارت |
+| `Molido-AI-Portable-<version>-x64.exe` | پرتابل — بدون نصب اجرا می‌شود |
+
+هر دو **۶۴ بیتی** هستند. نسخه ۳۲ بیتی ساخته نمی‌شود چون موتور کوئری Prisma
+برای ویندوز فقط x64 منتشر می‌شود.
+
+## build محلی
+
+```bash
+cd desktop
+npm install
+node scripts/make-icon.js
+npm run stage
+npm run dist
+```
+
+خروجی در `desktop/dist/` قرار می‌گیرد.
+
+> ⚠️ `npm run stage` دستور `npm prune --omit=dev` را روی پوشه `backend/`
+> اجرا می‌کند و وابستگی‌های توسعه آن را حذف می‌کند. برای برگرداندن محیط
+> توسعه، در پوشه `backend` دوباره `npm install` بزنید.
+
+## انتشار
+
+workflow با push کردن تگ نسخه اجرا می‌شود و یک Release **پیش‌نویس** می‌سازد:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+برای build آزمایشی بدون انتشار، از `workflow_dispatch` در تب Actions استفاده کنید.
+
+## معماری اجرا
+
+```
+main.js
+  ├─ splash.html            نمایش پیشرفت راه‌اندازی
+  ├─ postgres.js            initdb → pg_ctl start → CREATE DATABASE
+  ├─ services.js
+  │    ├─ prisma db push    همگام‌سازی ۱۳۵ مدل
+  │    ├─ seed.js           فقط اولین اجرا
+  │    ├─ backend  :37701   NestJS
+  │    └─ web      :37702   Next.js standalone
+  └─ BrowserWindow → http://127.0.0.1:37702
+```
+
+زیرفرایندها با `ELECTRON_RUN_AS_NODE=1` اجرا می‌شوند، یعنی همان Node داخل
+Electron به کار می‌رود و نصب جداگانه Node لازم نیست.
+
+### پورت‌ها
+
+`37701` (API)، `37702` (وب)، `37703` (دیتابیس) — عمداً غیرمتعارف تا با
+سرویس‌های توسعه روی ۳۰۰۰/۳۰۰۱/۵۴۳۲ تداخل نکنند. اگر پورتی اشغال باشد،
+برنامه با پیام روشن متوقف می‌شود.
+
+آدرس API هنگام build داخل باندل کلاینت نوشته می‌شود، پس تغییر پورت API
+نیازمند تغییر همزمان `API_PORT` در `scripts/stage.js` و `PORTS.api` در
+`src/config.js` است.
+
+## داده‌های کاربر
+
+```
+%APPDATA%\Molido AI\
+  ├─ pgdata\        کلاستر PostgreSQL
+  ├─ uploads\       فایل‌های آپلودی
+  ├─ config.json    رمزها (دسترسی ۰۶۰۰)
+  ├─ .seeded        نشانه اجرای seed
+  ├─ postgres.log   لاگ دیتابیس
+  └─ molido.log     لاگ راه‌اندازی
+```
+
+با حذف برنامه پاک **نمی‌شود** (`deleteAppDataOnUninstall: false`).
+
+### امنیت
+
+- `JWT_SECRET`، `JWT_REFRESH_SECRET` و رمز دیتابیس در **اولین اجرا** به صورت
+  تصادفی (۳۲ بایت) ساخته می‌شوند — هیچ رمز ثابتی داخل بسته نصبی نیست.
+- PostgreSQL فقط روی `127.0.0.1` گوش می‌دهد و احراز هویت `scram-sha-256` دارد.
+- رمز از طریق فایل موقت به `initdb` داده می‌شود (نه آرگومان خط فرمان) تا در
+  لیست پردازه‌ها دیده نشود، و بلافاصله حذف می‌گردد.
+- پنجره اصلی با `contextIsolation: true` و `nodeIntegration: false` اجرا
+  می‌شود؛ صفحه splash از `contextBridge` استفاده می‌کند.
+
+> کاربر پیش‌فرض `admin@molido.ai` / `admin123` است. پس از اولین ورود
+> حتماً رمز را عوض کنید.
+
+## عیب‌یابی
+
+اگر برنامه بالا نیامد، ابتدا `%APPDATA%\Molido AI\molido.log` را ببینید.
+خطاهای دیتابیس در `postgres.log` همان پوشه ثبت می‌شوند.

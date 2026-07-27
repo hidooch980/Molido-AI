@@ -1,0 +1,24 @@
+{
+  "name": "molido-ai-desktop",
+  "productName": "Molido AI",
+  "version": "1.0.0",
+  "description": "Molido AI — سامانه مدیریت هوشمند کسب‌وکار، فروشگاه و شهرداری (نسخه دسکتاپ)",
+  "author": "Abdolnaser Mollazehi",
+  "license": "MIT",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "stage": "node scripts/stage.js",
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64 --publish never",
+    "build:all": "npm run stage && npm run dist"
+  },
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "@embedded-postgres/windows-x64": "16.14.0-beta.17",
+    "pg": "^8.13.1"
+  }
+}

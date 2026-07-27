@@ -18,6 +18,7 @@ export const NAV: NavItem[] = [
   { href: '/dashboard', label: 'داشبورد', icon: '🏠', primary: true },
   { href: '/pos', label: 'صندوق', icon: '💳', primary: true },
   { href: '/restaurant', label: 'رستوران', icon: '☕', primary: true },
+  { href: '/recipes', label: 'رسپی', icon: '📋' },
   { href: '/products', label: 'کالاها', icon: '📦', primary: true },
   { href: '/customers', label: 'مشتریان', icon: '👥' },
   { href: '/sales', label: 'فروش', icon: '🧾' },

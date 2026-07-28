@@ -15,8 +15,61 @@ export class CrmController {
 
   @Get('stats')
   stats(@CurrentUser() user: AuthUser) {
-    return this.service.stats(user.companyId!!);
+    return this.service.stats(user.companyId!);
   }
+
+  // ───────── کوپن تخفیف ─────────
+  // پیش از مسیر ':id' تعریف می‌شوند وگرنه «coupons» به عنوان شناسه
+  // تفسیر می‌شود و همیشه ۴۰۴ می‌گیرد.
+
+  @Get('coupons')
+  coupons(@CurrentUser() user: AuthUser) {
+    return this.service.coupons(user.companyId!);
+  }
+
+  @Post('coupons')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  createCoupon(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.createCoupon(user.companyId!, dto);
+  }
+
+  /** اعتبارسنجی بدون ثبت مصرف — برای نمایش تخفیف در صندوق. */
+  @Post('coupons/validate')
+  validateCoupon(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { code: string; orderAmount?: number },
+  ) {
+    return this.service.validateCoupon(
+      user.companyId!,
+      dto?.code,
+      dto?.orderAmount ?? 0,
+    );
+  }
+
+  /** ثبت مصرف کوپن — شمارنده استفاده را یکی زیاد می‌کند. */
+  @Post('coupons/redeem')
+  redeemCoupon(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { code: string; orderAmount?: number },
+  ) {
+    return this.service.redeemCoupon(
+      user.companyId!,
+      dto?.code,
+      dto?.orderAmount ?? 0,
+    );
+  }
+
+  @Patch('coupons/:id/active')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  setCouponActive(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { isActive: boolean },
+  ) {
+    return this.service.setCouponActive(user.companyId!, id, !!dto?.isActive);
+  }
+
+  // ───────── باشگاه مشتریان ─────────
 
   @Get()
   findAll(@CurrentUser() user: AuthUser, @Query() q: any) {
@@ -32,6 +85,17 @@ export class CrmController {
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.service.findOne(user.companyId!, id);
+  }
+
+  /** افزودن یا کسر امتیاز؛ delta منفی یعنی استفاده از امتیاز. */
+  @Patch(':id/points')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  addPoints(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { delta: number },
+  ) {
+    return this.service.addPoints(user.companyId!, id, Number(dto?.delta ?? 0));
   }
 
   @Patch(':id')

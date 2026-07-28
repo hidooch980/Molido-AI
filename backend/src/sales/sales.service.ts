@@ -6,6 +6,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { N8nService } from '../n8n/n8n.service';
+import { CrmService } from '../crm/crm.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly n8n: N8nService,
+    private readonly crm: CrmService,
   ) {}
 
   async findAll(
@@ -136,7 +138,23 @@ export class SalesService {
 
     for (let attempt = 1; ; attempt += 1) {
       try {
-        return await this.createOnce(dto, companyId, userId);
+        const sale = await this.createOnce(dto, companyId, userId);
+
+        // امتیاز وفاداری بیرون از تراکنش ثبت می‌شود: اگر باشگاه مشتریان
+        // به هر دلیلی خطا بدهد، فاکتور و کسر موجودی نباید برگردد.
+        if (dto.customerId) {
+          try {
+            await this.crm.earnFromPurchase(
+              companyId,
+              dto.customerId,
+              Number(sale.total),
+            );
+          } catch {
+            /* ثبت امتیاز اختیاری است و نباید فروش را بشکند */
+          }
+        }
+
+        return sale;
       } catch (error: any) {
         const isDuplicateInvoice =
           error?.code === 'P2002' &&

@@ -697,7 +697,26 @@ export class RestaurantService {
     });
   }
 
-  openShift(companyId: string, userId: string, data: any = {}) {
+  /** شیفت باز فعلی (اگر وجود داشته باشد). */
+  openShiftCurrent(companyId: string) {
+    return this.prisma.restaurantShift.findFirst({
+      where: { companyId, endedAt: null },
+      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
+  async openShift(companyId: string, userId: string, data: any = {}) {
+    // دو شیفت باز هم‌زمان باعث دوباره‌شماری فروش در بستن شیفت می‌شود،
+    // چون محاسبه بر اساس بازه زمانی است نه شناسه شیفت.
+    const current = await this.openShiftCurrent(companyId);
+
+    if (current) {
+      throw new BadRequestException(
+        'یک شیفت باز وجود دارد — ابتدا آن را ببندید.',
+      );
+    }
+
     return this.prisma.restaurantShift.create({
       data: {
         companyId,

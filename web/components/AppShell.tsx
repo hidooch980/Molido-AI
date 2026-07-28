@@ -27,6 +27,9 @@ export const NAV: NavItem[] = [
   { href: '/returns', label: 'مرجوعی', icon: '↩️' },
   { href: '/shift', label: 'بستن صندوق', icon: '🧮' },
   { href: '/labels', label: 'چاپ برچسب', icon: '🏷️' },
+  { href: '/treasury', label: 'خزانه‌داری', icon: '🏦' },
+  { href: '/cheques', label: 'چک‌ها', icon: '📃' },
+  { href: '/expenses', label: 'هزینه‌ها', icon: '💸' },
 ];
 
 /**

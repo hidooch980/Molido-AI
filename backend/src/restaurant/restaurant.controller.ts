@@ -304,6 +304,12 @@ export class RestaurantController {
     return this.service.shifts(user.companyId!);
   }
 
+  /** شیفت باز فعلی — برای اینکه رابط کاربری بداند چه چیزی نشان دهد. */
+  @Get('shifts/current')
+  currentShift(@CurrentUser() user: AuthUser) {
+    return this.service.openShiftCurrent(user.companyId!);
+  }
+
   @Post('shifts/open')
   openShift(@CurrentUser() user: AuthUser, @Body() dto: any) {
     return this.service.openShift(user.companyId!, user.userId, dto);

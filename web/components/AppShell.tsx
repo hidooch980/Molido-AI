@@ -30,6 +30,7 @@ export const NAV: NavItem[] = [
   { href: '/treasury', label: 'خزانه‌داری', icon: '🏦' },
   { href: '/cheques', label: 'چک‌ها', icon: '📃' },
   { href: '/expenses', label: 'هزینه‌ها', icon: '💸' },
+  { href: '/reports', label: 'گزارش‌ها', icon: '📊' },
 ];
 
 /**

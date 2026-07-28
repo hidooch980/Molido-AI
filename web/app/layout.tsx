@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { I18nProvider } from '../lib/i18n-context';
 import ServiceWorkerRegistrar from './sw-register';
 
 export const metadata: Metadata = {
@@ -43,8 +44,10 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body>
-        {children}
-        <ServiceWorkerRegistrar />
+        <I18nProvider>
+          {children}
+          <ServiceWorkerRegistrar />
+        </I18nProvider>
       </body>
     </html>
   );

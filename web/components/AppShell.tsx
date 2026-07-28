@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clearToken, getToken } from '../lib/api';
-import { LANGS, dirFor, getLang, setLangStorage, type Lang } from '../lib/i18n';
+import { LANGS, type Lang } from '../lib/i18n';
+import { useI18n } from '../lib/i18n-context';
+
+export type BizMode = 'retail' | 'restaurant' | 'both';
 
 export type NavItem = {
   href: string;
@@ -12,26 +15,36 @@ export type NavItem = {
   icon: string;
   /** در نوار پایین موبایل نمایش داده شود */
   primary?: boolean;
+  /** صنفی که این صفحه به آن مربوط است؛ نبودش یعنی مشترک بین همه. */
+  only?: 'retail' | 'restaurant';
 };
 
+const BIZ_KEY = 'molido_biz';
+
+export function getBiz(): BizMode {
+  if (typeof window === 'undefined') return 'both';
+  const v = window.localStorage.getItem(BIZ_KEY);
+  return v === 'retail' || v === 'restaurant' ? v : 'both';
+}
+
 export const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'داشبورد', icon: '🏠', primary: true },
-  { href: '/pos', label: 'صندوق', icon: '💳', primary: true },
-  { href: '/restaurant', label: 'رستوران', icon: '☕', primary: true },
-  { href: '/recipes', label: 'رسپی', icon: '📋' },
-  { href: '/products', label: 'کالاها', icon: '📦', primary: true },
-  { href: '/customers', label: 'مشتریان', icon: '👥' },
-  { href: '/sales', label: 'فروش', icon: '🧾' },
-  { href: '/purchases', label: 'ورود کالا', icon: '📥' },
-  { href: '/inventory', label: 'انبار', icon: '🏬' },
-  { href: '/returns', label: 'مرجوعی', icon: '↩️' },
-  { href: '/shift', label: 'بستن صندوق', icon: '🧮' },
-  { href: '/labels', label: 'چاپ برچسب', icon: '🏷️' },
-  { href: '/treasury', label: 'خزانه‌داری', icon: '🏦' },
-  { href: '/cheques', label: 'چک‌ها', icon: '📃' },
-  { href: '/expenses', label: 'هزینه‌ها', icon: '💸' },
-  { href: '/reports', label: 'گزارش‌ها', icon: '📊' },
-  { href: '/crm', label: 'باشگاه مشتریان', icon: '💎' },
+  { href: '/dashboard', label: 'nav.dashboard', icon: '🏠', primary: true },
+  { href: '/pos', label: 'nav.pos', icon: '💳', primary: true },
+  { href: '/restaurant', label: 'nav.restaurant', icon: '☕', primary: true, only: 'restaurant' },
+  { href: '/recipes', label: 'nav.recipes', icon: '📋', only: 'restaurant' },
+  { href: '/products', label: 'nav.products', icon: '📦', primary: true },
+  { href: '/customers', label: 'nav.customers', icon: '👥' },
+  { href: '/sales', label: 'nav.sales', icon: '🧾' },
+  { href: '/purchases', label: 'nav.purchases', icon: '📥' },
+  { href: '/inventory', label: 'nav.inventory', icon: '🏬' },
+  { href: '/returns', label: 'nav.returns', icon: '↩️' },
+  { href: '/shift', label: 'nav.shift', icon: '🧮' },
+  { href: '/labels', label: 'nav.labels', icon: '🏷️', only: 'retail' },
+  { href: '/treasury', label: 'nav.treasury', icon: '🏦' },
+  { href: '/cheques', label: 'nav.cheques', icon: '📃' },
+  { href: '/expenses', label: 'nav.expenses', icon: '💸' },
+  { href: '/reports', label: 'nav.reports', icon: '📊' },
+  { href: '/crm', label: 'nav.crm', icon: '💎' },
 ];
 
 /**
@@ -54,8 +67,9 @@ export default function AppShell({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [lang, setLang] = useState<Lang>('fa');
+  const { lang, setLang, t } = useI18n();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [biz, setBiz] = useState<BizMode>('both');
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
@@ -64,8 +78,8 @@ export default function AppShell({
       return;
     }
 
-    setLang(getLang());
     setOnline(navigator.onLine);
+    setBiz(getBiz());
 
     const up = () => setOnline(true);
     const down = () => setOnline(false);
@@ -79,17 +93,11 @@ export default function AppShell({
     };
   }, [router]);
 
-  useEffect(() => {
-    document.documentElement.dir = dirFor(lang);
-    document.documentElement.lang = lang;
-  }, [lang]);
-
   // با تغییر صفحه، منوی کشویی بسته شود
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   function switchLang(next: Lang) {
     setLang(next);
-    setLangStorage(next);
   }
 
   function logout() {
@@ -97,7 +105,14 @@ export default function AppShell({
     router.replace('/');
   }
 
-  const primary = NAV.filter((item) => item.primary);
+  // صفحات صنف دیگر پنهان می‌شوند تا منو برای هر کسب‌وکار تمیز بماند.
+  const nav = NAV.filter((item) => !item.only || biz === 'both' || item.only === biz);
+  const primary = nav.filter((item) => item.primary);
+
+  function switchBiz(next: BizMode) {
+    setBiz(next);
+    window.localStorage.setItem(BIZ_KEY, next);
+  }
 
   return (
     <div className="shell">
@@ -114,14 +129,14 @@ export default function AppShell({
         </div>
 
         <nav>
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`nav-item${pathname === item.href ? ' active' : ''}`}
             >
               <span>{item.icon}</span>
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </Link>
           ))}
         </nav>
@@ -146,17 +161,35 @@ export default function AppShell({
             </div>
 
             <nav>
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`nav-item${pathname === item.href ? ' active' : ''}`}
                 >
                   <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span>{t(item.label)}</span>
                 </Link>
               ))}
             </nav>
+
+            <div className="lang-pills" style={{ marginTop: 16 }}>
+              {([
+                { v: 'retail', icon: '🛒' },
+                { v: 'restaurant', icon: '☕' },
+                { v: 'both', icon: '⚯' },
+              ] as const).map((b) => (
+                <button
+                  key={b.v}
+                  type="button"
+                  className={`lang-pill${biz === b.v ? ' active' : ''}`}
+                  onClick={() => switchBiz(b.v)}
+                  title={t('biz.' + b.v)}
+                >
+                  {b.icon} {t('biz.' + b.v)}
+                </button>
+              ))}
+            </div>
 
             <div className="lang-pills" style={{ marginTop: 16 }}>
               {LANGS.map((item) => (
@@ -181,7 +214,7 @@ export default function AppShell({
       {/* ───── محتوای اصلی ───── */}
       <main className="main">
         {!online ? (
-          <div className="offline-bar">آفلاین — آخرین اطلاعات ذخیره‌شده</div>
+          <div className="offline-bar">{t('offlineBar')}</div>
         ) : null}
 
         <header className="topbar">
@@ -189,7 +222,7 @@ export default function AppShell({
             type="button"
             className="icon-btn menu-btn"
             onClick={() => setDrawerOpen(true)}
-            aria-label="منو"
+            aria-label={t('menu')}
           >
             ☰
           </button>
@@ -229,7 +262,7 @@ export default function AppShell({
             className={`bottom-item${pathname === item.href ? ' active' : ''}`}
           >
             <span className="bi-icon">{item.icon}</span>
-            <span className="bi-label">{item.label}</span>
+            <span className="bi-label">{t(item.label)}</span>
           </Link>
         ))}
 
@@ -239,7 +272,7 @@ export default function AppShell({
           onClick={() => setDrawerOpen(true)}
         >
           <span className="bi-icon">☰</span>
-          <span className="bi-label">بیشتر</span>
+          <span className="bi-label">{t('more')}</span>
         </button>
       </nav>
     </div>

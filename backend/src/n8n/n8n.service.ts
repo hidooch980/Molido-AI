@@ -14,6 +14,7 @@ export type N8nEventType =
   | 'cheque.due_soon'
   | 'installment.overdue'
   | 'municipal_bill.created'
+  | 'receipt.collected'
   | 'pos.status_changed'
   | 'user.registered'
   | 'fire.incident_created'
@@ -153,5 +154,10 @@ export class N8nService {
 
   fireIncidentCreated(incident: Record<string, unknown>) {
     return this.emit('fire.incident_created', incident);
+  }
+
+  /** هر دریافت وجه در هر زیرسیستم — عوارض، جواز، پارکینگ، فروش و ... */
+  receiptCollected(receipt: Record<string, unknown>, companyId: string) {
+    return this.emit('receipt.collected', receipt, companyId);
   }
 }

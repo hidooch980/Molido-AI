@@ -1,73 +1,130 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
+import { Params, setClause } from '../database/sql';
+
+type Station = Record<string, unknown> & { id: string };
+type Firefighter = Record<string, unknown> & { id: string };
+type Vehicle = Record<string, unknown> & { id: string };
+type Incident = Record<string, unknown> & { id: string; status: string };
+type Inspection = Record<string, unknown> & { id: string };
+
+const STATION_WRITABLE = ['name', 'code', 'address', 'phone'] as const;
+const FIREFIGHTER_WRITABLE = [
+  'firstName',
+  'lastName',
+  'rank',
+  'phone',
+  'nationalCode',
+  'isOnDuty',
+  'isActive',
+] as const;
+const VEHICLE_WRITABLE = ['name', 'plateNo', 'vehicleType', 'status'] as const;
+
+const INCIDENT_STATUSES = [
+  'DISPATCHED',
+  'ON_SCENE',
+  'CONTAINED',
+  'RESOLVED',
+  'CANCELLED',
+];
+const OPEN_INCIDENT_STATUSES = ['REPORTED', 'DISPATCHED', 'ON_SCENE', 'CONTAINED'];
+
+/** A safety certificate stays valid for one year from the inspection. */
+const CERTIFICATE_VALID_YEARS = 1;
+
+const WITH_STATION = (table: string) => `
+  SELECT x.*, s.name AS "stationName", s.code AS "stationCode"
+  FROM "${table}" x JOIN "FireStation" s ON s.id = x."stationId"
+`;
 
 @Injectable()
 export class FireDepartmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   // ==========================================
   // ایستگاه‌ها (Fire Stations)
   // ==========================================
 
   async findAllStations(companyId: string) {
-    return this.prisma.fireStation.findMany({
-      where: { companyId },
-      include: {
-        _count: {
-          select: { firefighters: true, vehicles: true, incidents: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.db.query<Station>(
+      `SELECT s.*,
+              (SELECT count(*)::int FROM "FireFighter" f WHERE f."stationId" = s.id)
+                AS "firefightersCount",
+              (SELECT count(*)::int FROM "FireVehicle" v WHERE v."stationId" = s.id)
+                AS "vehiclesCount",
+              (SELECT count(*)::int FROM "FireIncident" i WHERE i."stationId" = s.id)
+                AS "incidentsCount"
+       FROM "FireStation" s WHERE s."companyId" = $1 ORDER BY s."createdAt" DESC`,
+      [companyId],
+    );
+  }
+
+  private async requireStation(id: string, companyId: string): Promise<Station> {
+    const rows = await this.db.query<Station>(
+      'SELECT * FROM "FireStation" WHERE id = $1 AND "companyId" = $2',
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException('ایستگاه آتش‌نشانی یافت نشد');
+    return rows[0];
   }
 
   async findStation(id: string, companyId: string) {
-    const station = await this.prisma.fireStation.findFirst({
-      where: { id, companyId },
-      include: {
-        firefighters: { orderBy: { createdAt: 'desc' } },
-        vehicles: { orderBy: { createdAt: 'desc' } },
-        incidents: { orderBy: { reportedAt: 'desc' }, take: 20 },
-      },
-    });
+    const station = await this.requireStation(id, companyId);
 
-    if (!station) {
-      throw new NotFoundException('ایستگاه آتش‌نشانی یافت نشد');
-    }
+    const [firefighters, vehicles, incidents] = await Promise.all([
+      this.db.query<Firefighter>(
+        'SELECT * FROM "FireFighter" WHERE "stationId" = $1 ORDER BY "createdAt" DESC',
+        [id],
+      ),
+      this.db.query<Vehicle>(
+        'SELECT * FROM "FireVehicle" WHERE "stationId" = $1 ORDER BY "createdAt" DESC',
+        [id],
+      ),
+      this.db.query<Incident>(
+        'SELECT * FROM "FireIncident" WHERE "stationId" = $1 ORDER BY "reportedAt" DESC LIMIT 20',
+        [id],
+      ),
+    ]);
 
-    return station;
+    return { ...station, firefighters, vehicles, incidents };
   }
 
   async createStation(
     companyId: string,
     data: { name: string; code: string; address?: string; phone?: string },
   ) {
-    return this.prisma.fireStation.create({
-      data: { ...data, companyId },
-    });
+    const rows = await this.db.query<Station>(
+      `INSERT INTO "FireStation" (id, "companyId", name, code, address, phone)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [randomUUID(), companyId, data.name, data.code, data.address ?? null, data.phone ?? null],
+    );
+    return rows[0];
   }
 
-  async updateStation(
-    id: string,
-    companyId: string,
-    data: Record<string, unknown>,
-  ) {
-    await this.findStation(id, companyId);
+  async updateStation(id: string, companyId: string, data: object) {
+    await this.requireStation(id, companyId);
 
-    return this.prisma.fireStation.update({
-      where: { id },
-      data: data as never,
-    });
+    const params = new Params();
+    const assignments = setClause(STATION_WRITABLE, data, params);
+    if (!assignments) return this.requireStation(id, companyId);
+
+    const rows = await this.db.query<Station>(
+      `UPDATE "FireStation" SET ${assignments}, "updatedAt" = now()
+       WHERE id = ${params.next(id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
   }
 
   async removeStation(id: string, companyId: string) {
-    await this.findStation(id, companyId);
-
-    return this.prisma.fireStation.delete({ where: { id } });
+    const station = await this.requireStation(id, companyId);
+    await this.db.execute('DELETE FROM "FireStation" WHERE id = $1', [id]);
+    return station;
   }
 
   // ==========================================
@@ -75,16 +132,16 @@ export class FireDepartmentService {
   // ==========================================
 
   async findFirefighters(companyId: string, stationId?: string) {
-    return this.prisma.fireFighter.findMany({
-      where: {
-        station: { companyId },
-        ...(stationId ? { stationId } : {}),
-      },
-      include: {
-        station: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const values: unknown[] = [companyId];
+    let where = 's."companyId" = $1';
+    if (stationId) {
+      values.push(stationId);
+      where += ` AND x."stationId" = $${values.length}`;
+    }
+    return this.db.query<Firefighter>(
+      `${WITH_STATION('FireFighter')} WHERE ${where} ORDER BY x."createdAt" DESC`,
+      values,
+    );
   }
 
   async createFirefighter(
@@ -98,37 +155,40 @@ export class FireDepartmentService {
       nationalCode?: string;
     },
   ) {
-    await this.findStation(data.stationId, companyId);
+    await this.requireStation(data.stationId, companyId);
 
-    return this.prisma.fireFighter.create({
-      data: {
-        stationId: data.stationId,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        rank: (data.rank ?? 'FIREFIGHTER') as never,
-        phone: data.phone,
-        nationalCode: data.nationalCode,
-      },
-    });
+    const rows = await this.db.query<Firefighter>(
+      `INSERT INTO "FireFighter"
+         (id, "stationId", "firstName", "lastName", rank, phone, "nationalCode")
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        randomUUID(),
+        data.stationId,
+        data.firstName,
+        data.lastName,
+        data.rank ?? 'FIREFIGHTER',
+        data.phone ?? null,
+        data.nationalCode ?? null,
+      ],
+    );
+    return rows[0];
   }
 
-  async updateFirefighter(
-    id: string,
-    companyId: string,
-    data: Record<string, unknown>,
-  ) {
-    const firefighter = await this.prisma.fireFighter.findFirst({
-      where: { id, station: { companyId } },
-    });
+  async updateFirefighter(id: string, companyId: string, data: object) {
+    await this.requireScoped('FireFighter', id, companyId, 'آتش‌نشان یافت نشد');
 
-    if (!firefighter) {
-      throw new NotFoundException('آتش‌نشان یافت نشد');
+    const params = new Params();
+    const assignments = setClause(FIREFIGHTER_WRITABLE, data, params);
+    if (!assignments) {
+      return this.requireScoped('FireFighter', id, companyId, 'آتش‌نشان یافت نشد');
     }
 
-    return this.prisma.fireFighter.update({
-      where: { id },
-      data: data as never,
-    });
+    const rows = await this.db.query<Firefighter>(
+      `UPDATE "FireFighter" SET ${assignments}, "updatedAt" = now()
+       WHERE id = ${params.next(id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
   }
 
   // ==========================================
@@ -136,57 +196,47 @@ export class FireDepartmentService {
   // ==========================================
 
   async findVehicles(companyId: string, stationId?: string) {
-    return this.prisma.fireVehicle.findMany({
-      where: {
-        station: { companyId },
-        ...(stationId ? { stationId } : {}),
-      },
-      include: {
-        station: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const values: unknown[] = [companyId];
+    let where = 's."companyId" = $1';
+    if (stationId) {
+      values.push(stationId);
+      where += ` AND x."stationId" = $${values.length}`;
+    }
+    return this.db.query<Vehicle>(
+      `${WITH_STATION('FireVehicle')} WHERE ${where} ORDER BY x."createdAt" DESC`,
+      values,
+    );
   }
 
   async createVehicle(
     companyId: string,
-    data: {
-      stationId: string;
-      name: string;
-      plateNo: string;
-      vehicleType: string;
-    },
+    data: { stationId: string; name: string; plateNo: string; vehicleType: string },
   ) {
-    await this.findStation(data.stationId, companyId);
+    await this.requireStation(data.stationId, companyId);
 
-    return this.prisma.fireVehicle.create({
-      data: {
-        stationId: data.stationId,
-        name: data.name,
-        plateNo: data.plateNo,
-        vehicleType: data.vehicleType,
-        status: 'READY',
-      },
-    });
+    const rows = await this.db.query<Vehicle>(
+      `INSERT INTO "FireVehicle" (id, "stationId", name, "plateNo", "vehicleType", status)
+       VALUES ($1, $2, $3, $4, $5, 'READY') RETURNING *`,
+      [randomUUID(), data.stationId, data.name, data.plateNo, data.vehicleType],
+    );
+    return rows[0];
   }
 
-  async updateVehicle(
-    id: string,
-    companyId: string,
-    data: Record<string, unknown>,
-  ) {
-    const vehicle = await this.prisma.fireVehicle.findFirst({
-      where: { id, station: { companyId } },
-    });
+  async updateVehicle(id: string, companyId: string, data: object) {
+    await this.requireScoped('FireVehicle', id, companyId, 'خودرو یافت نشد');
 
-    if (!vehicle) {
-      throw new NotFoundException('خودرو یافت نشد');
+    const params = new Params();
+    const assignments = setClause(VEHICLE_WRITABLE, data, params);
+    if (!assignments) {
+      return this.requireScoped('FireVehicle', id, companyId, 'خودرو یافت نشد');
     }
 
-    return this.prisma.fireVehicle.update({
-      where: { id },
-      data: data as never,
-    });
+    const rows = await this.db.query<Vehicle>(
+      `UPDATE "FireVehicle" SET ${assignments}, "updatedAt" = now()
+       WHERE id = ${params.next(id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
   }
 
   // ==========================================
@@ -197,36 +247,34 @@ export class FireDepartmentService {
     companyId: string,
     options?: { status?: string; type?: string; stationId?: string },
   ) {
-    return this.prisma.fireIncident.findMany({
-      where: {
-        companyId,
-        ...(options?.status ? { status: options.status as never } : {}),
-        ...(options?.type ? { type: options.type as never } : {}),
-        ...(options?.stationId ? { stationId: options.stationId } : {}),
-      },
-      include: {
-        station: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { reportedAt: 'desc' },
-    });
+    const params = new Params();
+    const conditions = [`i."companyId" = ${params.next(companyId)}`];
+    if (options?.status) conditions.push(`i.status = ${params.next(options.status)}`);
+    if (options?.type) conditions.push(`i.type = ${params.next(options.type)}`);
+    if (options?.stationId) conditions.push(`i."stationId" = ${params.next(options.stationId)}`);
+
+    return this.db.query<Incident>(
+      `SELECT i.*, s.name AS "stationName", s.code AS "stationCode"
+       FROM "FireIncident" i LEFT JOIN "FireStation" s ON s.id = i."stationId"
+       WHERE ${conditions.join(' AND ')} ORDER BY i."reportedAt" DESC`,
+      params.values,
+    );
   }
 
   async findIncident(id: string, companyId: string) {
-    const incident = await this.prisma.fireIncident.findFirst({
-      where: { id, companyId },
-      include: { station: true },
-    });
+    const rows = await this.db.query<Incident>(
+      'SELECT * FROM "FireIncident" WHERE id = $1 AND "companyId" = $2',
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException('حادثه یافت نشد');
 
-    if (!incident) {
-      throw new NotFoundException('حادثه یافت نشد');
-    }
-
-    return incident;
+    const stations = rows[0].stationId
+      ? await this.db.query('SELECT * FROM "FireStation" WHERE id = $1', [rows[0].stationId])
+      : [];
+    return { ...rows[0], station: stations[0] ?? null };
   }
 
-  /**
-   * ثبت حادثه جدید (تماس شهروند با ۱۲۵)
-   */
+  /** ثبت حادثه جدید (تماس شهروند با ۱۲۵) */
   async reportIncident(
     companyId: string,
     data: {
@@ -237,75 +285,69 @@ export class FireDepartmentService {
       description?: string;
     },
   ) {
-    return this.prisma.fireIncident.create({
-      data: {
+    const rows = await this.db.query<Incident>(
+      `INSERT INTO "FireIncident"
+         (id, "companyId", "incidentNo", type, status, address,
+          "reporterName", "reporterPhone", description)
+       VALUES ($1, $2, $3, $4, 'REPORTED', $5, $6, $7, $8) RETURNING *`,
+      [
+        randomUUID(),
         companyId,
-        incidentNo: `INC-${Date.now()}`,
-        type: (data.type ?? 'FIRE') as never,
-        status: 'REPORTED',
-        address: data.address,
-        reporterName: data.reporterName,
-        reporterPhone: data.reporterPhone,
-        description: data.description,
-      },
-    });
+        `INC-${Date.now()}`,
+        data.type ?? 'FIRE',
+        data.address,
+        data.reporterName ?? null,
+        data.reporterPhone ?? null,
+        data.description ?? null,
+      ],
+    );
+    return rows[0];
   }
 
-  /**
-   * اعزام نیرو: تخصیص ایستگاه و تغییر وضعیت به اعزام‌شده
-   */
+  /** اعزام نیرو: تخصیص ایستگاه و تغییر وضعیت به اعزام‌شده */
   async dispatchIncident(id: string, companyId: string, stationId: string) {
     const incident = await this.findIncident(id, companyId);
-
     if (['RESOLVED', 'CANCELLED'].includes(incident.status)) {
       throw new BadRequestException('این حادثه قبلاً بسته شده است');
     }
+    await this.requireStation(stationId, companyId);
 
-    await this.findStation(stationId, companyId);
-
-    return this.prisma.fireIncident.update({
-      where: { id },
-      data: {
-        stationId,
-        status: 'DISPATCHED',
-        dispatchedAt: new Date(),
-      },
-    });
+    const rows = await this.db.query<Incident>(
+      `UPDATE "FireIncident"
+       SET "stationId" = $1, status = 'DISPATCHED', "dispatchedAt" = now(), "updatedAt" = now()
+       WHERE id = $2 RETURNING *`,
+      [stationId, id],
+    );
+    return rows[0];
   }
 
-  /**
-   * به‌روزرسانی وضعیت عملیات (در محل، مهار‌شده، پایان‌یافته، لغو)
-   */
+  /** به‌روزرسانی وضعیت عملیات (در محل، مهار‌شده، پایان‌یافته، لغو) */
   async updateIncidentStatus(
     id: string,
     companyId: string,
     data: { status: string; casualties?: number; injuries?: number },
   ) {
     const incident = await this.findIncident(id, companyId);
-
-    const allowed = [
-      'DISPATCHED',
-      'ON_SCENE',
-      'CONTAINED',
-      'RESOLVED',
-      'CANCELLED',
-    ];
-
-    if (!allowed.includes(data.status)) {
+    if (!INCIDENT_STATUSES.includes(data.status)) {
       throw new BadRequestException('وضعیت نامعتبر است');
     }
 
-    return this.prisma.fireIncident.update({
-      where: { id: incident.id },
-      data: {
-        status: data.status as never,
-        ...(data.casualties !== undefined
-          ? { casualties: data.casualties }
-          : {}),
-        ...(data.injuries !== undefined ? { injuries: data.injuries } : {}),
-        ...(data.status === 'RESOLVED' ? { resolvedAt: new Date() } : {}),
-      },
-    });
+    const params = new Params();
+    const assignments = [`status = ${params.next(data.status)}`];
+    if (data.casualties !== undefined) {
+      assignments.push(`casualties = ${params.next(data.casualties)}`);
+    }
+    if (data.injuries !== undefined) {
+      assignments.push(`injuries = ${params.next(data.injuries)}`);
+    }
+    if (data.status === 'RESOLVED') assignments.push('"resolvedAt" = now()');
+
+    const rows = await this.db.query<Incident>(
+      `UPDATE "FireIncident" SET ${assignments.join(', ')}, "updatedAt" = now()
+       WHERE id = ${params.next(incident.id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
   }
 
   // ==========================================
@@ -313,18 +355,19 @@ export class FireDepartmentService {
   // ==========================================
 
   async findSafetyInspections(companyId: string, result?: string) {
-    return this.prisma.safetyInspection.findMany({
-      where: {
-        companyId,
-        ...(result ? { result: result as never } : {}),
-      },
-      orderBy: { inspectedAt: 'desc' },
-    });
+    const values: unknown[] = [companyId];
+    let where = '"companyId" = $1';
+    if (result) {
+      values.push(result);
+      where += ` AND result = $${values.length}`;
+    }
+    return this.db.query<Inspection>(
+      `SELECT * FROM "SafetyInspection" WHERE ${where} ORDER BY "inspectedAt" DESC`,
+      values,
+    );
   }
 
-  /**
-   * ثبت بازدید ایمنی — در صورت قبولی، تأییدیه ایمنی یک‌ساله صادر می‌شود
-   */
+  /** ثبت بازدید ایمنی — در صورت قبولی، تأییدیه ایمنی یک‌ساله صادر می‌شود */
   async createSafetyInspection(
     companyId: string,
     data: {
@@ -337,24 +380,28 @@ export class FireDepartmentService {
     },
   ) {
     const passed = data.result === 'PASSED';
-
     const validUntil = new Date();
-    validUntil.setFullYear(validUntil.getFullYear() + 1);
+    validUntil.setFullYear(validUntil.getFullYear() + CERTIFICATE_VALID_YEARS);
 
-    return this.prisma.safetyInspection.create({
-      data: {
+    const rows = await this.db.query<Inspection>(
+      `INSERT INTO "SafetyInspection"
+         (id, "companyId", "propertyName", address, "ownerName", "ownerPhone",
+          result, notes, "certificateNo", "validUntil")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        randomUUID(),
         companyId,
-        propertyName: data.propertyName,
-        address: data.address,
-        ownerName: data.ownerName,
-        ownerPhone: data.ownerPhone,
-        result: data.result as never,
-        notes: data.notes,
-        ...(passed
-          ? { certificateNo: `CERT-${Date.now()}`, validUntil }
-          : {}),
-      },
-    });
+        data.propertyName,
+        data.address,
+        data.ownerName,
+        data.ownerPhone ?? null,
+        data.result,
+        data.notes ?? null,
+        passed ? `CERT-${Date.now()}` : null,
+        passed ? validUntil : null,
+      ],
+    );
+    return rows[0];
   }
 
   // ==========================================
@@ -362,59 +409,72 @@ export class FireDepartmentService {
   // ==========================================
 
   async stats(companyId: string) {
-    const [stations, firefighters, vehicles, incidents, inspections] =
-      await Promise.all([
-        this.prisma.fireStation.count({ where: { companyId } }),
-        this.prisma.fireFighter.findMany({
-          where: { station: { companyId } },
-          select: { isOnDuty: true },
-        }),
-        this.prisma.fireVehicle.findMany({
-          where: { station: { companyId } },
-          select: { status: true },
-        }),
-        this.prisma.fireIncident.findMany({
-          where: { companyId },
-          select: { status: true, type: true },
-        }),
-        this.prisma.safetyInspection.findMany({
-          where: { companyId },
-          select: { result: true },
-        }),
-      ]);
+    const rows = await this.db.query<Record<string, string>>(
+      `SELECT
+         (SELECT count(*)::text FROM "FireStation" WHERE "companyId" = $1) AS stations,
+         (SELECT count(*)::text FROM "FireFighter" f
+            JOIN "FireStation" s ON s.id = f."stationId"
+          WHERE s."companyId" = $1) AS firefighters_total,
+         (SELECT count(*)::text FROM "FireFighter" f
+            JOIN "FireStation" s ON s.id = f."stationId"
+          WHERE s."companyId" = $1 AND f."isOnDuty" = true) AS firefighters_on_duty,
+         (SELECT count(*)::text FROM "FireVehicle" v
+            JOIN "FireStation" s ON s.id = v."stationId"
+          WHERE s."companyId" = $1) AS vehicles_total,
+         (SELECT count(*)::text FROM "FireVehicle" v
+            JOIN "FireStation" s ON s.id = v."stationId"
+          WHERE s."companyId" = $1 AND v.status = 'READY') AS vehicles_ready,
+         (SELECT count(*)::text FROM "FireIncident" WHERE "companyId" = $1) AS incidents_total,
+         (SELECT count(*)::text FROM "FireIncident"
+          WHERE "companyId" = $1 AND status = ANY($2)) AS incidents_active,
+         (SELECT count(*)::text FROM "FireIncident"
+          WHERE "companyId" = $1 AND status = 'RESOLVED') AS incidents_resolved,
+         (SELECT count(*)::text FROM "SafetyInspection"
+          WHERE "companyId" = $1) AS inspections_total,
+         (SELECT count(*)::text FROM "SafetyInspection"
+          WHERE "companyId" = $1 AND result = 'PASSED') AS inspections_passed,
+         (SELECT count(*)::text FROM "SafetyInspection"
+          WHERE "companyId" = $1 AND result = 'FAILED') AS inspections_failed`,
+      [companyId, OPEN_INCIDENT_STATUSES],
+    );
 
-    const active = incidents.filter((i: { status: string }) =>
-      ['REPORTED', 'DISPATCHED', 'ON_SCENE', 'CONTAINED'].includes(i.status),
-    ).length;
-
+    const row = rows[0] ?? {};
     return {
-      stations,
+      stations: Number(row.stations ?? 0),
       firefighters: {
-        total: firefighters.length,
-        onDuty: firefighters.filter((f: { isOnDuty: boolean }) => f.isOnDuty)
-          .length,
+        total: Number(row.firefighters_total ?? 0),
+        onDuty: Number(row.firefighters_on_duty ?? 0),
       },
       vehicles: {
-        total: vehicles.length,
-        ready: vehicles.filter((v: { status: string }) => v.status === 'READY')
-          .length,
+        total: Number(row.vehicles_total ?? 0),
+        ready: Number(row.vehicles_ready ?? 0),
       },
       incidents: {
-        total: incidents.length,
-        active,
-        resolved: incidents.filter(
-          (i: { status: string }) => i.status === 'RESOLVED',
-        ).length,
+        total: Number(row.incidents_total ?? 0),
+        active: Number(row.incidents_active ?? 0),
+        resolved: Number(row.incidents_resolved ?? 0),
       },
       safetyInspections: {
-        total: inspections.length,
-        passed: inspections.filter(
-          (i: { result: string }) => i.result === 'PASSED',
-        ).length,
-        failed: inspections.filter(
-          (i: { result: string }) => i.result === 'FAILED',
-        ).length,
+        total: Number(row.inspections_total ?? 0),
+        passed: Number(row.inspections_passed ?? 0),
+        failed: Number(row.inspections_failed ?? 0),
       },
     };
+  }
+
+  /** Loads a station-owned row, confirming it belongs to the caller's company. */
+  private async requireScoped(
+    table: 'FireFighter' | 'FireVehicle',
+    id: string,
+    companyId: string,
+    message: string,
+  ) {
+    const rows = await this.db.query<Record<string, unknown> & { id: string }>(
+      `SELECT x.* FROM "${table}" x JOIN "FireStation" s ON s.id = x."stationId"
+       WHERE x.id = $1 AND s."companyId" = $2`,
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException(message);
+    return rows[0];
   }
 }

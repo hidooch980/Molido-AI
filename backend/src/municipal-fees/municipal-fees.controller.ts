@@ -74,15 +74,32 @@ export class MunicipalFeesController {
     );
   }
 
+  /**
+   * وصول فیش — مقصد وجه (صندوق یا حساب خزانه) الزامی است تا درآمد شهرداری
+   * در حسابداری قابل ردیابی بماند.
+   */
   @Patch(':id/pay')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'CASHIER')
-  pay(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.municipalFeesService.pay(id, user.companyId as string);
+  pay(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      cashBoxId?: string;
+      treasuryAccountId?: string;
+      method?: string;
+      reference?: string;
+    },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.municipalFeesService.pay(id, user.companyId as string, {
+      ...body,
+      userId: user.userId,
+    });
   }
 
   @Patch(':id/cancel')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.municipalFeesService.cancel(id, user.companyId as string);
+    return this.municipalFeesService.cancel(id, user.companyId as string, user.userId);
   }
 }

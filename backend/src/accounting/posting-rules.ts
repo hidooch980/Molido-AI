@@ -1,0 +1,424 @@
+import { PostingLine } from './posting.service';
+
+/**
+ * نگاشت رویداد کسب‌وکار به اقلام سند
+ *
+ * همهٔ قاعده‌های «چه چیزی بدهکار، چه چیزی بستانکار» اینجا جمع‌اند تا در
+ * سرویس‌های عملیاتی پخش نشوند.  توابع خالص‌اند: نه به دیتابیس دست می‌زنند نه
+ * به تراکنش، بنابراین بدون زیرساخت قابل تست‌اند.
+ *
+ * کدها با کدینگ حساب `seed.ts` یکی است؛ تغییرشان بدون به‌روزرسانی آنجا، ثبت
+ * خودکار را می‌شکند.
+ */
+export const ACCOUNTS = {
+  cash: '1101',
+  bank: '1102',
+  receivable: '1103',
+  inventory: '1104',
+  chequeReceivable: '1105',
+  inputVat: '1106',
+  payable: '2101',
+  outputVat: '2103',
+  salesRevenue: '4101',
+  salesDiscount: '4102',
+  otherRevenue: '4104',
+  cogs: '5101',
+  otherExpense: '5299',
+  fixedAsset: '1201',
+  accumulatedDepreciation: '1202',
+  depreciationExpense: '5205',
+  assetDisposal: '4105',
+  retainedEarnings: '3102',
+  commissionExpense: '5206',
+  commissionPayable: '2106',
+} as const;
+
+/** روش پرداخت را به حسابی که پول در آن می‌نشیند نگاشت می‌کند. */
+export function accountForMethod(method: string): string {
+  switch (method) {
+    case 'CASH':
+      return ACCOUNTS.cash;
+    case 'CARD':
+    case 'POS':
+    case 'BANK_TRANSFER':
+    case 'ONLINE':
+      return ACCOUNTS.bank;
+    case 'CHEQUE':
+      return ACCOUNTS.chequeReceivable;
+    default:
+      // روش ناشناخته مثل نسیه رفتار می‌کند تا مبلغ گم نشود
+      return ACCOUNTS.receivable;
+  }
+}
+
+/** یک قلم را به فهرست می‌افزاید، مگر آنکه مبلغش صفر باشد. */
+function push(lines: PostingLine[], line: PostingLine): void {
+  const amount = Number(line.debit ?? 0) + Number(line.credit ?? 0);
+  if (Math.abs(amount) > 0.004) lines.push(line);
+}
+
+export type SaleTender = { method: string; amount: number };
+
+/**
+ * سند فروش
+ *
+ *   بدهکار: صندوق / بانک / حساب دریافتنی  ← به اندازهٔ مبلغ فاکتور
+ *   بستانکار: فروش کالا (خالص از تخفیف) + مالیات بر ارزش افزوده
+ *
+ * تخفیف به‌جای کم کردن از درآمد، در حساب کاهندهٔ «تخفیفات فروش» بدهکار
+ * می‌شود تا فروش ناخالص در گزارش دیده شود.
+ */
+export function saleEntry(input: {
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  tenders: SaleTender[];
+  rationAmount?: number;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  // سمت دریافت
+  for (const tender of input.tenders) {
+    push(lines, {
+      accountCode: accountForMethod(tender.method),
+      debit: Number(tender.amount),
+      description: `دریافت ${tender.method}`,
+    });
+  }
+
+  // سهم کالابرگ از دولت طلب است، نه وجه نقد
+  const ration = Number(input.rationAmount ?? 0);
+  push(lines, {
+    accountCode: ACCOUNTS.receivable,
+    debit: ration,
+    description: 'مطالبات کالابرگ',
+  });
+
+  // مانده‌ای که پرداخت نشده، نسیه است
+  const collected =
+    input.tenders.reduce((sum, tender) => sum + Number(tender.amount), 0) + ration;
+  push(lines, {
+    accountCode: ACCOUNTS.receivable,
+    debit: Number(input.total) - collected,
+    description: 'مانده نسیه',
+  });
+
+  // سمت درآمد
+  push(lines, {
+    accountCode: ACCOUNTS.salesDiscount,
+    debit: Number(input.discount),
+    description: 'تخفیف فروش',
+  });
+  push(lines, {
+    accountCode: ACCOUNTS.salesRevenue,
+    credit: Number(input.subtotal),
+    description: 'فروش کالا',
+  });
+  push(lines, {
+    accountCode: ACCOUNTS.outputVat,
+    credit: Number(input.tax),
+    description: 'مالیات بر ارزش افزوده',
+  });
+
+  return lines;
+}
+
+/**
+ * سند بهای تمام‌شدهٔ کالای فروش‌رفته
+ *
+ *   بدهکار: بهای تمام‌شده
+ *   بستانکار: موجودی کالا
+ *
+ * جدا از سند فروش صادر می‌شود چون ماهیتش متفاوت است و در گزارش‌ها باید
+ * مستقل دیده شود.
+ */
+export function cogsEntry(cost: number): PostingLine[] {
+  if (Math.abs(cost) < 0.005) return [];
+
+  return [
+    { accountCode: ACCOUNTS.cogs, debit: cost, description: 'بهای تمام‌شدهٔ کالای فروش‌رفته' },
+    { accountCode: ACCOUNTS.inventory, credit: cost, description: 'کاهش موجودی کالا' },
+  ];
+}
+
+/**
+ * سند دریافت کالای خرید
+ *
+ *   بدهکار: موجودی کالا + مالیات خرید
+ *   بستانکار: حساب‌های پرداختنی
+ *
+ * سند در لحظهٔ **دریافت** صادر می‌شود، نه ثبت سفارش؛ تا آن لحظه هنوز نه
+ * کالایی رسیده و نه بدهی قطعی شده است.
+ */
+export function purchaseEntry(input: {
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.inventory,
+    debit: Number(input.subtotal) - Number(input.discount),
+    description: 'ورود کالا به انبار',
+  });
+  push(lines, {
+    accountCode: ACCOUNTS.inputVat,
+    debit: Number(input.tax),
+    description: 'مالیات خرید',
+  });
+  push(lines, {
+    accountCode: ACCOUNTS.payable,
+    credit: Number(input.total),
+    description: 'بدهی به تأمین‌کننده',
+  });
+
+  return lines;
+}
+
+/**
+ * سند هزینه
+ *
+ *   بدهکار: حساب هزینه
+ *   بستانکار: صندوق (پرداخت‌شده) یا حساب‌های پرداختنی (پرداخت‌نشده)
+ */
+export function expenseEntry(input: {
+  amount: number;
+  paid: boolean;
+  accountCode?: string;
+}): PostingLine[] {
+  const amount = Number(input.amount);
+  if (Math.abs(amount) < 0.005) return [];
+
+  return [
+    {
+      accountCode: input.accountCode ?? ACCOUNTS.otherExpense,
+      debit: amount,
+      description: 'هزینه',
+    },
+    {
+      accountCode: input.paid ? ACCOUNTS.cash : ACCOUNTS.payable,
+      credit: amount,
+      description: input.paid ? 'پرداخت نقدی' : 'بدهی',
+    },
+  ];
+}
+
+/**
+ * سند دریافت وجه زیرسیستم‌های غیرفروشی (عوارض، جواز، پارکینگ و ...)
+ *
+ *   بدهکار: صندوق یا بانک
+ *   بستانکار: سایر درآمدها
+ */
+export function receiptEntry(input: {
+  amount: number;
+  toCashBox: boolean;
+  description?: string;
+}): PostingLine[] {
+  const amount = Number(input.amount);
+  if (Math.abs(amount) < 0.005) return [];
+
+  return [
+    {
+      accountCode: input.toCashBox ? ACCOUNTS.cash : ACCOUNTS.bank,
+      debit: amount,
+      description: input.description ?? 'دریافت وجه',
+    },
+    {
+      accountCode: ACCOUNTS.otherRevenue,
+      credit: amount,
+      description: input.description ?? 'درآمد',
+    },
+  ];
+}
+
+/**
+ * برگشت از فروش — معکوس فروش، ولی نه با «سند معکوس».
+ *
+ * برای برگشتِ *کامل* می‌شد سند اصلی را معکوس کرد، اما مرجوعی معمولاً جزئی
+ * است: از ده قلم، دو قلم برمی‌گردد.  پس سند مستقلی زده می‌شود که فقط سهم
+ * برگشتی را خنثی می‌کند.
+ *
+ * برگشت فروش، درآمد را کم می‌کند و پول (یا بدهی مشتری) را برمی‌گرداند.
+ */
+export function salesReturnEntry(input: {
+  subtotal: number;
+  tax: number;
+  total: number;
+  /** CASH | CARD | CREDIT — به کدام حساب برگردانده می‌شود */
+  refundMethod: string;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  // درآمد فروش برمی‌گردد (بدهکار = کاهش درآمد)
+  push(lines, {
+    accountCode: ACCOUNTS.salesRevenue,
+    debit: Number(input.subtotal),
+    description: 'برگشت از فروش',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.outputVat,
+    debit: Number(input.tax),
+    description: 'برگشت مالیات فروش',
+  });
+
+  // سمت پرداخت: نقد/کارت از حساب خودش می‌رود؛ «CREDIT» یعنی به‌جای پول،
+  // بدهی مشتری کم می‌شود.
+  push(lines, {
+    accountCode:
+      input.refundMethod === 'CREDIT'
+        ? ACCOUNTS.receivable
+        : accountForMethod(input.refundMethod),
+    credit: Number(input.total),
+    description: `عودت وجه ${input.refundMethod}`,
+  });
+
+  return lines;
+}
+
+/** بهای تمام‌شدهٔ کالای مرجوعی: کالا به انبار برمی‌گردد، بهای فروش کم می‌شود. */
+export function returnCogsEntry(cost: number): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.inventory,
+    debit: Number(cost),
+    description: 'بازگشت کالا به انبار',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.cogs,
+    credit: Number(cost),
+    description: 'برگشت بهای تمام‌شده',
+  });
+
+  return lines;
+}
+
+/**
+ * برگشت از خرید — کالا به تأمین‌کننده برمی‌گردد.
+ * موجودی کم می‌شود و بدهی به تأمین‌کننده (یا طلب از او) تسویه می‌شود.
+ */
+export function purchaseReturnEntry(input: {
+  subtotal: number;
+  tax: number;
+  total: number;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.payable,
+    debit: Number(input.total),
+    description: 'برگشت از خرید — تسویه با تأمین‌کننده',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.inventory,
+    credit: Number(input.subtotal),
+    description: 'خروج کالای مرجوعی از انبار',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.inputVat,
+    credit: Number(input.tax),
+    description: 'برگشت مالیات خرید',
+  });
+
+  return lines;
+}
+
+/** هزینهٔ استهلاک دوره: هزینه بدهکار، استهلاک انباشته بستانکار. */
+export function depreciationEntry(amount: number): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.depreciationExpense,
+    debit: Number(amount),
+    description: 'هزینهٔ استهلاک دوره',
+  });
+
+  // استهلاک انباشته حساب «کاهنده دارایی» است: زیر دارایی می‌نشیند و
+  // بستانکار می‌شود، پس بهای تمام‌شدهٔ دارایی دست‌نخورده می‌ماند و در
+  // ترازنامه هر دو رقم دیده می‌شوند.
+  push(lines, {
+    accountCode: ACCOUNTS.accumulatedDepreciation,
+    credit: Number(amount),
+    description: 'استهلاک انباشته',
+  });
+
+  return lines;
+}
+
+/**
+ * واگذاری دارایی: بهای تمام‌شده و استهلاک انباشته از دفاتر خارج می‌شوند و
+ * اختلاف با مبلغ دریافتی، سود یا زیان واگذاری است.
+ */
+export function assetDisposalEntry(input: {
+  cost: number;
+  accumulated: number;
+  proceeds: number;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+  const bookValue = Number(input.cost) - Number(input.accumulated);
+  const gain = Number(input.proceeds) - bookValue;
+
+  push(lines, {
+    accountCode: ACCOUNTS.accumulatedDepreciation,
+    debit: Number(input.accumulated),
+    description: 'حذف استهلاک انباشته',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.cash,
+    debit: Number(input.proceeds),
+    description: 'وجه حاصل از واگذاری',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.fixedAsset,
+    credit: Number(input.cost),
+    description: 'حذف بهای تمام‌شدهٔ دارایی',
+  });
+
+  // سود بستانکار، زیان بدهکار — با یک حساب واحد تا گزارش واگذاری یکجا باشد.
+  if (gain >= 0) {
+    push(lines, {
+      accountCode: ACCOUNTS.assetDisposal,
+      credit: gain,
+      description: 'سود واگذاری دارایی',
+    });
+  } else {
+    push(lines, {
+      accountCode: ACCOUNTS.assetDisposal,
+      debit: -gain,
+      description: 'زیان واگذاری دارایی',
+    });
+  }
+
+  return lines;
+}
+
+/**
+ * کمیسیون فروش دوره: هزینه شناسایی می‌شود و بدهی به ویزیتور ثبت می‌شود.
+ * پرداخت واقعی بعداً از خزانه انجام و همان بدهی تسویه می‌شود.
+ */
+export function agentCommissionEntry(amount: number): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.commissionExpense,
+    debit: Number(amount),
+    description: 'هزینهٔ کمیسیون فروش',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.commissionPayable,
+    credit: Number(amount),
+    description: 'کمیسیون پرداختنی',
+  });
+
+  return lines;
+}

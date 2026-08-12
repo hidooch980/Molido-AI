@@ -1,50 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from '@nestjs/common';
+import { BaseCrudService } from '../database/base-crud.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
-export class TaxiService {
-  constructor(private readonly prisma: PrismaService) {}
+export class TaxiService extends BaseCrudService {
+  protected readonly table = 'TaxiDriver';
+  protected readonly notFoundMessage = 'تاکسیرانی یافت نشد';
 
-  async findAll(companyId: string, query: any = {}) {
-    return this.prisma.taxiDriver.findMany({
-      where: { companyId, ...this.buildFilter(query) },
-      orderBy: { createdAt: 'desc' },
-      take: query.limit ? Number(query.limit) : 50,
-    });
+  constructor(db: DatabaseService) {
+    super(db);
   }
-
-  async findOne(companyId: string, id: string) {
-    const item = await this.prisma.taxiDriver.findFirst({ where: { id, companyId } });
-    if (!item) throw new NotFoundException('تاکسیرانی یافت نشد');
-    return item;
-  }
-
-  async create(companyId: string, data: any) {
-    return this.prisma.taxiDriver.create({ data: { ...data, companyId } });
-  }
-
-  async update(companyId: string, id: string, data: any) {
-    await this.findOne(companyId, id);
-    return this.prisma.taxiDriver.update({ where: { id }, data });
-  }
-
-  async remove(companyId: string, id: string) {
-    await this.findOne(companyId, id);
-    return this.prisma.taxiDriver.delete({ where: { id } });
-  }
-
-  async stats(companyId: string) {
-    const total = await this.prisma.taxiDriver.count({ where: { companyId } });
-    return { total };
-  }
-
-  private buildFilter(query: any) {
-    const where: any = {};
-    if (query.status) where.status = query.status;
-    if (query.search) {
-      // subclasses override
-    }
-    return where;
-  }
-
 }

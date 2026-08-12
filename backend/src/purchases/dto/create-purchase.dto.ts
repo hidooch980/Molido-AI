@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -23,6 +24,20 @@ export class PurchaseItemDto {
   @IsNumber()
   @Min(0)
   purchasePrice?: number;
+
+  /** شمارهٔ سری ساخت این محموله */
+  @IsOptional()
+  @IsString()
+  batchNo?: string;
+
+  /** تاریخ انقضای همین محموله — نه کل کالا */
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  manufactureDate?: string;
 }
 
 export class CreatePurchaseDto {

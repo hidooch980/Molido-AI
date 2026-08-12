@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_URL, api, getToken } from '../../lib/api';
 import AppShell from '../../components/AppShell';
+import { useI18n } from '../../lib/i18n-context';
 
 type Stats = {
   openOrders?: number;
@@ -69,52 +70,55 @@ type Order = {
   items?: OrderItem[];
 };
 
-const TABLE_STATUS: Record<string, { label: string; color: string }> = {
-  FREE: { label: 'آزاد', color: '#34d399' },
-  OCCUPIED: { label: 'اشغال', color: '#f87171' },
-  RESERVED: { label: 'رزرو', color: '#fbbf24' },
-  CLEANING: { label: 'نظافت', color: '#22d3ee' },
-  OUT_OF_SERVICE: { label: 'خارج سرویس', color: '#96a2c0' },
+// برچسب‌ها کلید ترجمه‌اند، نه متن آماده — متن در زمان رندر و با زبان فعال
+// ساخته می‌شود.
+const TABLE_STATUS: Record<string, { key: string; color: string }> = {
+  FREE: { key: 'tableFree', color: '#34d399' },
+  OCCUPIED: { key: 'tableOccupied', color: '#f87171' },
+  RESERVED: { key: 'tableReserved', color: '#fbbf24' },
+  CLEANING: { key: 'tableCleaning', color: '#22d3ee' },
+  OUT_OF_SERVICE: { key: 'tableOutOfService', color: '#96a2c0' },
 };
 
 const ORDER_STATUS: Record<string, string> = {
-  OPEN: 'باز',
-  IN_KITCHEN: 'آشپزخانه',
-  READY: 'آماده',
-  SERVED: 'سرو شد',
-  PAID: 'تسویه',
-  CANCELLED: 'لغو',
+  OPEN: 'orderOpen',
+  IN_KITCHEN: 'orderInKitchen',
+  READY: 'ready',
+  SERVED: 'served',
+  PAID: 'orderPaid',
+  CANCELLED: 'cancelled',
 };
 
 const ITEM_STATUS: Record<string, string> = {
-  PENDING: 'در انتظار',
-  PREPARING: 'در حال آماده‌سازی',
-  READY: 'آماده',
-  SERVED: 'سرو شد',
-  CANCELLED: 'لغو',
+  PENDING: 'itemPending',
+  PREPARING: 'preparing',
+  READY: 'ready',
+  SERVED: 'served',
+  CANCELLED: 'cancelled',
 };
 
 const TABS = [
-  { key: 'tables', label: '🍽️ میزها' },
-  { key: 'orders', label: '🧾 سفارش‌ها' },
-  { key: 'kitchen', label: '👨‍🍳 آشپزخانه' },
-  { key: 'menu', label: '📋 منو' },
+  { key: 'tables', label: 'tabTables' },
+  { key: 'orders', label: 'tabOrders' },
+  { key: 'kitchen', label: 'tabKitchen' },
+  { key: 'menu', label: 'tabMenu' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
 
 const STAT_CARDS: Array<{ key: keyof Stats; label: string; icon: string; money?: boolean }> = [
-  { key: 'todaySales', label: 'فروش امروز', icon: '💰', money: true },
-  { key: 'todayOrders', label: 'سفارش امروز', icon: '🧾' },
-  { key: 'openOrders', label: 'سفارش باز', icon: '⏳' },
-  { key: 'avgTicket', label: 'میانگین فاکتور', icon: '📊', money: true },
-  { key: 'freeTables', label: 'میز آزاد', icon: '🪑' },
-  { key: 'occupancyRate', label: 'اشغال (٪)', icon: '📈' },
-  { key: 'guests', label: 'مهمان امروز', icon: '👥' },
-  { key: 'todayReservations', label: 'رزرو امروز', icon: '📅' },
+  { key: 'todaySales', label: 'statTodaySales', icon: '💰', money: true },
+  { key: 'todayOrders', label: 'statTodayOrders', icon: '🧾' },
+  { key: 'openOrders', label: 'statOpenOrders', icon: '⏳' },
+  { key: 'avgTicket', label: 'statAvgTicket', icon: '📊', money: true },
+  { key: 'freeTables', label: 'statFreeTables', icon: '🪑' },
+  { key: 'occupancyRate', label: 'statOccupancy', icon: '📈' },
+  { key: 'guests', label: 'statGuestsToday', icon: '👥' },
+  { key: 'todayReservations', label: 'statReservations', icon: '📅' },
 ];
 
 export default function RestaurantPage() {
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState<TabKey>('tables');
   const [stats, setStats] = useState<Stats | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
@@ -124,9 +128,11 @@ export default function RestaurantPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // عدد با زبان فعال قالب‌بندی می‌شود؛ پیش از این همیشه فارسی بود و در
+  // نمای انگلیسی ارقام فارسی نشان داده می‌شد.
   const fa = useCallback(
-    (value: unknown) => Number(value ?? 0).toLocaleString('fa-IR'),
-    [],
+    (value: unknown) => Number(value ?? 0).toLocaleString(locale),
+    [locale],
   );
 
   const load = useCallback(async () => {
@@ -146,11 +152,11 @@ export default function RestaurantPage() {
       setMenu(m);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت اطلاعات');
+      setError(err instanceof Error ? err.message : t('fetchError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -166,7 +172,7 @@ export default function RestaurantPage() {
       await api(path, { method: 'POST', body });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در انجام عملیات');
+      setError(err instanceof Error ? err.message : t('actionError'));
     }
   }
 
@@ -188,7 +194,7 @@ export default function RestaurantPage() {
         win.document.close();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت رسید');
+      setError(err instanceof Error ? err.message : t('receiptError'));
     }
   }
 
@@ -197,7 +203,7 @@ export default function RestaurantPage() {
       await api(path, { method: 'PATCH', body });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در انجام عملیات');
+      setError(err instanceof Error ? err.message : t('actionError'));
     }
   }
 
@@ -215,11 +221,11 @@ export default function RestaurantPage() {
 
   return (
     <AppShell
-      title="☕ کافه رستوران"
-      subtitle="میز، منو، سفارش و آشپزخانه"
+      title={t('restaurantTitle')}
+      subtitle={t('restaurantSubtitle')}
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
-          بروزرسانی
+          {t('refresh')}
         </button>
       }
     >
@@ -232,7 +238,7 @@ export default function RestaurantPage() {
           : STAT_CARDS.map((c) => (
               <div key={c.key} className="stat-card">
                 <div className="stat-icon">{c.icon}</div>
-                <div className="stat-label">{c.label}</div>
+                <div className="stat-label">{t(c.label)}</div>
                 <div className="stat-value">{fa(stats?.[c.key])}</div>
               </div>
             ))}
@@ -247,7 +253,7 @@ export default function RestaurantPage() {
             className={`lang-pill${tab === item.key ? ' active' : ''}`}
             onClick={() => setTab(item.key)}
           >
-            {item.label}
+            {t(item.label)}
           </button>
         ))}
       </div>
@@ -255,10 +261,10 @@ export default function RestaurantPage() {
       {/* میزها */}
       {tab === 'tables' ? (
         <div className="card">
-          <h3 style={{ marginBottom: 12 }}>نقشه سالن</h3>
+          <h3 style={{ marginBottom: 12 }}>{t('floorMap')}</h3>
 
           {tables.length === 0 ? (
-            <p className="muted">هنوز میزی تعریف نشده است.</p>
+            <p className="muted">{t('noTables')}</p>
           ) : (
             <div
               style={{
@@ -269,7 +275,7 @@ export default function RestaurantPage() {
             >
               {tables.map((table) => {
                 const meta = TABLE_STATUS[table.status] ?? {
-                  label: table.status,
+                  key: table.status,
                   color: '#96a2c0',
                 };
 
@@ -282,14 +288,14 @@ export default function RestaurantPage() {
                     style={{ borderTop: `3px solid ${meta.color}` }}
                   >
                     <div style={{ fontWeight: 800, fontSize: 18 }}>
-                      میز {table.tableNo}
+                      {t('table')} {table.tableNo}
                     </div>
                     <div className="muted" style={{ fontSize: 12 }}>
-                      {table.area?.name ?? 'بدون سالن'} • {fa(table.capacity)}{' '}
-                      نفره
+                      {table.area?.name ?? t('noArea')} • {fa(table.capacity)}{' '}
+                      {t('seats')}
                     </div>
                     <div style={{ color: meta.color, marginTop: 6, fontWeight: 600 }}>
-                      {meta.label}
+                      {t(meta.key)}
                     </div>
                     {openOrder ? (
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -306,7 +312,7 @@ export default function RestaurantPage() {
                           })
                         }
                       >
-                        آماده شد
+                        {t('tableReady')}
                       </button>
                     ) : null}
                   </div>
@@ -320,21 +326,21 @@ export default function RestaurantPage() {
       {/* سفارش‌ها */}
       {tab === 'orders' ? (
         <div className="card">
-          <h3 style={{ marginBottom: 12 }}>سفارش‌های باز</h3>
+          <h3 style={{ marginBottom: 12 }}>{t('openOrdersTitle')}</h3>
 
           {orders.length === 0 ? (
-            <p className="muted">سفارش بازی وجود ندارد.</p>
+            <p className="muted">{t('noOpenOrders')}</p>
           ) : (
             <div className="table-wrap">
             <table>
               <thead>
                 <tr style={{ textAlign: 'right', color: 'var(--text-dim)' }}>
-                  <th style={{ padding: 8 }}>شماره</th>
-                  <th style={{ padding: 8 }}>میز / نوع</th>
-                  <th style={{ padding: 8 }}>اقلام</th>
-                  <th style={{ padding: 8 }}>مبلغ</th>
-                  <th style={{ padding: 8 }}>وضعیت</th>
-                  <th style={{ padding: 8 }}>عملیات</th>
+                  <th style={{ padding: 8 }}>{t('colNumber')}</th>
+                  <th style={{ padding: 8 }}>{t('colTableType')}</th>
+                  <th style={{ padding: 8 }}>{t('colItems')}</th>
+                  <th style={{ padding: 8 }}>{t('colAmount')}</th>
+                  <th style={{ padding: 8 }}>{t('status')}</th>
+                  <th style={{ padding: 8 }}>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -342,12 +348,16 @@ export default function RestaurantPage() {
                   <tr key={order.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ padding: 8 }}>{order.orderNo}</td>
                     <td style={{ padding: 8 }}>
-                      {order.table ? `میز ${order.table.tableNo}` : order.type}
+                      {order.table
+                        ? `${t('table')} ${order.table.tableNo}`
+                        : order.type}
                     </td>
                     <td style={{ padding: 8 }}>{fa(order.items?.length ?? 0)}</td>
                     <td style={{ padding: 8 }}>{fa(order.total)}</td>
                     <td style={{ padding: 8 }}>
-                      {ORDER_STATUS[order.status] ?? order.status}
+                      {ORDER_STATUS[order.status]
+                        ? t(ORDER_STATUS[order.status])
+                        : order.status}
                     </td>
                     <td style={{ padding: 8, display: 'flex', gap: 6 }}>
                       {order.status === 'OPEN' ? (
@@ -358,7 +368,7 @@ export default function RestaurantPage() {
                             void act(`/restaurant/orders/${order.id}/send-to-kitchen`)
                           }
                         >
-                          به آشپزخانه
+                          {t('toKitchen')}
                         </button>
                       ) : null}
                       <button
@@ -366,7 +376,7 @@ export default function RestaurantPage() {
                         style={{ padding: '6px 12px', fontSize: 13 }}
                         onClick={() => void openReceipt(order.id)}
                       >
-                        رسید
+                        {t('receipt')}
                       </button>
                     </td>
                   </tr>
@@ -382,14 +392,14 @@ export default function RestaurantPage() {
       {tab === 'kitchen' ? (
         <div className="card">
           <h3 style={{ marginBottom: 12 }}>
-            صفحه آشپزخانه{' '}
+            {t('kitchenScreen')}{' '}
             <span className="muted" style={{ fontSize: 12 }}>
-              (هر ۳۰ ثانیه بروز می‌شود)
+              {t('autoRefresh30')}
             </span>
           </h3>
 
           {kitchen.length === 0 ? (
-            <p className="muted">قلمی در حال آماده‌سازی نیست. 🎉</p>
+            <p className="muted">{t('nothingPreparing')} 🎉</p>
           ) : (
             kitchenByStation.map(([station, items]) => (
               <div key={station} style={{ marginBottom: 18 }}>
@@ -416,14 +426,14 @@ export default function RestaurantPage() {
                         <div style={{ fontWeight: 700 }}>{item.name}</div>
                         <div className="muted" style={{ fontSize: 12 }}>
                           {item.order?.table
-                            ? `میز ${item.order.table.tableNo}`
+                            ? `${t('table')} ${item.order.table.tableNo}`
                             : item.order?.type}{' '}
                           • {item.order?.orderNo}
                         </div>
                         <div style={{ margin: '6px 0' }}>
-                          تعداد: {fa(item.qty)} •{' '}
+                          {t('quantity')}: {fa(item.qty)} •{' '}
                           <span style={{ color: late ? '#f87171' : undefined }}>
-                            {fa(item.waitingMinutes)} دقیقه
+                            {fa(item.waitingMinutes)} {t('minutes')}
                           </span>
                         </div>
                         {item.note ? (
@@ -442,7 +452,7 @@ export default function RestaurantPage() {
                                 })
                               }
                             >
-                              آماده شد
+                              {t('markReady')}
                             </button>
                           ) : (
                             <button
@@ -454,11 +464,13 @@ export default function RestaurantPage() {
                                 })
                               }
                             >
-                              سرو شد
+                              {t('markServed')}
                             </button>
                           )}
                           <span className="muted" style={{ alignSelf: 'center', fontSize: 12 }}>
-                            {ITEM_STATUS[item.status] ?? item.status}
+                            {ITEM_STATUS[item.status]
+                              ? t(ITEM_STATUS[item.status])
+                              : item.status}
                           </span>
                         </div>
                       </div>
@@ -474,10 +486,10 @@ export default function RestaurantPage() {
       {/* منو */}
       {tab === 'menu' ? (
         <div className="card">
-          <h3 style={{ marginBottom: 12 }}>منو</h3>
+          <h3 style={{ marginBottom: 12 }}>{t('tabMenu')}</h3>
 
           {menu.length === 0 ? (
-            <p className="muted">هنوز آیتمی در منو ثبت نشده است.</p>
+            <p className="muted">{t('menuEmpty')}</p>
           ) : (
             menu.map((group) => (
               <div key={group.id ?? 'none'} style={{ marginBottom: 18 }}>
@@ -512,7 +524,7 @@ export default function RestaurantPage() {
                           void patch(`/restaurant/menu-items/${item.id}/toggle`, {})
                         }
                       >
-                        {item.isAvailable ? 'تمام شد' : 'موجود شد'}
+                        {item.isAvailable ? t('soldOut') : t('backInStock')}
                       </button>
                     </div>
                   ))}

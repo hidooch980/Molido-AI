@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ServiceWorkerRegistrar from './sw-register';
+import { LanguageProvider } from '../lib/i18n-context';
 
 export const metadata: Metadata = {
   title: 'Molido AI — مدیریت هوشمند کسب‌وکار',
@@ -41,9 +42,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    // fa/rtl فقط مقدار اولیهٔ سمت سرور است؛ LanguageProvider پس از mount
+    // آن را با زبانِ ذخیره‌شدهٔ کاربر جایگزین می‌کند.
     <html lang="fa" dir="rtl">
+      <head>
+        {/* وزن ۴۰۰ در هر صفحه لازم است؛ preload جلوی یک رفت‌وبرگشت اضافه و
+            پرشِ متن هنگام بارگذاری را می‌گیرد. */}
+        <link
+          rel="preload"
+          href="/fonts/Vazirmatn-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>

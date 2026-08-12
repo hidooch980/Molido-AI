@@ -30,6 +30,17 @@ export class InventoryController {
     );
   }
 
+  @Get('expiring')
+  expiring(
+    @CurrentUser() user: AuthUser,
+    @Query('days') days?: string,
+  ) {
+    return this.inventoryService.expiringBatches(
+      user.companyId as string,
+      days ? Number(days) : 30,
+    );
+  }
+
   @Get('low-stock')
   lowStock(@CurrentUser() user: AuthUser) {
     return this.inventoryService.lowStock(user.companyId as string);

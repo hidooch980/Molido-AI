@@ -1,0 +1,17 @@
+# فروشگاه و سوپرمارکت
+#
+#   docker compose -f docker-compose.yml -f docker-compose.store.yml up -d
+#
+# دیتابیس، پورت‌ها و نام کانتینرها جدا از رستوران است، پس هر دو محصول
+# می‌توانند روی یک دستگاه کنار هم اجرا شوند.
+
+name: molido-store
+
+services:
+  backend:
+    environment:
+      MOLIDO_PRODUCT: store
+
+  migrate:
+    environment:
+      MOLIDO_PRODUCT: store

@@ -1,0 +1,16 @@
+# کافه‌رستوران
+#
+#   docker compose -f docker-compose.yml -f docker-compose.resto.yml up -d
+#
+# دیتابیس، پورت‌ها و نام کانتینرها جدا از فروشگاه است.
+
+name: molido-resto
+
+services:
+  backend:
+    environment:
+      MOLIDO_PRODUCT: resto
+
+  migrate:
+    environment:
+      MOLIDO_PRODUCT: resto

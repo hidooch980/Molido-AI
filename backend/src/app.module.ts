@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { TenantInterceptor } from './database/tenant.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { I18nModule } from './i18n/i18n.module';
 import { N8nModule } from './n8n/n8n.module';
 
@@ -68,6 +69,10 @@ import { DmsModule } from './dms/dms.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { RevenueModule } from './revenue/revenue.module';
+import { RationModule } from './ration/ration.module';
+import { RetailModule } from './retail/retail.module';
+import { CashierShiftModule } from './retail/cashier-shift.module';
 import { ClinicModule } from './clinic/clinic.module';
 import { IotModule } from './iot/iot.module';
 import { CctvModule } from './cctv/cctv.module';
@@ -89,6 +94,153 @@ import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
+import { FeatureKey, activeProduct } from './product';
+
+/**
+ * ماژول‌های هر قابلیت.
+ *
+ * فهرست عمداً اینجاست نه در `product.ts`: آنجا تعریف *محصول* است و باید بدون
+ * وابستگی به Nest خوانده شود؛ اینجا نگاشت به ماژول‌های واقعی است.
+ */
+const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
+  catalogue: [
+    CategoriesModule,
+    InventoryModule,
+    ProductsModule,
+    PurchasesModule,
+    SerialNumbersModule,
+    SuppliersModule,
+    WarehousesModule,
+  ],
+
+  sales: [
+    CashBoxModule,
+    CashierShiftModule,
+    CustomersModule,
+    DiscountRulesModule,
+    PaymentsModule,
+    PosTerminalsModule,
+    PriceLevelsModule,
+    QuotationsModule,
+    ReturnsModule,
+    SalesAgentsModule,
+    SalesModule,
+    SalesOrdersModule,
+    ShipmentsModule,
+  ],
+
+  retail: [
+    RetailModule,
+  ],
+
+  ration: [
+    RationModule,
+  ],
+
+  restaurant: [
+    RestaurantModule,
+  ],
+
+  hr: [
+    AttendanceModule,
+    LeaveRequestsModule,
+    PayrollModule,
+    PerformanceModule,
+    TrainingModule,
+  ],
+
+  finance: [
+    AssetsModule,
+    BudgetModule,
+    ChequesModule,
+    ContractsModule,
+    ExpensesModule,
+    InvestmentsModule,
+    LoansModule,
+    TendersModule,
+    TreasuryModule,
+  ],
+
+  municipal: [
+    BusinessLicensesModule,
+    CctvModule,
+    ComplaintsModule,
+    CouncilModule,
+    CrisisModule,
+    ECityModule,
+    FireDepartmentModule,
+    IotModule,
+    MunicipalFeesModule,
+    MunicipalPropertiesModule,
+    PropertyAuditModule,
+    ServiceZonesModule,
+    StreetLightsModule,
+    TechnicalOfficeModule,
+    UtilityMetersModule,
+  ],
+
+  verticals: [
+    AppointmentsModule,
+    CemeteryModule,
+    ClinicModule,
+    ParkingModule,
+    TaxiModule,
+  ],
+
+  crm: [
+    CrmModule,
+    CustomerTicketsModule,
+    EmailCampaignsModule,
+    NewsModule,
+    SurveysModule,
+  ],
+
+  operations: [
+    ApprovalsModule,
+    ConstructionProjectsModule,
+    DmsModule,
+    FleetModule,
+    HelpdeskModule,
+    LettersModule,
+    ProjectsModule,
+  ],
+};
+
+/** ماژول‌هایی که هر محصولی — فروشگاه، رستوران یا سازمانی — لازم دارد. */
+const CORE_MODULES = [
+  DatabaseModule,
+  I18nModule,
+  N8nModule,
+  AuthModule,
+  UsersModule,
+  CompaniesModule,
+  AccountingModule,
+  ReportsModule,
+  AiModule,
+  NotificationsModule,
+  AuditLogModule,
+  RevenueModule,
+  SmsModule,
+  UploadsModule,
+  WebhooksModule,
+  ApiKeysModule,
+  HealthModule,
+];
+
+/**
+ * ماژول‌های محصول فعال.
+ *
+ * مشتری رستوران نباید API عوارض شهرداری را ببیند، حتی اگر هرگز صدایش نزند:
+ * سطح حملهٔ کمتر، Swagger تمیزتر، و راه‌اندازی سبک‌تر.
+ */
+function productModules(): unknown[] {
+  const product = activeProduct();
+
+  return [
+    ...CORE_MODULES,
+    ...product.features.flatMap((feature) => FEATURE_MODULES[feature] ?? []),
+  ];
+}
 
 @Module({
   imports: [
@@ -104,98 +256,20 @@ import { RestaurantModule } from './restaurant/restaurant.module';
       },
     ]),
 
-    PrismaModule,
-    I18nModule,
-    N8nModule,
-
-    AuthModule,
-    UsersModule,
-    CompaniesModule,
-    WarehousesModule,
-    ProductsModule,
-    CategoriesModule,
-    InventoryModule,
-    CustomersModule,
-    SuppliersModule,
-    PurchasesModule,
-    SalesModule,
-    PaymentsModule,
-    ExpensesModule,
-    CashBoxModule,
-    AccountingModule,
-    ReportsModule,
-    AiModule,
-    NotificationsModule,
-    TechnicalOfficeModule,
-    FireDepartmentModule,
-    ComplaintsModule,
-    MunicipalFeesModule,
-    ChequesModule,
-    SmsModule,
-    UploadsModule,
-    PosTerminalsModule,
-    TreasuryModule,
-    ContractsModule,
-    PayrollModule,
-    BudgetModule,
-    AssetsModule,
-    TendersModule,
-    AttendanceModule,
-    LeaveRequestsModule,
-    PerformanceModule,
-    ConstructionProjectsModule,
-    FleetModule,
-    ServiceZonesModule,
-    LettersModule,
-    CrmModule,
-    SalesOrdersModule,
-    ApprovalsModule,
-    ECityModule,
-    CemeteryModule,
-    TaxiModule,
-    BusinessLicensesModule,
-    MunicipalPropertiesModule,
-    PropertyAuditModule,
-    CrisisModule,
-    ParkingModule,
-    StreetLightsModule,
-    CouncilModule,
-    HelpdeskModule,
-    TrainingModule,
-    DmsModule,
-    AppointmentsModule,
-    SurveysModule,
-    AuditLogModule,
-    ClinicModule,
-    IotModule,
-    CctvModule,
-    UtilityMetersModule,
-    NewsModule,
-    LoansModule,
-    InvestmentsModule,
-    WebhooksModule,
-    ReturnsModule,
-    ShipmentsModule,
-    SerialNumbersModule,
-    PriceLevelsModule,
-    DiscountRulesModule,
-    ProjectsModule,
-    SalesAgentsModule,
-    QuotationsModule,
-    CustomerTicketsModule,
-    EmailCampaignsModule,
-    ApiKeysModule,
-    HealthModule,
-    RestaurantModule,
+    ...(productModules() as never[]),
   ],
-  controllers: [
-    AppController,
-  ],
+  controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      // زمینهٔ شرکت را برای RLS برقرار می‌کند — پس از Guardها اجرا می‌شود
+      // چون به req.user نیاز دارد.
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
     },
   ],
 })

@@ -1,12 +1,16 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { ReturnsService } from './returns.service';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  AuthUser,
+  CurrentUser,
+} from '../common/decorators/current-user.decorator';
+import { ReturnsService } from './returns.service';
 
-@ApiTags('مرجوعی کالا')
+@ApiTags('مرجوعی')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('returns')
@@ -19,14 +23,8 @@ export class ReturnsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query() q: any) {
-    return this.service.findAll(user.companyId!, q);
-  }
-
-  @Post()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@CurrentUser() user: AuthUser, @Body() dto: any) {
-    return this.service.create(user.companyId!, dto);
+  findAll(@CurrentUser() user: AuthUser) {
+    return this.service.findAll(user.companyId!);
   }
 
   @Get(':id')
@@ -34,15 +32,15 @@ export class ReturnsController {
     return this.service.findOne(user.companyId!, id);
   }
 
-  @Patch(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {
-    return this.service.update(user.companyId!, id, dto);
+  @Post('sale')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  saleReturn(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.createSaleReturn(user.companyId!, user.userId, dto);
   }
 
-  @Delete(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN')
-  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.service.remove(user.companyId!, id);
+  @Post('purchase')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  purchaseReturn(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.createPurchaseReturn(user.companyId!, user.userId, dto);
   }
 }

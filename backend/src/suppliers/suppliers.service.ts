@@ -1,75 +1,85 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
+
+type Supplier = Record<string, unknown> & { id: string };
+
+const WRITABLE = ['name', 'phone', 'email', 'address', 'isActive'] as const;
 
 @Injectable()
 export class SuppliersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async findAll(companyId: string, search?: string) {
-    return this.prisma.supplier.findMany({
-      where: {
-        companyId,
-        ...(search
-          ? { name: { contains: search, mode: 'insensitive' } }
-          : {}),
-      },
-      include: {
-        _count: { select: { purchases: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const values: unknown[] = [companyId];
+    let where = 's."companyId" = $1';
+    if (search) {
+      values.push(`%${search}%`);
+      where += ` AND s.name ILIKE $${values.length}`;
+    }
+    return this.db.query(
+      `SELECT s.*, (SELECT count(*)::int FROM "Purchase" p WHERE p."supplierId" = s.id) AS "purchaseCount"
+       FROM "Supplier" s WHERE ${where} ORDER BY s."createdAt" DESC`,
+      values,
+    );
   }
 
   async findOne(id: string, companyId: string) {
-    const supplier = await this.prisma.supplier.findFirst({
-      where: { id, companyId },
-      include: {
-        purchases: {
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-          select: {
-            id: true,
-            purchaseNo: true,
-            status: true,
-            total: true,
-            createdAt: true,
-          },
-        },
-      },
-    });
+    const suppliers = await this.db.query<Supplier>(
+      'SELECT * FROM "Supplier" WHERE id = $1 AND "companyId" = $2',
+      [id, companyId],
+    );
+    if (!suppliers[0]) throw new NotFoundException('تأمین‌کننده یافت نشد');
 
-    if (!supplier) {
-      throw new NotFoundException('تأمین‌کننده یافت نشد');
-    }
-
-    return supplier;
+    const purchases = await this.db.query(
+      `SELECT id, "purchaseNo", status, total, "createdAt" FROM "Purchase"
+       WHERE "supplierId" = $1 ORDER BY "createdAt" DESC LIMIT 20`,
+      [id],
+    );
+    return { ...suppliers[0], purchases };
   }
 
   async create(
     companyId: string,
     data: { name: string; phone?: string; email?: string; address?: string },
   ) {
-    return this.prisma.supplier.create({
-      data: { ...data, companyId },
-    });
+    const suppliers = await this.db.query<Supplier>(
+      `INSERT INTO "Supplier" (id, "companyId", name, phone, email, address)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        randomUUID(),
+        companyId,
+        data.name,
+        data.phone ?? null,
+        data.email ?? null,
+        data.address ?? null,
+      ],
+    );
+    return suppliers[0];
   }
 
-  async update(
-    id: string,
-    companyId: string,
-    data: Record<string, unknown>,
-  ) {
+  async update(id: string, companyId: string, data: Record<string, unknown>) {
     await this.findOne(id, companyId);
 
-    return this.prisma.supplier.update({
-      where: { id },
-      data: data as never,
+    const values: unknown[] = [];
+    const assignments = WRITABLE.filter((column) => data[column] !== undefined).map((column) => {
+      values.push(data[column]);
+      return `"${column}" = $${values.length}`;
     });
+    if (!assignments.length) return this.findOne(id, companyId);
+
+    values.push(id);
+    const suppliers = await this.db.query<Supplier>(
+      `UPDATE "Supplier" SET ${assignments.join(', ')}, "updatedAt" = now()
+       WHERE id = $${values.length} RETURNING *`,
+      values,
+    );
+    return suppliers[0];
   }
 
   async remove(id: string, companyId: string) {
-    await this.findOne(id, companyId);
-
-    return this.prisma.supplier.delete({ where: { id } });
+    const supplier = await this.findOne(id, companyId);
+    await this.db.execute('DELETE FROM "Supplier" WHERE id = $1', [id]);
+    return supplier;
   }
 }

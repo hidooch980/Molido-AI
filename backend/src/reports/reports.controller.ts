@@ -45,6 +45,19 @@ export class ReportsController {
     );
   }
 
+  @Get('sales/breakdown')
+  breakdown(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.salesBreakdown(
+      user.companyId as string,
+      from,
+      to,
+    );
+  }
+
   @Get('profit')
   profitReport(
     @CurrentUser() user: AuthUser,

@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PoolClient } from 'pg';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
+import { Params, setClause } from '../database/sql';
 import { N8nService } from '../n8n/n8n.service';
 import {
   AddItemsDto,
@@ -15,6 +18,73 @@ import {
   SettleOrderDto,
 } from './dto/restaurant.dto';
 
+type Row = Record<string, unknown>;
+type OrderRow = Row & {
+  id: string;
+  status: string;
+  tableId: string | null;
+  items: Array<Row & { id: string; status: string }>;
+};
+
+/** Order statuses that still occupy a table. */
+const OPEN_ORDER_STATUSES = ['OPEN', 'IN_KITCHEN', 'READY', 'SERVED'];
+const CLOSED_ORDER_STATUSES = ['PAID', 'CANCELLED'];
+const ITEM_STATUSES = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
+const ACTIVE_RESERVATION_STATUSES = ['PENDING', 'CONFIRMED', 'SEATED'];
+
+const DEFAULT_RESERVATION_MINUTES = 90;
+/** How far back to look for a clashing reservation on the same table. */
+const RESERVATION_LOOKBACK_HOURS = 4;
+
+const AREA_WRITABLE = ['name', 'floor', 'isSmoking', 'isOutdoor', 'isActive'] as const;
+const TABLE_WRITABLE = ['areaId', 'tableNo', 'capacity', 'status', 'qrCode', 'note'] as const;
+const MENU_CATEGORY_WRITABLE = [
+  'name',
+  'nameEn',
+  'nameAr',
+  'sortOrder',
+  'icon',
+  'isActive',
+] as const;
+const MENU_ITEM_WRITABLE = [
+  'categoryId',
+  'code',
+  'name',
+  'nameEn',
+  'nameAr',
+  'description',
+  'imageUrl',
+  'price',
+  'cost',
+  'taxRate',
+  'station',
+  'prepMinutes',
+  'calories',
+  'isAvailable',
+  'isSpicy',
+  'isVegan',
+  'sortOrder',
+] as const;
+const RESERVATION_WRITABLE = [
+  'tableId',
+  'customerName',
+  'phone',
+  'guests',
+  'reservedAt',
+  'durationMin',
+  'status',
+  'note',
+] as const;
+
+/** Tables the `ensure` helper may be pointed at, scoped by companyId. */
+const SCOPED_TABLES = {
+  restaurantArea: 'RestaurantArea',
+  restaurantTable: 'RestaurantTable',
+  menuCategory: 'MenuCategory',
+  menuItem: 'MenuItem',
+  tableReservation: 'TableReservation',
+} as const;
+
 /**
  * سرویس کافه‌رستوران
  *
@@ -24,162 +94,167 @@ import {
 @Injectable()
 export class RestaurantService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly n8n: N8nService,
   ) {}
 
   // ═══════════════ سالن ═══════════════
 
   areas(companyId: string) {
-    return this.prisma.restaurantArea.findMany({
-      where: { companyId },
-      include: { _count: { select: { tables: true } } },
-      orderBy: { name: 'asc' },
-    });
+    return this.db.query(
+      `SELECT a.*, (SELECT count(*)::int FROM "RestaurantTable" t WHERE t."areaId" = a.id)
+                AS "tablesCount"
+       FROM "RestaurantArea" a WHERE a."companyId" = $1 ORDER BY a.name ASC`,
+      [companyId],
+    );
   }
 
-  createArea(companyId: string, data: any) {
-    return this.prisma.restaurantArea.create({ data: { ...data, companyId } });
+  createArea(companyId: string, data: Row) {
+    return this.insert('RestaurantArea', companyId, AREA_WRITABLE, data);
   }
 
-  async updateArea(companyId: string, id: string, data: any) {
+  async updateArea(companyId: string, id: string, data: Row) {
     await this.ensure('restaurantArea', companyId, id, 'سالن یافت نشد');
-    return this.prisma.restaurantArea.update({ where: { id }, data });
+    return this.patch('RestaurantArea', id, AREA_WRITABLE, data);
   }
 
   async removeArea(companyId: string, id: string) {
-    await this.ensure('restaurantArea', companyId, id, 'سالن یافت نشد');
-    return this.prisma.restaurantArea.delete({ where: { id } });
+    const area = await this.ensure('restaurantArea', companyId, id, 'سالن یافت نشد');
+    await this.db.execute('DELETE FROM "RestaurantArea" WHERE id = $1', [id]);
+    return area;
   }
 
   // ═══════════════ میز ═══════════════
 
-  tables(companyId: string, query: any = {}) {
-    return this.prisma.restaurantTable.findMany({
-      where: {
-        companyId,
-        ...(query.areaId ? { areaId: query.areaId } : {}),
-        ...(query.status ? { status: query.status } : {}),
-      },
-      include: {
-        area: { select: { id: true, name: true } },
-        orders: {
-          where: { status: { in: ['OPEN', 'IN_KITCHEN', 'READY', 'SERVED'] } },
-          select: { id: true, orderNo: true, total: true, openedAt: true },
-        },
-      },
-      orderBy: { tableNo: 'asc' },
-    });
+  tables(companyId: string, query: Row = {}) {
+    const params = new Params();
+    const conditions = [`t."companyId" = ${params.next(companyId)}`];
+    if (query.areaId) conditions.push(`t."areaId" = ${params.next(query.areaId)}`);
+    if (query.status) conditions.push(`t.status = ${params.next(query.status)}`);
+
+    return this.db.query(
+      `SELECT t.*, a.name AS "areaName",
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                   'id', o.id, 'orderNo', o."orderNo", 'total', o.total, 'openedAt', o."openedAt"))
+                 FROM "RestaurantOrder" o
+                 WHERE o."tableId" = t.id AND o.status = ANY(${params.next(OPEN_ORDER_STATUSES)})),
+                '[]'::json) AS orders
+       FROM "RestaurantTable" t LEFT JOIN "RestaurantArea" a ON a.id = t."areaId"
+       WHERE ${conditions.join(' AND ')} ORDER BY t."tableNo" ASC`,
+      params.values,
+    );
   }
 
-  createTable(companyId: string, data: any) {
-    return this.prisma.restaurantTable.create({ data: { ...data, companyId } });
+  createTable(companyId: string, data: Row) {
+    return this.insert('RestaurantTable', companyId, TABLE_WRITABLE, data);
   }
 
-  async updateTable(companyId: string, id: string, data: any) {
+  async updateTable(companyId: string, id: string, data: Row) {
     await this.ensure('restaurantTable', companyId, id, 'میز یافت نشد');
-    return this.prisma.restaurantTable.update({ where: { id }, data });
+    return this.patch('RestaurantTable', id, TABLE_WRITABLE, data);
   }
 
   async removeTable(companyId: string, id: string) {
-    await this.ensure('restaurantTable', companyId, id, 'میز یافت نشد');
-    return this.prisma.restaurantTable.delete({ where: { id } });
+    const table = await this.ensure('restaurantTable', companyId, id, 'میز یافت نشد');
+    await this.db.execute('DELETE FROM "RestaurantTable" WHERE id = $1', [id]);
+    return table;
   }
 
   // ═══════════════ دسته‌بندی منو ═══════════════
 
   menuCategories(companyId: string) {
-    return this.prisma.menuCategory.findMany({
-      where: { companyId },
-      include: { _count: { select: { items: true } } },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
+    return this.db.query(
+      `SELECT c.*, (SELECT count(*)::int FROM "MenuItem" i WHERE i."categoryId" = c.id)
+                AS "itemsCount"
+       FROM "MenuCategory" c WHERE c."companyId" = $1
+       ORDER BY c."sortOrder" ASC, c.name ASC`,
+      [companyId],
+    );
   }
 
-  createMenuCategory(companyId: string, data: any) {
-    return this.prisma.menuCategory.create({ data: { ...data, companyId } });
+  createMenuCategory(companyId: string, data: Row) {
+    return this.insert('MenuCategory', companyId, MENU_CATEGORY_WRITABLE, data);
   }
 
-  async updateMenuCategory(companyId: string, id: string, data: any) {
+  async updateMenuCategory(companyId: string, id: string, data: Row) {
     await this.ensure('menuCategory', companyId, id, 'دسته‌بندی یافت نشد');
-    return this.prisma.menuCategory.update({ where: { id }, data });
+    return this.patch('MenuCategory', id, MENU_CATEGORY_WRITABLE, data);
   }
 
   // ═══════════════ آیتم منو ═══════════════
 
   /** منوی کامل، گروه‌بندی‌شده بر اساس دسته */
-  async menu(companyId: string, query: any = {}) {
-    const categories = await this.prisma.menuCategory.findMany({
-      where: { companyId, ...(query.all ? {} : { isActive: true }) },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: {
-        items: {
-          where: query.all ? {} : { isAvailable: true },
-          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-        },
-      },
-    });
+  async menu(companyId: string, query: Row = {}) {
+    const showAll = Boolean(query.all);
 
-    // آیتم‌های بدون دسته‌بندی
-    const uncategorized = await this.prisma.menuItem.findMany({
-      where: {
-        companyId,
-        categoryId: null,
-        ...(query.all ? {} : { isAvailable: true }),
-      },
-      orderBy: { name: 'asc' },
-    });
+    const categories = await this.db.query<Row & { id: string }>(
+      `SELECT * FROM "MenuCategory"
+       WHERE "companyId" = $1 ${showAll ? '' : 'AND "isActive" = true'}
+       ORDER BY "sortOrder" ASC, name ASC`,
+      [companyId],
+    );
 
+    const items = await this.db.query<Row & { categoryId: string | null }>(
+      `SELECT * FROM "MenuItem"
+       WHERE "companyId" = $1 ${showAll ? '' : 'AND "isAvailable" = true'}
+       ORDER BY "sortOrder" ASC, name ASC`,
+      [companyId],
+    );
+
+    const grouped = categories.map((category) => ({
+      ...category,
+      items: items.filter((item) => item.categoryId === category.id),
+    }));
+
+    const uncategorized = items.filter((item) => item.categoryId === null);
     return uncategorized.length
-      ? [
-          ...categories,
-          { id: null, name: 'متفرقه', sortOrder: 999, items: uncategorized },
-        ]
-      : categories;
+      ? [...grouped, { id: null, name: 'متفرقه', sortOrder: 999, items: uncategorized }]
+      : grouped;
   }
 
-  menuItems(companyId: string, query: any = {}) {
-    return this.prisma.menuItem.findMany({
-      where: {
-        companyId,
-        ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-        ...(query.station ? { station: query.station } : {}),
-        ...(query.search
-          ? { name: { contains: query.search, mode: 'insensitive' as const } }
-          : {}),
-      },
-      include: { category: { select: { id: true, name: true } } },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      take: query.limit ? Number(query.limit) : 200,
-    });
+  menuItems(companyId: string, query: Row = {}) {
+    const params = new Params();
+    const conditions = [`i."companyId" = ${params.next(companyId)}`];
+    if (query.categoryId) conditions.push(`i."categoryId" = ${params.next(query.categoryId)}`);
+    if (query.station) conditions.push(`i.station = ${params.next(query.station)}`);
+    if (query.search) conditions.push(`i.name ILIKE ${params.next(`%${query.search}%`)}`);
+
+    const limit = Number(query.limit) > 0 ? Math.min(Number(query.limit), 500) : 200;
+
+    return this.db.query(
+      `SELECT i.*, c.name AS "categoryName" FROM "MenuItem" i
+       LEFT JOIN "MenuCategory" c ON c.id = i."categoryId"
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY i."sortOrder" ASC, i.name ASC LIMIT ${params.next(limit)}`,
+      params.values,
+    );
   }
 
   createMenuItem(companyId: string, dto: MenuItemDto) {
-    return this.prisma.menuItem.create({ data: { ...dto, companyId } as any });
+    return this.insert('MenuItem', companyId, MENU_ITEM_WRITABLE, { ...dto });
   }
 
-  async updateMenuItem(companyId: string, id: string, data: any) {
+  async updateMenuItem(companyId: string, id: string, data: Row) {
     await this.ensure('menuItem', companyId, id, 'آیتم منو یافت نشد');
-    return this.prisma.menuItem.update({ where: { id }, data });
+    return this.patch('MenuItem', id, MENU_ITEM_WRITABLE, data);
   }
 
   async removeMenuItem(companyId: string, id: string) {
-    await this.ensure('menuItem', companyId, id, 'آیتم منو یافت نشد');
-    return this.prisma.menuItem.delete({ where: { id } });
+    const item = await this.ensure('menuItem', companyId, id, 'آیتم منو یافت نشد');
+    await this.db.execute('DELETE FROM "MenuItem" WHERE id = $1', [id]);
+    return item;
   }
 
   /** خاموش/روشن کردن آیتم (تمام شد / موجود شد) */
   async toggleAvailability(companyId: string, id: string) {
-    const item = await this.prisma.menuItem.findFirst({
-      where: { id, companyId },
-    });
-
-    if (!item) throw new NotFoundException('آیتم منو یافت نشد');
-
-    return this.prisma.menuItem.update({
-      where: { id },
-      data: { isAvailable: !item.isAvailable },
-    });
+    const rows = await this.db.query(
+      `UPDATE "MenuItem" SET "isAvailable" = NOT "isAvailable", "updatedAt" = now()
+       WHERE id = $1 AND "companyId" = $2 RETURNING *`,
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException('آیتم منو یافت نشد');
+    return rows[0];
   }
 
   // ═══════════════ رسپی ═══════════════
@@ -187,92 +262,105 @@ export class RestaurantService {
   async recipe(companyId: string, menuItemId: string) {
     await this.ensure('menuItem', companyId, menuItemId, 'آیتم منو یافت نشد');
 
-    return this.prisma.menuRecipe.findMany({
-      where: { menuItemId },
-      include: {
-        product: { select: { id: true, name: true, sku: true, unit: true } },
-      },
-    });
+    return this.db.query(
+      `SELECT r.*, p.name AS "productName", p.sku AS "productSku", p.unit AS "productUnit"
+       FROM "MenuRecipe" r JOIN "Product" p ON p.id = r."productId"
+       WHERE r."menuItemId" = $1`,
+      [menuItemId],
+    );
   }
 
   /** جایگزینی کامل رسپی یک آیتم */
   async setRecipe(companyId: string, menuItemId: string, dto: SetRecipeDto) {
     await this.ensure('menuItem', companyId, menuItemId, 'آیتم منو یافت نشد');
 
-    const productIds = dto.lines.map((l) => l.productId);
-
-    const found = await this.prisma.product.count({
-      where: { id: { in: productIds }, companyId },
-    });
-
-    if (found !== new Set(productIds).size) {
+    const productIds = dto.lines.map((line) => line.productId);
+    const found = await this.db.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM "Product" WHERE id = ANY($1) AND "companyId" = $2',
+      [productIds, companyId],
+    );
+    if (Number(found[0]?.count ?? 0) !== new Set(productIds).size) {
       throw new BadRequestException('برخی مواد اولیه یافت نشدند');
     }
 
-    return this.prisma.$transaction(async (tx: any) => {
-      await tx.menuRecipe.deleteMany({ where: { menuItemId } });
-
-      if (dto.lines.length) {
-        await tx.menuRecipe.createMany({
-          data: dto.lines.map((l) => ({ ...l, menuItemId })),
-        });
+    await this.db.transaction(async (tx) => {
+      await tx.query('DELETE FROM "MenuRecipe" WHERE "menuItemId" = $1', [menuItemId]);
+      for (const line of dto.lines) {
+        await tx.query(
+          `INSERT INTO "MenuRecipe" (id, "menuItemId", "productId", qty, unit, "wastePct")
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            randomUUID(),
+            menuItemId,
+            line.productId,
+            line.qty,
+            line.unit ?? null,
+            line.wastePct ?? 0,
+          ],
+        );
       }
-
-      return tx.menuRecipe.findMany({
-        where: { menuItemId },
-        include: { product: { select: { id: true, name: true, unit: true } } },
-      });
     });
+
+    return this.recipe(companyId, menuItemId);
   }
 
   // ═══════════════ سفارش ═══════════════
 
-  orders(companyId: string, query: any = {}) {
-    return this.prisma.restaurantOrder.findMany({
-      where: {
-        companyId,
-        ...(query.status ? { status: query.status } : {}),
-        ...(query.type ? { type: query.type } : {}),
-        ...(query.tableId ? { tableId: query.tableId } : {}),
-        ...(query.open === 'true'
-          ? { status: { in: ['OPEN', 'IN_KITCHEN', 'READY', 'SERVED'] } }
-          : {}),
-        ...(query.from || query.to
-          ? {
-              openedAt: {
-                ...(query.from ? { gte: new Date(query.from) } : {}),
-                ...(query.to ? { lte: new Date(query.to) } : {}),
-              },
-            }
-          : {}),
-      },
-      include: {
-        table: { select: { id: true, tableNo: true } },
-        items: true,
-        _count: { select: { items: true } },
-      },
-      orderBy: { openedAt: 'desc' },
-      take: query.limit ? Math.min(Number(query.limit), 200) : 50,
-    });
+  orders(companyId: string, query: Row = {}) {
+    const params = new Params();
+    const conditions = [`o."companyId" = ${params.next(companyId)}`];
+    if (query.status) conditions.push(`o.status = ${params.next(query.status)}`);
+    if (query.type) conditions.push(`o.type = ${params.next(query.type)}`);
+    if (query.tableId) conditions.push(`o."tableId" = ${params.next(query.tableId)}`);
+    if (query.open === 'true') {
+      conditions.push(`o.status = ANY(${params.next(OPEN_ORDER_STATUSES)})`);
+    }
+    if (query.from) conditions.push(`o."openedAt" >= ${params.next(new Date(String(query.from)))}`);
+    if (query.to) conditions.push(`o."openedAt" <= ${params.next(new Date(String(query.to)))}`);
+
+    const limit = Number(query.limit) > 0 ? Math.min(Number(query.limit), 200) : 50;
+
+    return this.db.query(
+      `SELECT o.*, t."tableNo",
+              COALESCE((SELECT json_agg(i.*) FROM "RestaurantOrderItem" i
+                        WHERE i."orderId" = o.id), '[]'::json) AS items,
+              (SELECT count(*)::int FROM "RestaurantOrderItem" i WHERE i."orderId" = o.id)
+                AS "itemsCount"
+       FROM "RestaurantOrder" o LEFT JOIN "RestaurantTable" t ON t.id = o."tableId"
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY o."openedAt" DESC LIMIT ${params.next(limit)}`,
+      params.values,
+    );
   }
 
-  async order(companyId: string, id: string) {
-    const order = await this.prisma.restaurantOrder.findFirst({
-      where: { id, companyId },
-      include: {
-        table: { select: { id: true, tableNo: true } },
-        customer: { select: { id: true, firstName: true, lastName: true } },
-        waiter: { select: { id: true, firstName: true, lastName: true } },
-        items: {
-          include: { menuItem: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-    });
+  async order(companyId: string, id: string): Promise<OrderRow> {
+    const orders = await this.db.query<OrderRow>(
+      `SELECT o.*, t."tableNo",
+              CASE WHEN t.id IS NULL THEN NULL
+                   ELSE json_build_object('id', t.id, 'tableNo', t."tableNo") END AS "table",
+              CASE WHEN c.id IS NULL THEN NULL
+                   ELSE json_build_object('id', c.id, 'firstName', c."firstName",
+                                          'lastName', c."lastName") END AS customer,
+              CASE WHEN w.id IS NULL THEN NULL
+                   ELSE json_build_object('id', w.id, 'firstName', w."firstName",
+                                          'lastName', w."lastName") END AS waiter
+       FROM "RestaurantOrder" o
+       LEFT JOIN "RestaurantTable" t ON t.id = o."tableId"
+       LEFT JOIN "Customer" c ON c.id = o."customerId"
+       LEFT JOIN "User" w ON w.id = o."waiterId"
+       WHERE o.id = $1 AND o."companyId" = $2`,
+      [id, companyId],
+    );
+    if (!orders[0]) throw new NotFoundException('سفارش یافت نشد');
 
-    if (!order) throw new NotFoundException('سفارش یافت نشد');
+    const items = await this.db.query<Row & { id: string; status: string }>(
+      `SELECT i.*, m.name AS "menuItemName" FROM "RestaurantOrderItem" i
+       LEFT JOIN "MenuItem" m ON m.id = i."menuItemId"
+       WHERE i."orderId" = $1 ORDER BY i."createdAt" ASC`,
+      [id],
+    );
 
-    return order;
+    return { ...orders[0], items };
   }
 
   /**
@@ -285,19 +373,17 @@ export class RestaurantService {
     }
 
     const type = dto.type ?? 'DINE_IN';
-
     if (type === 'DINE_IN' && !dto.tableId) {
       throw new BadRequestException('برای سفارش سالن، انتخاب میز الزامی است');
     }
 
     if (dto.tableId) {
-      const table = await this.prisma.restaurantTable.findFirst({
-        where: { id: dto.tableId, companyId },
-      });
-
-      if (!table) throw new NotFoundException('میز یافت نشد');
-
-      if (table.status === 'OUT_OF_SERVICE') {
+      const tables = await this.db.query<{ status: string }>(
+        'SELECT status FROM "RestaurantTable" WHERE id = $1 AND "companyId" = $2',
+        [dto.tableId, companyId],
+      );
+      if (!tables[0]) throw new NotFoundException('میز یافت نشد');
+      if (tables[0].status === 'OUT_OF_SERVICE') {
         throw new BadRequestException('این میز خارج از سرویس است');
       }
     }
@@ -307,46 +393,51 @@ export class RestaurantService {
     const discount = dto.discount ?? 0;
     const deliveryFee = type === 'DELIVERY' ? (dto.deliveryFee ?? 0) : 0;
     const net = subtotal - discount;
-
     if (net < 0) throw new BadRequestException('تخفیف بیش از مبلغ سفارش است');
 
     const serviceCharge = this.pct(net, dto.servicePercent);
     const tax = this.pct(net + serviceCharge, dto.taxPercent);
     const total = net + serviceCharge + tax + deliveryFee;
 
-    const order = await this.prisma.$transaction(async (tx: any) => {
-      const created = await tx.restaurantOrder.create({
-        data: {
+    const order = await this.db.transaction(async (tx) => {
+      const created = await tx.query<OrderRow>(
+        `INSERT INTO "RestaurantOrder"
+           (id, "companyId", "orderNo", type, status, "tableId", "customerId", "waiterId",
+            "guestCount", subtotal, discount, "serviceCharge", tax, "deliveryFee", total,
+            "deliveryAddress", "deliveryPhone", note)
+         VALUES ($1, $2, $3, $4, 'OPEN', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         RETURNING *`,
+        [
+          randomUUID(),
           companyId,
-          orderNo: `ORD-${Date.now()}`,
-          type: type as never,
-          status: 'OPEN',
-          tableId: dto.tableId ?? null,
-          customerId: dto.customerId ?? null,
-          waiterId: userId,
-          guestCount: dto.guestCount ?? 1,
+          `ORD-${Date.now()}`,
+          type,
+          dto.tableId ?? null,
+          dto.customerId ?? null,
+          userId,
+          dto.guestCount ?? 1,
           subtotal,
           discount,
           serviceCharge,
           tax,
           deliveryFee,
           total,
-          deliveryAddress: dto.deliveryAddress ?? null,
-          deliveryPhone: dto.deliveryPhone ?? null,
-          note: dto.note ?? null,
-          items: { create: itemsData },
-        },
-        include: { items: true },
-      });
+          dto.deliveryAddress ?? null,
+          dto.deliveryPhone ?? null,
+          dto.note ?? null,
+        ],
+      );
+      const row = created.rows[0];
+      const items = await this.insertOrderItems(tx, row.id, itemsData);
 
       if (dto.tableId) {
-        await tx.restaurantTable.update({
-          where: { id: dto.tableId },
-          data: { status: 'OCCUPIED' },
-        });
+        await tx.query(
+          `UPDATE "RestaurantTable" SET status = 'OCCUPIED', "updatedAt" = now() WHERE id = $1`,
+          [dto.tableId],
+        );
       }
 
-      return created;
+      return { ...row, items };
     });
 
     await this.n8n
@@ -359,15 +450,12 @@ export class RestaurantService {
   /** افزودن اقلام به سفارش باز و به‌روزرسانی مبالغ */
   async addItems(companyId: string, id: string, dto: AddItemsDto) {
     const order = await this.order(companyId, id);
-
-    if (['PAID', 'CANCELLED'].includes(order.status)) {
-      throw new BadRequestException('این سفارش بسته شده است');
-    }
+    this.assertOpen(order);
 
     const { itemsData } = await this.buildItems(companyId, dto.items);
 
-    await this.prisma.restaurantOrderItem.createMany({
-      data: itemsData.map((i) => ({ ...i, orderId: id })),
+    await this.db.transaction(async (tx) => {
+      await this.insertOrderItems(tx, id, itemsData);
     });
 
     return this.recalc(id);
@@ -375,54 +463,50 @@ export class RestaurantService {
 
   async removeItem(companyId: string, id: string, itemId: string) {
     const order = await this.order(companyId, id);
+    this.assertOpen(order);
 
-    if (['PAID', 'CANCELLED'].includes(order.status)) {
-      throw new BadRequestException('این سفارش بسته شده است');
-    }
-
-    const item = await this.prisma.restaurantOrderItem.findFirst({
-      where: { id: itemId, orderId: id },
-    });
-
-    if (!item) throw new NotFoundException('قلم سفارش یافت نشد');
-
-    if (item.status === 'SERVED') {
+    const items = await this.db.query<{ status: string }>(
+      'SELECT status FROM "RestaurantOrderItem" WHERE id = $1 AND "orderId" = $2',
+      [itemId, id],
+    );
+    if (!items[0]) throw new NotFoundException('قلم سفارش یافت نشد');
+    if (items[0].status === 'SERVED') {
       throw new BadRequestException('قلم سرو شده قابل حذف نیست');
     }
 
-    await this.prisma.restaurantOrderItem.delete({ where: { id: itemId } });
-
+    await this.db.execute('DELETE FROM "RestaurantOrderItem" WHERE id = $1', [itemId]);
     return this.recalc(id);
   }
 
   /** ارسال اقلام در انتظار به آشپزخانه */
   async sendToKitchen(companyId: string, id: string) {
     const order = await this.order(companyId, id);
+    this.assertOpen(order);
 
-    if (['PAID', 'CANCELLED'].includes(order.status)) {
-      throw new BadRequestException('این سفارش بسته شده است');
-    }
-
-    const now = new Date();
-
-    const { count } = await this.prisma.restaurantOrderItem.updateMany({
-      where: { orderId: id, status: 'PENDING' },
-      data: { status: 'PREPARING', sentAt: now },
-    });
-
-    if (!count) {
+    const sent = await this.db.execute(
+      `UPDATE "RestaurantOrderItem" SET status = 'PREPARING', "sentAt" = now()
+       WHERE "orderId" = $1 AND status = 'PENDING'`,
+      [id],
+    );
+    if (!sent) {
       throw new BadRequestException('قلم جدیدی برای ارسال به آشپزخانه نیست');
     }
 
-    const updated = await this.prisma.restaurantOrder.update({
-      where: { id },
-      data: { status: 'IN_KITCHEN', kitchenAt: order.kitchenAt ?? now },
-      include: { items: true },
-    });
+    const rows = await this.db.query<Row & { orderNo: string }>(
+      `UPDATE "RestaurantOrder"
+       SET status = 'IN_KITCHEN', "kitchenAt" = COALESCE("kitchenAt", now()), "updatedAt" = now()
+       WHERE id = $1 RETURNING *`,
+      [id],
+    );
+    const items = await this.db.query(
+      'SELECT * FROM "RestaurantOrderItem" WHERE "orderId" = $1',
+      [id],
+    );
+    const updated = { ...rows[0], items };
 
     await this.n8n
       .restaurantSentToKitchen(
-        { orderId: id, orderNo: updated.orderNo, itemsSent: count },
+        { orderId: id, orderNo: rows[0].orderNo, itemsSent: sent },
         companyId,
       )
       .catch(() => undefined);
@@ -432,64 +516,60 @@ export class RestaurantService {
 
   /** صفحه آشپزخانه (KDS) — اقلام در حال آماده‌سازی به تفکیک ایستگاه */
   async kitchenBoard(companyId: string, station?: string) {
-    const items = await this.prisma.restaurantOrderItem.findMany({
-      where: {
-        order: { companyId, status: { notIn: ['PAID', 'CANCELLED'] } },
-        status: { in: ['PREPARING', 'READY'] },
-        ...(station ? { station: station as never } : {}),
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNo: true,
-            type: true,
-            openedAt: true,
-            table: { select: { tableNo: true } },
-          },
-        },
-      },
-      orderBy: { sentAt: 'asc' },
-    });
+    const params = new Params();
+    const conditions = [
+      `o."companyId" = ${params.next(companyId)}`,
+      `NOT (o.status = ANY(${params.next(CLOSED_ORDER_STATUSES)}))`,
+      `i.status = ANY(${params.next(['PREPARING', 'READY'])})`,
+    ];
+    if (station) conditions.push(`i.station = ${params.next(station)}`);
+
+    const items = await this.db.query<Row & { sentAt: string | null }>(
+      `SELECT i.*, o."orderNo", o.type AS "orderType", o."openedAt", t."tableNo"
+       FROM "RestaurantOrderItem" i
+       JOIN "RestaurantOrder" o ON o.id = i."orderId"
+       LEFT JOIN "RestaurantTable" t ON t.id = o."tableId"
+       WHERE ${conditions.join(' AND ')} ORDER BY i."sentAt" ASC`,
+      params.values,
+    );
 
     const now = Date.now();
-
-    return items.map((i: any) => ({
-      ...i,
-      waitingMinutes: i.sentAt
-        ? Math.floor((now - new Date(i.sentAt).getTime()) / 60000)
+    return items.map((item) => ({
+      ...item,
+      waitingMinutes: item.sentAt
+        ? Math.floor((now - new Date(item.sentAt).getTime()) / 60000)
         : 0,
     }));
   }
 
   /** تغییر وضعیت یک قلم: PREPARING → READY → SERVED */
   async setItemStatus(companyId: string, itemId: string, status: string) {
-    const allowed = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
-
-    if (!allowed.includes(status)) {
+    if (!ITEM_STATUSES.includes(status)) {
       throw new BadRequestException('وضعیت نامعتبر است');
     }
 
-    const item = await this.prisma.restaurantOrderItem.findFirst({
-      where: { id: itemId, order: { companyId } },
-    });
+    const items = await this.db.query<{ orderId: string }>(
+      `SELECT i."orderId" FROM "RestaurantOrderItem" i
+       JOIN "RestaurantOrder" o ON o.id = i."orderId"
+       WHERE i.id = $1 AND o."companyId" = $2`,
+      [itemId, companyId],
+    );
+    if (!items[0]) throw new NotFoundException('قلم سفارش یافت نشد');
 
-    if (!item) throw new NotFoundException('قلم سفارش یافت نشد');
+    const extra =
+      status === 'READY'
+        ? ', "readyAt" = now()'
+        : status === 'SERVED'
+          ? ', "servedAt" = now(), "readyAt" = COALESCE("readyAt", now())'
+          : '';
 
-    const now = new Date();
+    const updated = await this.db.query(
+      `UPDATE "RestaurantOrderItem" SET status = $1${extra} WHERE id = $2 RETURNING *`,
+      [status, itemId],
+    );
 
-    const updated = await this.prisma.restaurantOrderItem.update({
-      where: { id: itemId },
-      data: {
-        status: status as never,
-        ...(status === 'READY' ? { readyAt: now } : {}),
-        ...(status === 'SERVED' ? { servedAt: now, readyAt: item.readyAt ?? now } : {}),
-      },
-    });
-
-    await this.syncOrderStatus(item.orderId);
-
-    return updated;
+    await this.syncOrderStatus(items[0].orderId);
+    return updated[0];
   }
 
   /**
@@ -504,69 +584,67 @@ export class RestaurantService {
     if (order.status === 'PAID') {
       throw new BadRequestException('این سفارش قبلاً تسویه شده است');
     }
-
     if (order.status === 'CANCELLED') {
       throw new BadRequestException('سفارش لغو شده قابل تسویه نیست');
     }
 
     if (dto.warehouseId) {
-      const warehouse = await this.prisma.warehouse.findFirst({
-        where: { id: dto.warehouseId, companyId },
-      });
-
-      if (!warehouse) throw new NotFoundException('انبار یافت نشد');
+      const warehouses = await this.db.query<{ id: string }>(
+        'SELECT id FROM "Warehouse" WHERE id = $1 AND "companyId" = $2',
+        [dto.warehouseId, companyId],
+      );
+      if (!warehouses[0]) throw new NotFoundException('انبار یافت نشد');
     }
 
     const total = Number(order.total);
-
     if (dto.paidAmount < total) {
       throw new BadRequestException(
         `مبلغ پرداختی کمتر از مبلغ سفارش (${total.toLocaleString('fa-IR')}) است`,
       );
     }
 
-    const settled = await this.prisma.$transaction(async (tx: any) => {
+    if (dto.cashBoxId) {
+      const cashBoxes = await this.db.query<{ id: string }>(
+        'SELECT id FROM "CashBox" WHERE id = $1 AND "companyId" = $2',
+        [dto.cashBoxId, companyId],
+      );
+      if (!cashBoxes[0]) throw new NotFoundException('صندوق یافت نشد');
+    }
+
+    const settled = await this.db.transaction(async (tx) => {
       if (dto.warehouseId) {
         await this.consumeIngredients(tx, order, dto.warehouseId);
       }
 
-      const updated = await tx.restaurantOrder.update({
-        where: { id },
-        data: {
-          status: 'PAID',
-          paidAmount: dto.paidAmount,
-          tipAmount: dto.tipAmount ?? 0,
-          paymentMethod: dto.paymentMethod ?? 'CASH',
-          closedAt: new Date(),
-        },
-      });
+      const updated = await tx.query<Row>(
+        `UPDATE "RestaurantOrder"
+         SET status = 'PAID', "paidAmount" = $1, "tipAmount" = $2, "paymentMethod" = $3,
+             "closedAt" = now(), "updatedAt" = now()
+         WHERE id = $4 RETURNING *`,
+        [dto.paidAmount, dto.tipAmount ?? 0, dto.paymentMethod ?? 'CASH', id],
+      );
 
-      await tx.restaurantOrderItem.updateMany({
-        where: { orderId: id, status: { notIn: ['CANCELLED', 'SERVED'] } },
-        data: { status: 'SERVED', servedAt: new Date() },
-      });
+      await tx.query(
+        `UPDATE "RestaurantOrderItem" SET status = 'SERVED', "servedAt" = now()
+         WHERE "orderId" = $1 AND NOT (status = ANY($2))`,
+        [id, ['CANCELLED', 'SERVED']],
+      );
 
       if (order.tableId) {
-        await tx.restaurantTable.update({
-          where: { id: order.tableId },
-          data: { status: 'CLEANING' },
-        });
+        await tx.query(
+          `UPDATE "RestaurantTable" SET status = 'CLEANING', "updatedAt" = now() WHERE id = $1`,
+          [order.tableId],
+        );
       }
 
       if (dto.cashBoxId) {
-        const cashBox = await tx.cashBox.findFirst({
-          where: { id: dto.cashBoxId, companyId },
-        });
-
-        if (!cashBox) throw new NotFoundException('صندوق یافت نشد');
-
-        await tx.cashBox.update({
-          where: { id: dto.cashBoxId },
-          data: { balance: { increment: total + (dto.tipAmount ?? 0) } },
-        });
+        await tx.query(
+          'UPDATE "CashBox" SET balance = balance + $1, "updatedAt" = now() WHERE id = $2',
+          [total + (dto.tipAmount ?? 0), dto.cashBoxId],
+        );
       }
 
-      return updated;
+      return updated.rows[0];
     });
 
     await this.n8n
@@ -578,173 +656,166 @@ export class RestaurantService {
 
   async cancelOrder(companyId: string, id: string, reason?: string) {
     const order = await this.order(companyId, id);
-
     if (order.status === 'PAID') {
       throw new BadRequestException('سفارش تسویه‌شده قابل لغو نیست');
     }
 
-    return this.prisma.$transaction(async (tx: any) => {
-      const updated = await tx.restaurantOrder.update({
-        where: { id },
-        data: {
-          status: 'CANCELLED',
-          closedAt: new Date(),
-          note: reason ? `${order.note ?? ''}\nلغو: ${reason}`.trim() : order.note,
-        },
-      });
+    return this.db.transaction(async (tx) => {
+      const note = reason ? `${order.note ?? ''}\nلغو: ${reason}`.trim() : order.note;
 
-      await tx.restaurantOrderItem.updateMany({
-        where: { orderId: id },
-        data: { status: 'CANCELLED' },
-      });
+      const updated = await tx.query<Row>(
+        `UPDATE "RestaurantOrder"
+         SET status = 'CANCELLED', "closedAt" = now(), note = $1, "updatedAt" = now()
+         WHERE id = $2 RETURNING *`,
+        [note, id],
+      );
+
+      await tx.query(`UPDATE "RestaurantOrderItem" SET status = 'CANCELLED' WHERE "orderId" = $1`, [
+        id,
+      ]);
 
       if (order.tableId) {
-        await tx.restaurantTable.update({
-          where: { id: order.tableId },
-          data: { status: 'FREE' },
-        });
+        await tx.query(
+          `UPDATE "RestaurantTable" SET status = 'FREE', "updatedAt" = now() WHERE id = $1`,
+          [order.tableId],
+        );
       }
 
-      return updated;
+      return updated.rows[0];
     });
   }
 
   // ═══════════════ رزرو ═══════════════
 
-  reservations(companyId: string, query: any = {}) {
-    return this.prisma.tableReservation.findMany({
-      where: {
-        companyId,
-        ...(query.status ? { status: query.status } : {}),
-        ...(query.date
-          ? {
-              reservedAt: {
-                gte: new Date(`${query.date}T00:00:00`),
-                lte: new Date(`${query.date}T23:59:59`),
-              },
-            }
-          : {}),
-      },
-      include: { table: { select: { id: true, tableNo: true } } },
-      orderBy: { reservedAt: 'asc' },
-      take: 200,
-    });
+  reservations(companyId: string, query: Row = {}) {
+    const params = new Params();
+    const conditions = [`r."companyId" = ${params.next(companyId)}`];
+    if (query.status) conditions.push(`r.status = ${params.next(query.status)}`);
+    if (query.date) {
+      conditions.push(`r."reservedAt" >= ${params.next(new Date(`${query.date}T00:00:00`))}`);
+      conditions.push(`r."reservedAt" <= ${params.next(new Date(`${query.date}T23:59:59`))}`);
+    }
+
+    return this.db.query(
+      `SELECT r.*, t."tableNo" FROM "TableReservation" r
+       LEFT JOIN "RestaurantTable" t ON t.id = r."tableId"
+       WHERE ${conditions.join(' AND ')} ORDER BY r."reservedAt" ASC LIMIT 200`,
+      params.values,
+    );
   }
 
-  async createReservation(companyId: string, data: any) {
+  async createReservation(companyId: string, data: Row) {
     if (!data?.reservedAt) {
       throw new BadRequestException('زمان رزرو الزامی است');
     }
 
-    const reservedAt = new Date(data.reservedAt);
-    const durationMin = Number(data.durationMin) || 90;
+    const reservedAt = new Date(String(data.reservedAt));
+    const durationMin = Number(data.durationMin) || DEFAULT_RESERVATION_MINUTES;
 
     if (data.tableId) {
-      const table = await this.prisma.restaurantTable.findFirst({
-        where: { id: data.tableId, companyId },
-      });
-
-      if (!table) throw new NotFoundException('میز یافت نشد');
+      const tables = await this.db.query<{ id: string }>(
+        'SELECT id FROM "RestaurantTable" WHERE id = $1 AND "companyId" = $2',
+        [data.tableId, companyId],
+      );
+      if (!tables[0]) throw new NotFoundException('میز یافت نشد');
 
       // تداخل با رزروهای فعال همان میز
-      const windowStart = new Date(reservedAt.getTime() - 4 * 3600_000);
+      const windowStart = new Date(
+        reservedAt.getTime() - RESERVATION_LOOKBACK_HOURS * 3600_000,
+      );
       const windowEnd = new Date(reservedAt.getTime() + durationMin * 60_000);
 
-      const nearby = await this.prisma.tableReservation.findMany({
-        where: {
-          tableId: data.tableId,
-          status: { in: ['PENDING', 'CONFIRMED', 'SEATED'] },
-          reservedAt: { gte: windowStart, lte: windowEnd },
-        },
-      });
+      const nearby = await this.db.query<{ reservedAt: string; durationMin: number | null }>(
+        `SELECT "reservedAt", "durationMin" FROM "TableReservation"
+         WHERE "tableId" = $1 AND status = ANY($2) AND "reservedAt" BETWEEN $3 AND $4`,
+        [data.tableId, ACTIVE_RESERVATION_STATUSES, windowStart, windowEnd],
+      );
 
-      const clash = nearby.some((r: any) => {
-        const start = new Date(r.reservedAt).getTime();
-        const end = start + (r.durationMin ?? 90) * 60_000;
+      const clash = nearby.some((row) => {
+        const start = new Date(row.reservedAt).getTime();
+        const end = start + (row.durationMin ?? DEFAULT_RESERVATION_MINUTES) * 60_000;
         return reservedAt.getTime() < end && windowEnd.getTime() > start;
       });
-
       if (clash) {
         throw new BadRequestException('این میز در بازه انتخابی رزرو شده است');
       }
     }
 
-    return this.prisma.tableReservation.create({
-      data: { ...data, companyId, reservedAt, durationMin },
+    return this.insert('TableReservation', companyId, RESERVATION_WRITABLE, {
+      ...data,
+      reservedAt,
+      durationMin,
     });
   }
 
-  async updateReservation(companyId: string, id: string, data: any) {
+  async updateReservation(companyId: string, id: string, data: Row) {
     await this.ensure('tableReservation', companyId, id, 'رزرو یافت نشد');
 
-    return this.prisma.tableReservation.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(data.reservedAt ? { reservedAt: new Date(data.reservedAt) } : {}),
-      },
-    });
+    const payload = { ...data };
+    if (payload.reservedAt) payload.reservedAt = new Date(String(payload.reservedAt));
+
+    return this.patch('TableReservation', id, RESERVATION_WRITABLE, payload);
   }
 
   // ═══════════════ شیفت ═══════════════
 
   shifts(companyId: string) {
-    return this.prisma.restaurantShift.findMany({
-      where: { companyId },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
-      orderBy: { startedAt: 'desc' },
-      take: 50,
-    });
+    return this.db.query(
+      `SELECT s.*, u."firstName", u."lastName" FROM "RestaurantShift" s
+       LEFT JOIN "User" u ON u.id = s."userId"
+       WHERE s."companyId" = $1 ORDER BY s."startedAt" DESC LIMIT 50`,
+      [companyId],
+    );
   }
 
-  openShift(companyId: string, userId: string, data: any = {}) {
-    return this.prisma.restaurantShift.create({
-      data: {
-        companyId,
-        userId,
-        openingCash: data.openingCash ?? 0,
-        note: data.note ?? null,
-      },
-    });
+  async openShift(companyId: string, userId: string, data: Row = {}) {
+    const rows = await this.db.query(
+      `INSERT INTO "RestaurantShift" (id, "companyId", "userId", "openingCash", note)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [randomUUID(), companyId, userId, data.openingCash ?? 0, data.note ?? null],
+    );
+    return rows[0];
   }
 
   /** بستن شیفت — فروش و انعام بازه شیفت محاسبه می‌شود */
-  async closeShift(companyId: string, id: string, data: any = {}) {
-    const shift = await this.prisma.restaurantShift.findFirst({
-      where: { id, companyId },
-    });
+  async closeShift(companyId: string, id: string, data: Row = {}) {
+    const shifts = await this.db.query<{
+      id: string;
+      startedAt: string;
+      endedAt: string | null;
+      note: string | null;
+    }>('SELECT * FROM "RestaurantShift" WHERE id = $1 AND "companyId" = $2', [id, companyId]);
+    const shift = shifts[0];
 
     if (!shift) throw new NotFoundException('شیفت یافت نشد');
     if (shift.endedAt) throw new BadRequestException('این شیفت بسته شده است');
 
     const endedAt = new Date();
-
-    const paid = await this.prisma.restaurantOrder.findMany({
-      where: {
-        companyId,
-        status: 'PAID',
-        closedAt: { gte: shift.startedAt, lte: endedAt },
-      },
-      select: { total: true, tipAmount: true },
-    });
-
-    const totalSales = paid.reduce((s: number, o: any) => s + Number(o.total), 0);
-    const tipsAmount = paid.reduce(
-      (s: number, o: any) => s + Number(o.tipAmount),
-      0,
+    const totals = await this.db.query<{ total: string; tips: string; count: string }>(
+      `SELECT COALESCE(sum(total), 0)::text AS total,
+              COALESCE(sum("tipAmount"), 0)::text AS tips,
+              count(*)::text AS count
+       FROM "RestaurantOrder"
+       WHERE "companyId" = $1 AND status = 'PAID' AND "closedAt" BETWEEN $2 AND $3`,
+      [companyId, shift.startedAt, endedAt],
     );
 
-    return this.prisma.restaurantShift.update({
-      where: { id },
-      data: {
+    const rows = await this.db.query(
+      `UPDATE "RestaurantShift"
+       SET "endedAt" = $1, "closingCash" = $2, "totalSales" = $3, "tipsAmount" = $4,
+           "ordersCount" = $5, note = $6
+       WHERE id = $7 RETURNING *`,
+      [
         endedAt,
-        closingCash: data.closingCash ?? 0,
-        totalSales,
-        tipsAmount,
-        ordersCount: paid.length,
-        note: data.note ?? shift.note,
-      },
-    });
+        data.closingCash ?? 0,
+        Number(totals[0]?.total ?? 0),
+        Number(totals[0]?.tips ?? 0),
+        Number(totals[0]?.count ?? 0),
+        data.note ?? shift.note,
+        id,
+      ],
+    );
+    return rows[0];
   }
 
   // ═══════════════ گزارش ═══════════════
@@ -753,109 +824,95 @@ export class RestaurantService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [
-      openOrders,
-      todayPaid,
-      tables,
-      freeTables,
-      menuCount,
-      unavailable,
-      todayReservations,
-    ] = await Promise.all([
-      this.prisma.restaurantOrder.count({
-        where: {
-          companyId,
-          status: { in: ['OPEN', 'IN_KITCHEN', 'READY', 'SERVED'] },
-        },
-      }),
-      this.prisma.restaurantOrder.findMany({
-        where: { companyId, status: 'PAID', closedAt: { gte: startOfDay } },
-        select: { total: true, guestCount: true, type: true },
-      }),
-      this.prisma.restaurantTable.count({ where: { companyId } }),
-      this.prisma.restaurantTable.count({
-        where: { companyId, status: 'FREE' },
-      }),
-      this.prisma.menuItem.count({ where: { companyId } }),
-      this.prisma.menuItem.count({
-        where: { companyId, isAvailable: false },
-      }),
-      this.prisma.tableReservation.count({
-        where: {
-          companyId,
-          reservedAt: { gte: startOfDay },
-          status: { in: ['PENDING', 'CONFIRMED'] },
-        },
-      }),
-    ]);
-
-    const todaySales = todayPaid.reduce(
-      (s: number, o: any) => s + Number(o.total),
-      0,
+    const rows = await this.db.query<Record<string, string>>(
+      `SELECT
+         (SELECT count(*)::text FROM "RestaurantOrder"
+          WHERE "companyId" = $1 AND status = ANY($2)) AS open_orders,
+         (SELECT count(*)::text FROM "RestaurantOrder"
+          WHERE "companyId" = $1 AND status = 'PAID' AND "closedAt" >= $3) AS today_orders,
+         (SELECT COALESCE(sum(total), 0)::text FROM "RestaurantOrder"
+          WHERE "companyId" = $1 AND status = 'PAID' AND "closedAt" >= $3) AS today_sales,
+         (SELECT COALESCE(sum("guestCount"), 0)::text FROM "RestaurantOrder"
+          WHERE "companyId" = $1 AND status = 'PAID' AND "closedAt" >= $3) AS guests,
+         (SELECT count(*)::text FROM "RestaurantTable" WHERE "companyId" = $1) AS tables,
+         (SELECT count(*)::text FROM "RestaurantTable"
+          WHERE "companyId" = $1 AND status = 'FREE') AS free_tables,
+         (SELECT count(*)::text FROM "MenuItem" WHERE "companyId" = $1) AS menu_count,
+         (SELECT count(*)::text FROM "MenuItem"
+          WHERE "companyId" = $1 AND "isAvailable" = false) AS unavailable,
+         (SELECT count(*)::text FROM "TableReservation"
+          WHERE "companyId" = $1 AND "reservedAt" >= $3 AND status = ANY($4))
+           AS today_reservations`,
+      [companyId, OPEN_ORDER_STATUSES, startOfDay, ['PENDING', 'CONFIRMED']],
     );
 
-    const guests = todayPaid.reduce(
-      (s: number, o: any) => s + Number(o.guestCount ?? 0),
-      0,
-    );
+    const row = rows[0] ?? {};
+    const todayOrders = Number(row.today_orders ?? 0);
+    const todaySales = Number(row.today_sales ?? 0);
+    const tables = Number(row.tables ?? 0);
+    const freeTables = Number(row.free_tables ?? 0);
 
     return {
-      openOrders,
-      todayOrders: todayPaid.length,
+      openOrders: Number(row.open_orders ?? 0),
+      todayOrders,
       todaySales,
-      avgTicket: todayPaid.length
-        ? Math.round(todaySales / todayPaid.length)
-        : 0,
-      guests,
+      avgTicket: todayOrders ? Math.round(todaySales / todayOrders) : 0,
+      guests: Number(row.guests ?? 0),
       tables,
       freeTables,
-      occupancyRate: tables
-        ? Math.round(((tables - freeTables) / tables) * 100)
-        : 0,
-      menuCount,
-      unavailableItems: unavailable,
-      todayReservations,
+      occupancyRate: tables ? Math.round(((tables - freeTables) / tables) * 100) : 0,
+      menuCount: Number(row.menu_count ?? 0),
+      unavailableItems: Number(row.unavailable ?? 0),
+      todayReservations: Number(row.today_reservations ?? 0),
     };
   }
 
   /** پرفروش‌ترین آیتم‌ها */
-  async topItems(companyId: string, query: any = {}) {
+  async topItems(companyId: string, query: Row = {}) {
     const from = query.from
-      ? new Date(query.from)
+      ? new Date(String(query.from))
       : new Date(Date.now() - 30 * 86400_000);
+    const limit = Number(query.limit) > 0 ? Math.min(Number(query.limit), 200) : 20;
 
-    const rows = await this.prisma.restaurantOrderItem.groupBy({
-      by: ['menuItemId', 'name'],
-      where: {
-        order: { companyId, status: 'PAID', closedAt: { gte: from } },
-        status: { not: 'CANCELLED' },
-      },
-      _sum: { qty: true, total: true },
-      orderBy: { _sum: { total: 'desc' } },
-      take: query.limit ? Number(query.limit) : 20,
-    });
+    const rows = await this.db.query<{
+      menuItemId: string | null;
+      name: string;
+      qty: string;
+      revenue: string;
+    }>(
+      `SELECT i."menuItemId", i.name,
+              COALESCE(sum(i.qty), 0)::text AS qty,
+              COALESCE(sum(i.total), 0)::text AS revenue
+       FROM "RestaurantOrderItem" i
+       JOIN "RestaurantOrder" o ON o.id = i."orderId"
+       WHERE o."companyId" = $1 AND o.status = 'PAID' AND o."closedAt" >= $2
+         AND i.status <> 'CANCELLED'
+       GROUP BY i."menuItemId", i.name
+       ORDER BY sum(i.total) DESC LIMIT $3`,
+      [companyId, from, limit],
+    );
 
-    return rows.map((r: any) => ({
-      menuItemId: r.menuItemId,
-      name: r.name,
-      qty: Number(r._sum.qty ?? 0),
-      revenue: Number(r._sum.total ?? 0),
+    return rows.map((row) => ({
+      menuItemId: row.menuItemId,
+      name: row.name,
+      qty: Number(row.qty),
+      revenue: Number(row.revenue),
     }));
   }
 
   /** رسید چاپی سفارش (RTL) */
   async printReceipt(companyId: string, id: string) {
-    const order: any = await this.order(companyId, id);
-
-    const fa = (n: any) => Number(n ?? 0).toLocaleString('fa-IR');
+    const order = await this.order(companyId, id);
+    const fa = (value: unknown) => Number(value ?? 0).toLocaleString('fa-IR');
+    const table = order.table as { tableNo: string } | null;
 
     const rows = order.items
       .map(
-        (i: any, idx: number) =>
-          `<tr><td>${idx + 1}</td><td>${i.name}${
-            i.note ? `<br><small>${i.note}</small>` : ''
-          }</td><td>${fa(i.qty)}</td><td>${fa(i.unitPrice)}</td><td>${fa(
-            i.total,
+        (item, index) =>
+          `<tr><td>${index + 1}</td><td>${item.name}${
+            item.note ? `<br><small>${item.note}</small>` : ''
+          }</td><td>${fa(item.qty)}</td><td>${fa(item.unitPrice)}</td><td>${fa(
+            item.total,
           )}</td></tr>`,
       )
       .join('');
@@ -883,12 +940,10 @@ export class RestaurantService {
   <div class="meta">
     <div>
       <div>شماره: ${order.orderNo}</div>
-      <div>${
-        order.table ? `میز: ${order.table.tableNo}` : `نوع: ${order.type}`
-      }</div>
+      <div>${table ? `میز: ${table.tableNo}` : `نوع: ${order.type}`}</div>
     </div>
     <div>
-      <div>${new Date(order.openedAt).toLocaleString('fa-IR')}</div>
+      <div>${new Date(order.openedAt as string).toLocaleString('fa-IR')}</div>
       <div>نفرات: ${fa(order.guestCount)}</div>
     </div>
   </div>
@@ -921,74 +976,141 @@ export class RestaurantService {
     return Math.round(base * (percent / 100) * 100) / 100;
   }
 
+  private assertOpen(order: OrderRow) {
+    if (CLOSED_ORDER_STATUSES.includes(order.status)) {
+      throw new BadRequestException('این سفارش بسته شده است');
+    }
+  }
+
+  /** Loads a company-scoped row or throws. */
   private async ensure(
-    model: string,
+    model: keyof typeof SCOPED_TABLES,
     companyId: string,
     id: string,
     message: string,
   ) {
-    const found = await (this.prisma as any)[model].findFirst({
-      where: { id, companyId },
-    });
+    const rows = await this.db.query<Row & { id: string }>(
+      `SELECT * FROM "${SCOPED_TABLES[model]}" WHERE id = $1 AND "companyId" = $2`,
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException(message);
+    return rows[0];
+  }
 
-    if (!found) throw new NotFoundException(message);
+  private async insert(
+    table: string,
+    companyId: string,
+    columns: readonly string[],
+    data: Row,
+  ) {
+    const params = new Params();
+    const names = ['id', 'companyId'];
+    const placeholders = [params.next(randomUUID()), params.next(companyId)];
 
-    return found;
+    for (const column of columns) {
+      if (data[column] === undefined) continue;
+      names.push(column);
+      placeholders.push(params.next(data[column]));
+    }
+
+    const rows = await this.db.query(
+      `INSERT INTO "${table}" (${names.map((name) => `"${name}"`).join(', ')})
+       VALUES (${placeholders.join(', ')}) RETURNING *`,
+      params.values,
+    );
+    return rows[0];
+  }
+
+  private async patch(table: string, id: string, columns: readonly string[], data: Row) {
+    const params = new Params();
+    const assignments = setClause(columns, data, params);
+    if (!assignments) {
+      const current = await this.db.query(`SELECT * FROM "${table}" WHERE id = $1`, [id]);
+      return current[0];
+    }
+
+    const rows = await this.db.query(
+      `UPDATE "${table}" SET ${assignments}, "updatedAt" = now()
+       WHERE id = ${params.next(id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
+  }
+
+  private async insertOrderItems(tx: PoolClient, orderId: string, itemsData: Row[]) {
+    const created: Row[] = [];
+    for (const item of itemsData) {
+      const row = await tx.query<Row>(
+        `INSERT INTO "RestaurantOrderItem"
+           (id, "orderId", "menuItemId", name, qty, "unitPrice", discount, total,
+            station, note, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING') RETURNING *`,
+        [
+          randomUUID(),
+          orderId,
+          item.menuItemId,
+          item.name,
+          item.qty,
+          item.unitPrice,
+          item.discount,
+          item.total,
+          item.station,
+          item.note,
+        ],
+      );
+      created.push(row.rows[0]);
+    }
+    return created;
   }
 
   /** ساخت اقلام سفارش با قیمت‌گذاری از منو */
   private async buildItems(companyId: string, items: OrderItemDto[]) {
     const ids = items
-      .map((i) => i.menuItemId)
-      .filter((v): v is string => Boolean(v));
+      .map((item) => item.menuItemId)
+      .filter((value): value is string => Boolean(value));
 
     const menuItems = ids.length
-      ? await this.prisma.menuItem.findMany({
-          where: { id: { in: ids }, companyId },
-        })
+      ? await this.db.query<{
+          id: string;
+          name: string;
+          price: string;
+          station: string;
+          isAvailable: boolean;
+        }>('SELECT * FROM "MenuItem" WHERE id = ANY($1) AND "companyId" = $2', [ids, companyId])
       : [];
-
-    const map = new Map(menuItems.map((m: any) => [m.id, m]));
 
     if (menuItems.length !== new Set(ids).size) {
       throw new BadRequestException('برخی آیتم‌های منو یافت نشدند');
     }
+    const map = new Map(menuItems.map((item) => [item.id, item]));
 
     let subtotal = 0;
-
-    const itemsData = items.map((i) => {
-      const menu: any = i.menuItemId ? map.get(i.menuItemId) : null;
+    const itemsData: Row[] = items.map((item) => {
+      const menu = item.menuItemId ? map.get(item.menuItemId) : undefined;
 
       if (menu && !menu.isAvailable) {
         throw new BadRequestException(`«${menu.name}» در حال حاضر موجود نیست`);
       }
 
-      const name = menu?.name ?? i.name;
+      const name = menu?.name ?? item.name;
+      if (!name) throw new BadRequestException('نام قلم سفارش مشخص نیست');
 
-      if (!name) {
-        throw new BadRequestException('نام قلم سفارش مشخص نیست');
-      }
-
-      const unitPrice = i.unitPrice ?? Number(menu?.price ?? 0);
-      const discount = i.discount ?? 0;
-      const total = Math.round((unitPrice * i.qty - discount) * 100) / 100;
-
-      if (total < 0) {
-        throw new BadRequestException(`تخفیف قلم «${name}» نامعتبر است`);
-      }
+      const unitPrice = item.unitPrice ?? Number(menu?.price ?? 0);
+      const discount = item.discount ?? 0;
+      const total = Math.round((unitPrice * item.qty - discount) * 100) / 100;
+      if (total < 0) throw new BadRequestException(`تخفیف قلم «${name}» نامعتبر است`);
 
       subtotal += total;
 
       return {
-        menuItemId: i.menuItemId ?? null,
+        menuItemId: item.menuItemId ?? null,
         name,
-        qty: i.qty,
+        qty: item.qty,
         unitPrice,
         discount,
         total,
-        station: (menu?.station ?? 'KITCHEN') as never,
-        note: i.note ?? null,
-        status: 'PENDING' as never,
+        station: menu?.station ?? 'KITCHEN',
+        note: item.note ?? null,
       };
     });
 
@@ -997,20 +1119,22 @@ export class RestaurantService {
 
   /** بازمحاسبه مبالغ سفارش پس از تغییر اقلام */
   private async recalc(orderId: string) {
-    const order: any = await this.prisma.restaurantOrder.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
+    const orders = await this.db.query<Row>(
+      'SELECT * FROM "RestaurantOrder" WHERE id = $1',
+      [orderId],
+    );
+    const order = orders[0];
 
-    const subtotal = order.items
-      .filter((i: any) => i.status !== 'CANCELLED')
-      .reduce((s: number, i: any) => s + Number(i.total), 0);
-
+    const totals = await this.db.query<{ sum: string }>(
+      `SELECT COALESCE(sum(total), 0)::text AS sum FROM "RestaurantOrderItem"
+       WHERE "orderId" = $1 AND status <> 'CANCELLED'`,
+      [orderId],
+    );
+    const subtotal = Number(totals[0]?.sum ?? 0);
     const net = subtotal - Number(order.discount);
 
     // نسبت سرویس/مالیات قبلی حفظ می‌شود
     const prevNet = Number(order.subtotal) - Number(order.discount);
-
     const serviceRatio = prevNet > 0 ? Number(order.serviceCharge) / prevNet : 0;
     const taxRatio =
       prevNet + Number(order.serviceCharge) > 0
@@ -1020,88 +1144,87 @@ export class RestaurantService {
     const serviceCharge = Math.round(net * serviceRatio * 100) / 100;
     const tax = Math.round((net + serviceCharge) * taxRatio * 100) / 100;
 
-    return this.prisma.restaurantOrder.update({
-      where: { id: orderId },
-      data: {
+    const updated = await this.db.query<Row>(
+      `UPDATE "RestaurantOrder"
+       SET subtotal = $1, "serviceCharge" = $2, tax = $3, total = $4, "updatedAt" = now()
+       WHERE id = $5 RETURNING *`,
+      [
         subtotal,
         serviceCharge,
         tax,
-        total: net + serviceCharge + tax + Number(order.deliveryFee),
-      },
-      include: { items: true },
-    });
+        net + serviceCharge + tax + Number(order.deliveryFee),
+        orderId,
+      ],
+    );
+
+    const items = await this.db.query(
+      'SELECT * FROM "RestaurantOrderItem" WHERE "orderId" = $1',
+      [orderId],
+    );
+    return { ...updated[0], items };
   }
 
   /** همگام‌سازی وضعیت سفارش با وضعیت اقلام */
   private async syncOrderStatus(orderId: string) {
-    const items = await this.prisma.restaurantOrderItem.findMany({
-      where: { orderId, status: { not: 'CANCELLED' } },
-      select: { status: true },
-    });
-
+    const items = await this.db.query<{ status: string }>(
+      `SELECT status FROM "RestaurantOrderItem" WHERE "orderId" = $1 AND status <> 'CANCELLED'`,
+      [orderId],
+    );
     if (!items.length) return;
 
-    const order = await this.prisma.restaurantOrder.findUnique({
-      where: { id: orderId },
-      select: { status: true },
-    });
+    const orders = await this.db.query<{ status: string }>(
+      'SELECT status FROM "RestaurantOrder" WHERE id = $1',
+      [orderId],
+    );
+    if (!orders[0] || CLOSED_ORDER_STATUSES.includes(orders[0].status)) return;
 
-    if (!order || ['PAID', 'CANCELLED'].includes(order.status)) return;
-
-    const all = (s: string) => items.every((i: any) => i.status === s);
-
-    const status = all('SERVED')
+    const status = items.every((item) => item.status === 'SERVED')
       ? 'SERVED'
-      : items.every((i: any) => ['READY', 'SERVED'].includes(i.status))
+      : items.every((item) => ['READY', 'SERVED'].includes(item.status))
         ? 'READY'
         : 'IN_KITCHEN';
 
-    await this.prisma.restaurantOrder.update({
-      where: { id: orderId },
-      data: { status: status as never },
-    });
+    await this.db.execute(
+      'UPDATE "RestaurantOrder" SET status = $1, "updatedAt" = now() WHERE id = $2',
+      [status, orderId],
+    );
   }
 
   /** کسر مواد اولیه از انبار طبق رسپی اقلام سفارش */
-  private async consumeIngredients(tx: any, order: any, warehouseId: string) {
-    const menuItemIds = order.items
-      .filter((i: any) => i.menuItemId && i.status !== 'CANCELLED')
-      .map((i: any) => i.menuItemId);
+  private async consumeIngredients(tx: PoolClient, order: OrderRow, warehouseId: string) {
+    const active = order.items.filter(
+      (item) => item.menuItemId && item.status !== 'CANCELLED',
+    );
+    if (!active.length) return;
 
-    if (!menuItemIds.length) return;
-
-    const recipes = await tx.menuRecipe.findMany({
-      where: { menuItemId: { in: menuItemIds } },
-    });
-
-    if (!recipes.length) return;
+    const recipes = await tx.query<{
+      menuItemId: string;
+      productId: string;
+      qty: string;
+      wastePct: string | null;
+    }>('SELECT * FROM "MenuRecipe" WHERE "menuItemId" = ANY($1)', [
+      active.map((item) => item.menuItemId as string),
+    ]);
+    if (!recipes.rows.length) return;
 
     // جمع مصرف هر ماده اولیه
     const usage = new Map<string, number>();
-
-    for (const item of order.items) {
-      if (!item.menuItemId || item.status === 'CANCELLED') continue;
-
-      for (const r of recipes.filter(
-        (x: any) => x.menuItemId === item.menuItemId,
+    for (const item of active) {
+      for (const recipe of recipes.rows.filter(
+        (row) => row.menuItemId === item.menuItemId,
       )) {
-        const waste = 1 + Number(r.wastePct ?? 0) / 100;
-        const qty = Number(r.qty) * Number(item.qty) * waste;
-        usage.set(r.productId, (usage.get(r.productId) ?? 0) + qty);
+        const waste = 1 + Number(recipe.wastePct ?? 0) / 100;
+        const qty = Number(recipe.qty) * Number(item.qty) * waste;
+        usage.set(recipe.productId, (usage.get(recipe.productId) ?? 0) + qty);
       }
     }
 
     for (const [productId, qty] of usage) {
-      const inventory = await tx.inventory.findUnique({
-        where: { warehouseId_productId: { warehouseId, productId } },
-      });
-
-      if (!inventory) continue;
-
-      await tx.inventory.update({
-        where: { id: inventory.id },
-        data: { quantity: Number(inventory.quantity) - qty },
-      });
+      await tx.query(
+        `UPDATE "Inventory" SET quantity = quantity - $1, "updatedAt" = now()
+         WHERE "warehouseId" = $2 AND "productId" = $3`,
+        [qty, warehouseId, productId],
+      );
     }
   }
 }

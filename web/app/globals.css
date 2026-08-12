@@ -2,7 +2,59 @@
    Molido AI — طراحی مدرن (Glassmorphism + Gradient)
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;800&display=swap');
+/* فونت وزیرمتن به‌صورت محلی سرو می‌شود، نه از Google Fonts.
+   سامانه باید بدون اینترنت هم کامل کار کند — و در بسیاری از شبکه‌های داخلی
+   دسترسی به fonts.googleapis.com اصلاً برقرار نمی‌شود، که نتیجه‌اش افتادن
+   متن فارسی روی Tahoma است. */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
 
 :root {
   --bg: #0b1220;
@@ -953,4 +1005,130 @@ a {
   .main {
     padding: 0;
   }
+}
+
+/* ---------- صندوق فروش (POS) ---------- */
+
+.error.success {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+/* اسکنر: هدف لمسی بزرگ، چون صندوق‌دار بدون نگاه کردن کار می‌کند */
+.scanner {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+.scanner input {
+  flex: 1;
+  font-size: 18px;
+  padding: 14px 16px;
+  letter-spacing: 1px;
+}
+
+.scanner button {
+  min-width: 110px;
+  font-size: 16px;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.small {
+  font-size: 12px;
+}
+
+table.cart {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+table.cart th,
+table.cart td {
+  padding: 10px 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+table.cart th {
+  font-size: 12px;
+  color: var(--muted, #94a3b8);
+  font-weight: 500;
+}
+
+table.cart td:first-child {
+  text-align: right;
+}
+
+/* دکمه‌های ±: اندازهٔ انگشت، نه اندازهٔ ماوس */
+td.qty {
+  white-space: nowrap;
+}
+
+td.qty button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+td.qty span {
+  display: inline-block;
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row-between.grand {
+  font-size: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.row-between.change {
+  color: #a7f3d0;
+}
+
+@media (max-width: 520px) {
+  .pay-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- کالابرگ ---------- */
+
+.ration-lookup {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.ration-lookup input {
+  flex: 1;
+}
+
+.ration-box {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 10px 0;
 }

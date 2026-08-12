@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { useI18n } from '../../lib/i18n-context';
 import { API_URL, api, getToken } from '../../lib/api';
+import { amountOnly, loadCurrency } from '../../lib/money';
 
 type Sale = {
   id: string;
@@ -15,19 +17,20 @@ type Sale = {
 };
 
 const STATUS: Record<string, string> = {
-  PAID: 'پرداخت‌شده',
-  PARTIAL: 'قسمتی',
-  PENDING: 'در انتظار',
-  CANCELLED: 'لغو',
-  RETURNED: 'مرجوع',
+  PAID: 'paid',
+  PARTIAL: 'partial',
+  PENDING: 'pending',
+  CANCELLED: 'cancelled',
+  RETURNED: 'returned',
 };
 
 export default function SalesPage() {
+  const { t, locale } = useI18n();
   const [items, setItems] = useState<Sale[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fa = (v: unknown) => Number(v ?? 0).toLocaleString('fa-IR');
+  const fa = (v: unknown) => amountOnly(v);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,10 +41,15 @@ export default function SalesPage() {
       setItems(Array.isArray(result) ? result : (result.data ?? []));
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت فاکتورها');
+      setError(err instanceof Error ? err.message : t('invoicesError'));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // واحد پول شرکت یک‌بار خوانده می‌شود تا نماد و اعشار درست باشد
+  useEffect(() => {
+    void loadCurrency();
   }, []);
 
   useEffect(() => {
@@ -65,17 +73,17 @@ export default function SalesPage() {
         win.document.close();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت فاکتور');
+      setError(err instanceof Error ? err.message : t('invoiceError'));
     }
   }
 
   return (
     <AppShell
-      title="فروش"
-      subtitle={`${fa(items.length)} فاکتور`}
+      title={t('salesTitle')}
+      subtitle={`${fa(items.length)} ${t('invoicesCountLabel')}`}
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
-          بروزرسانی
+          {t('refresh')}
         </button>
       }
     >
@@ -83,20 +91,20 @@ export default function SalesPage() {
 
       <div className="card">
         {loading ? (
-          <p className="muted">در حال بارگذاری…</p>
+          <p className="muted">{t('loading')}</p>
         ) : items.length === 0 ? (
-          <p className="muted">فاکتوری ثبت نشده است.</p>
+          <p className="muted">{t('noInvoices')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>شماره</th>
-                  <th>مشتری</th>
-                  <th>اقلام</th>
-                  <th>مبلغ</th>
-                  <th>وضعیت</th>
-                  <th>تاریخ</th>
+                  <th>{t('colNumber')}</th>
+                  <th>{t('customer')}</th>
+                  <th>{t('colItems')}</th>
+                  <th>{t('colAmount')}</th>
+                  <th>{t('status')}</th>
+                  <th>{t('date')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -107,17 +115,17 @@ export default function SalesPage() {
                     <td className="muted">
                       {sale.customer
                         ? `${sale.customer.firstName} ${sale.customer.lastName ?? ''}`
-                        : 'نقدی'}
+                        : t('cash')}
                     </td>
                     <td>{fa(sale._count?.items ?? 0)}</td>
                     <td>{fa(sale.total)}</td>
                     <td>
                       <span className="badge">
-                        {STATUS[sale.status] ?? sale.status}
+                        {STATUS[sale.status] ? t(STATUS[sale.status]) : sale.status}
                       </span>
                     </td>
                     <td className="muted">
-                      {new Date(sale.createdAt).toLocaleDateString('fa-IR')}
+                      {new Date(sale.createdAt).toLocaleDateString(locale)}
                     </td>
                     <td>
                       <button
@@ -125,7 +133,7 @@ export default function SalesPage() {
                         className="btn-sm ghost"
                         onClick={() => void openInvoice(sale.id)}
                       >
-                        چاپ
+                        {t('print')}
                       </button>
                     </td>
                   </tr>

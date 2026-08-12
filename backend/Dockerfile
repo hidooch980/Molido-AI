@@ -3,11 +3,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-COPY prisma ./prisma
 
 RUN npm install
-
-RUN npx prisma generate
 
 COPY . .
 
@@ -22,11 +19,13 @@ ENV NODE_ENV=production
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/sql ./sql
 COPY package*.json ./
 
 RUN mkdir -p uploads
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; node dist/main"]
+# مهاجرت دیتابیس در سرویس جداگانهٔ compose اجرا می‌شود تا اگر روزی چند نمونهٔ
+# بک‌اند بالا بیاید، هم‌زمان روی یک schema کار نکنند.
+CMD ["node", "dist/main"]

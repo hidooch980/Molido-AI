@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
+import { amountOnly, loadCurrency } from '../../lib/money';
 
 type Product = {
   id: string;
@@ -17,12 +19,13 @@ type Product = {
 };
 
 export default function ProductsPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fa = (v: unknown) => Number(v ?? 0).toLocaleString('fa-IR');
+  const fa = (v: unknown) => amountOnly(v);
 
   const load = useCallback(async (q = '') => {
     setLoading(true);
@@ -35,10 +38,15 @@ export default function ProductsPage() {
       setItems(Array.isArray(result) ? result : (result.data ?? []));
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت کالاها');
+      setError(err instanceof Error ? err.message : t('productsError'));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // واحد پول شرکت یک‌بار خوانده می‌شود تا نماد و اعشار درست باشد
+  useEffect(() => {
+    void loadCurrency();
   }, []);
 
   useEffect(() => {
@@ -46,7 +54,10 @@ export default function ProductsPage() {
   }, [load]);
 
   return (
-    <AppShell title="کالاها" subtitle={`${fa(items.length)} کالا`}>
+    <AppShell
+      title={t('productsTitle')}
+      subtitle={`${fa(items.length)} ${t('productsCountLabel')}`}
+    >
       {error ? <div className="error">{error}</div> : null}
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -60,31 +71,31 @@ export default function ProductsPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="جستجوی نام یا بارکد…"
+            placeholder={t('searchProducts')}
             style={{ marginBottom: 0 }}
           />
           <button type="submit" className="btn-sm">
-            جستجو
+            {t('search')}
           </button>
         </form>
       </div>
 
       <div className="card">
         {loading ? (
-          <p className="muted">در حال بارگذاری…</p>
+          <p className="muted">{t('loading')}</p>
         ) : items.length === 0 ? (
-          <p className="muted">کالایی یافت نشد.</p>
+          <p className="muted">{t('noProducts')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>نام</th>
-                  <th>کد</th>
-                  <th>دسته</th>
-                  <th>قیمت فروش</th>
-                  <th>واحد</th>
-                  <th>وضعیت</th>
+                  <th>{t('name')}</th>
+                  <th>{t('code')}</th>
+                  <th>{t('category')}</th>
+                  <th>{t('salePrice')}</th>
+                  <th>{t('unit')}</th>
+                  <th>{t('status')}</th>
                 </tr>
               </thead>
               <tbody>

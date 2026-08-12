@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clearToken, getToken } from '../lib/api';
-import { LANGS, dirFor, getLang, setLangStorage, type Lang } from '../lib/i18n';
+import { LANGS, type Lang } from '../lib/i18n';
+import { useI18n } from '../lib/i18n-context';
+import { hasFeature, type FeatureKey } from '../lib/product';
 
 export type NavItem = {
   href: string;
@@ -12,15 +14,31 @@ export type NavItem = {
   icon: string;
   /** در نوار پایین موبایل نمایش داده شود */
   primary?: boolean;
+  /** اگر تعیین شود، فقط در محصولی دیده می‌شود که این قابلیت را دارد */
+  feature?: FeatureKey;
 };
 
 export const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'داشبورد', icon: '🏠', primary: true },
-  { href: '/pos', label: 'صندوق', icon: '💳', primary: true },
-  { href: '/restaurant', label: 'رستوران', icon: '☕', primary: true },
-  { href: '/products', label: 'کالاها', icon: '📦', primary: true },
-  { href: '/customers', label: 'مشتریان', icon: '👥' },
-  { href: '/sales', label: 'فروش', icon: '🧾' },
+  // label کلید ترجمه است؛ متن در زمان رندر ساخته می‌شود.
+  { href: '/dashboard', label: 'menuDashboard', icon: '🏠', primary: true },
+  { href: '/pos', label: 'menuCashier', icon: '💳', primary: true, feature: 'retail' as FeatureKey },
+  { href: '/restaurant', label: 'menuRestaurant', icon: '☕', primary: true, feature: 'restaurant' as FeatureKey },
+  { href: '/products', label: 'menuProducts', icon: '📦', primary: true },
+  { href: '/inventory', label: 'menuInventory', icon: '🏬', primary: true },
+  { href: '/stock-count', label: 'menuStockCount', icon: '📋' },
+  { href: '/customers', label: 'menuCustomers', icon: '👥' },
+  { href: '/sales', label: 'menuSales', icon: '🧾' },
+  { href: '/sales-chain', label: 'menuChain', icon: '🔗' },
+  { href: '/sales-agents', label: 'menuAgents', icon: '🧑‍💼' },
+  { href: '/returns', label: 'menuReturns', icon: '↩️' },
+  { href: '/accounting', label: 'menuAccounting', icon: '📒', feature: 'finance' as FeatureKey },
+  { href: '/assets', label: 'menuAssets', icon: '🏢', feature: 'finance' as FeatureKey },
+  { href: '/fiscal-year', label: 'menuFiscalYear', icon: '📅', feature: 'finance' as FeatureKey },
+  { href: '/purchases', label: 'menuPurchases', icon: '📥' },
+  { href: '/treasury', label: 'menuTreasury', icon: '🏦', feature: 'finance' as FeatureKey },
+  { href: '/reports', label: 'menuReports2', icon: '📊' },
+  { href: '/labels', label: 'menuLabels', icon: '🏷️' },
+  { href: '/users', label: 'menuUsers', icon: '👤' },
 ];
 
 /**
@@ -43,7 +61,7 @@ export default function AppShell({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [lang, setLang] = useState<Lang>('fa');
+  const { lang, setLang, t } = useI18n();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [online, setOnline] = useState(true);
 
@@ -53,7 +71,6 @@ export default function AppShell({
       return;
     }
 
-    setLang(getLang());
     setOnline(navigator.onLine);
 
     const up = () => setOnline(true);
@@ -68,17 +85,11 @@ export default function AppShell({
     };
   }, [router]);
 
-  useEffect(() => {
-    document.documentElement.dir = dirFor(lang);
-    document.documentElement.lang = lang;
-  }, [lang]);
-
   // با تغییر صفحه، منوی کشویی بسته شود
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   function switchLang(next: Lang) {
     setLang(next);
-    setLangStorage(next);
   }
 
   function logout() {
@@ -86,7 +97,13 @@ export default function AppShell({
     router.replace('/');
   }
 
-  const primary = NAV.filter((item) => item.primary);
+  // صفحه‌ای که ماژولش در این محصول بالا نیامده نباید در منو دیده شود؛
+  // وگرنه کاربر روی آن کلیک می‌کند و به ۴۰۴ می‌رسد.
+  const visible = NAV.filter(
+    (item) => !('feature' in item) || hasFeature(item.feature as FeatureKey),
+  );
+
+  const primary = visible.filter((item) => item.primary);
 
   return (
     <div className="shell">
@@ -103,20 +120,20 @@ export default function AppShell({
         </div>
 
         <nav>
-          {NAV.map((item) => (
+          {visible.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`nav-item${pathname === item.href ? ' active' : ''}`}
             >
               <span>{item.icon}</span>
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </Link>
           ))}
         </nav>
 
         <button type="button" className="danger sidebar-logout" onClick={logout}>
-          خروج
+          {t('logout')}
         </button>
       </aside>
 
@@ -135,14 +152,14 @@ export default function AppShell({
             </div>
 
             <nav>
-              {NAV.map((item) => (
+              {visible.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`nav-item${pathname === item.href ? ' active' : ''}`}
                 >
                   <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span>{t(item.label)}</span>
                 </Link>
               ))}
             </nav>
@@ -161,7 +178,7 @@ export default function AppShell({
             </div>
 
             <button type="button" className="danger" onClick={logout}>
-              خروج
+              {t('logout')}
             </button>
           </aside>
         </>
@@ -170,7 +187,7 @@ export default function AppShell({
       {/* ───── محتوای اصلی ───── */}
       <main className="main">
         {!online ? (
-          <div className="offline-bar">آفلاین — آخرین اطلاعات ذخیره‌شده</div>
+          <div className="offline-bar">{t('offlineBar')}</div>
         ) : null}
 
         <header className="topbar">
@@ -178,7 +195,7 @@ export default function AppShell({
             type="button"
             className="icon-btn menu-btn"
             onClick={() => setDrawerOpen(true)}
-            aria-label="منو"
+            aria-label={t('menu')}
           >
             ☰
           </button>
@@ -218,7 +235,7 @@ export default function AppShell({
             className={`bottom-item${pathname === item.href ? ' active' : ''}`}
           >
             <span className="bi-icon">{item.icon}</span>
-            <span className="bi-label">{item.label}</span>
+            <span className="bi-label">{t(item.label)}</span>
           </Link>
         ))}
 
@@ -228,7 +245,7 @@ export default function AppShell({
           onClick={() => setDrawerOpen(true)}
         >
           <span className="bi-icon">☰</span>
-          <span className="bi-label">بیشتر</span>
+          <span className="bi-label">{t('more')}</span>
         </button>
       </nav>
     </div>

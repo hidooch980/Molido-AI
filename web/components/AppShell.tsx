@@ -30,6 +30,7 @@ export const NAV: NavItem[] = [
   { href: '/sales', label: 'menuSales', icon: '🧾' },
   { href: '/sales-chain', label: 'menuChain', icon: '🔗' },
   { href: '/sales-agents', label: 'menuAgents', icon: '🧑‍💼' },
+  { href: '/crm', label: 'menuCrm', icon: '🎯', feature: 'crm' as FeatureKey },
   { href: '/returns', label: 'menuReturns', icon: '↩️' },
   { href: '/accounting', label: 'menuAccounting', icon: '📒', feature: 'finance' as FeatureKey },
   { href: '/assets', label: 'menuAssets', icon: '🏢', feature: 'finance' as FeatureKey },

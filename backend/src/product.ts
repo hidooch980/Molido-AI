@@ -50,6 +50,8 @@ export type FeatureKey =
   /** ماژول‌های صنفی دیگر: کلینیک، پارکینگ، تاکسی، آرامستان */
   | 'verticals'
   /** CRM، تیکت، نظرسنجی، کمپین */
+  /** فروشگاه اینترنتی: کاتالوگ عمومی، سبد خرید، سفارش مشتری */
+  | 'shop'
   | 'crm'
   /** پروژه، ناوگان، مکاتبات، گردش تأیید */
   | 'operations';
@@ -60,7 +62,7 @@ export const PRODUCTS: Record<ProductKey, ProductSpec> = {
     title: 'Molido فروشگاه',
     // hr هست چون هر فروشگاهی صندوق‌دار و انباردار دارد: شیفت، حضور و
     // غیاب و حقوق بخشی از کار روزمره‌اند، نه امکانات سازمانی.
-    features: ['catalogue', 'sales', 'retail', 'ration', 'hr', 'finance', 'crm'],
+    features: ['catalogue', 'sales', 'retail', 'ration', 'hr', 'finance', 'crm', 'shop'],
   },
 
   // رستوران هم کالا و انبار لازم دارد — رسپی از موجودی مواد اولیه کم می‌کند —
@@ -68,7 +70,7 @@ export const PRODUCTS: Record<ProductKey, ProductSpec> = {
   resto: {
     key: 'resto',
     title: 'Molido رستوران',
-    features: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm'],
+    features: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm', 'shop'],
   },
 
   // نسخهٔ کامل: همهٔ ماژول‌ها، برای سازمان و شهرداری
@@ -86,6 +88,7 @@ export const PRODUCTS: Record<ProductKey, ProductSpec> = {
       'municipal',
       'verticals',
       'crm',
+      'shop',
       'operations',
     ],
   },

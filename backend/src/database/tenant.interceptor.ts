@@ -25,10 +25,15 @@ export class TenantInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<{
       user?: { companyId?: string | null; userId?: string | null };
+      shopCompanyId?: string | null;
     }>();
 
+    // `shopCompanyId` را فقط `ShopTenantMiddleware` می‌گذارد و مقدارش از
+    // پیکربندی سرور می‌آید، نه از درخواست.  بدون آن، صفحه‌های عمومی
+    // فروشگاه اینترنتی — که کاربر لاگین ندارند — به‌خاطر رفتار fail-closed
+    // هیچ کالایی نمی‌دیدند.
     const tenant = {
-      companyId: request?.user?.companyId ?? null,
+      companyId: request?.user?.companyId ?? request?.shopCompanyId ?? null,
       userId: request?.user?.userId ?? null,
     };
 

@@ -15,6 +15,16 @@ P() { python3 -c "import sys,json,io;sys.stdout=io.TextIOWrapper(sys.stdout.buff
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
+# آزمون باید از هر وضعیتی اجرا شود.  بدون پاک‌سازی، اجرای دوم روی
+# «شمارهٔ تلفن تکراری» می‌شکند و شکست‌های زنجیره‌ای می‌سازد که هیچ‌کدام
+# باگ واقعی نیستند.
+docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres   psql -U postgres -d molido_ai -q -c "
+  DELETE FROM \"Interaction\";
+  DELETE FROM \"Opportunity\";
+  DELETE FROM \"Lead\";
+  DELETE FROM \"Customer\" WHERE phone='09121112233';
+" >/dev/null 2>&1
+
 echo '--- 1) ثبت سرنخ ---'
 L=$(curl -s -X POST $A/crm/leads -H "$AU" -H "$JS" \
   -d '{"name":"Mehdi Rezaei","company":"Pars Chain Stores","phone":"09121112233","source":"EXHIBITION","score":80}')

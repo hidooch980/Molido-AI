@@ -50,6 +50,7 @@ import { ConstructionProjectsModule } from './construction-projects/construction
 import { FleetModule } from './fleet/fleet.module';
 import { ServiceZonesModule } from './service-zones/service-zones.module';
 import { LettersModule } from './letters/letters.module';
+import { ShopModule } from './shop/shop.module';
 import { CrmModule } from './crm/crm.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { ApprovalsModule } from './approvals/approvals.module';
@@ -185,6 +186,10 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
     ClinicModule,
     ParkingModule,
     TaxiModule,
+  ],
+
+  shop: [
+    ShopModule,
   ],
 
   crm: [

@@ -194,23 +194,48 @@ export class CrmService {
       const firstName = parts[0] ?? lead.name;
       const lastName = parts.slice(1).join(' ') || '—';
 
-      const customerId = randomUUID();
+      // اگر این شماره از قبل مشتری است، همان رکورد استفاده می‌شود.  ساختن
+      // مشتری دوم با یک شماره یعنی تاریخچهٔ خرید دو تکه می‌شود — و از
+      // وقتی شمارهٔ تلفن برای ورود به فروشگاه اینترنتی به کار می‌رود،
+      // نمایهٔ یکتا هم اجازه‌اش را نمی‌دهد.
+      const phone = lead.phone?.trim() || null;
 
-      await tx.query(
-        `INSERT INTO "Customer"
-           (id, "companyId", "firstName", "lastName", phone, email,
-            "isActive", "salesAgentId")
-         VALUES ($1,$2,$3,$4,$5,$6,true,$7)`,
-        [
-          customerId,
-          companyId,
-          firstName,
-          lastName,
-          lead.phone,
-          lead.email,
-          lead.salesAgentId,
-        ],
-      );
+      const existing = phone
+        ? await tx.query<{ id: string }>(
+            'SELECT id FROM "Customer" WHERE "companyId" = $1 AND phone = $2',
+            [companyId, phone],
+          )
+        : { rows: [] as Array<{ id: string }> };
+
+      const customerId = existing.rows[0]?.id ?? randomUUID();
+
+      if (existing.rows[0]) {
+        // مشتری موجود فقط ویزیتور می‌گیرد؛ نام و نشانی‌اش دست‌نخورده
+        // می‌ماند چون احتمالاً کامل‌تر از سرنخ است.
+        await tx.query(
+          `UPDATE "Customer"
+              SET "salesAgentId" = COALESCE("salesAgentId", $1),
+                  "updatedAt" = now()
+            WHERE id = $2`,
+          [lead.salesAgentId, customerId],
+        );
+      } else {
+        await tx.query(
+          `INSERT INTO "Customer"
+             (id, "companyId", "firstName", "lastName", phone, email,
+              "isActive", "salesAgentId")
+           VALUES ($1,$2,$3,$4,$5,$6,true,$7)`,
+          [
+            customerId,
+            companyId,
+            firstName,
+            lastName,
+            phone,
+            lead.email,
+            lead.salesAgentId,
+          ],
+        );
+      }
 
       await tx.query(
         `UPDATE "Lead" SET status = 'CONVERTED', "customerId" = $1,

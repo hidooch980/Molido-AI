@@ -7,6 +7,8 @@ import {
 import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 
+import { JwtService } from '@nestjs/jwt';
+
 import { DatabaseService } from '../database/database.service';
 
 /**
@@ -36,7 +38,35 @@ type Row = Record<string, unknown>;
 
 @Injectable()
 export class ShopService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly jwt: JwtService,
+  ) {}
+
+  /**
+   * توکن مشتری.
+   *
+   * `kind: 'customer'` جدایش می‌کند از توکن کارمند که با همان کلید امضا
+   * می‌شود؛ بدون آن مشتری می‌توانست توکنش را به API کارکنان بدهد.
+   *
+   * عمر کوتاه‌تر از توکن کارمند نیست: مشتری هفته‌ای یک بار سر می‌زند و
+   * ورود دوباره در هر بازدید، سبد و تجربهٔ خرید را خراب می‌کند.
+   */
+  private issueToken(customer: {
+    id: string;
+    companyId: string;
+    phone: string;
+  }): string {
+    return this.jwt.sign(
+      {
+        sub: customer.id,
+        companyId: customer.companyId,
+        phone: customer.phone,
+        kind: 'customer',
+      },
+      { expiresIn: '30d' },
+    );
+  }
 
   // ---------------------------------------------------------- فروشگاه
 
@@ -198,7 +228,16 @@ export class ShopService {
             WHERE id = $2 RETURNING id, "firstName", "lastName", phone`,
           [hash, existing.rows[0].id],
         );
-        return updated.rows[0];
+
+        const row = updated.rows[0];
+        return {
+          ...row,
+          token: this.issueToken({
+            id: row.id as string,
+            companyId,
+            phone,
+          }),
+        };
       }
 
       const created = await tx.query<Row>(
@@ -216,11 +255,82 @@ export class ShopService {
         ],
       );
 
-      return created.rows[0];
+      const row = created.rows[0];
+      return {
+        ...row,
+        token: this.issueToken({
+          id: row.id as string,
+          companyId,
+          phone,
+        }),
+      };
     });
   }
 
-  async login(companyId: string, dto: { phone: string; password: string }) {
+  /**
+   * ادغام سبد مهمان با سبد مشتری پس از ورود.
+   *
+   * بدون این، کسی که بدون حساب کالا در سبد می‌گذارد و بعد وارد می‌شود،
+   * سبدش خالی می‌شود — و در فروشگاه اینترنتی این یعنی از دست دادن همان
+   * خریدی که کاربر تا مرز پرداخت آورده بود.
+   *
+   * قلم تکراری **جمع نمی‌شود بلکه بیشترین مقدار برنده است**: کاربر همان
+   * کالا را در دو نشست دیده و احتمالاً یک بار می‌خواهد، نه دو برابر.
+   */
+  private async mergeGuestCart(
+    tx: {
+      query<T = Row>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
+    },
+    companyId: string,
+    customerId: string,
+    guestToken: string,
+  ): Promise<void> {
+    const guest = await tx.query<{ id: string }>(
+      `SELECT id FROM "Cart"
+        WHERE "companyId" = $1 AND "guestToken" = $2 AND status = 'ACTIVE'`,
+      [companyId, guestToken],
+    );
+
+    const guestCart = guest.rows[0];
+    if (!guestCart) return;
+
+    const own = await tx.query<{ id: string }>(
+      `SELECT id FROM "Cart"
+        WHERE "companyId" = $1 AND "customerId" = $2 AND status = 'ACTIVE'`,
+      [companyId, customerId],
+    );
+
+    // مشتری سبد فعالی ندارد: سبد مهمان مستقیم به او منتقل می‌شود.
+    if (!own.rows[0]) {
+      await tx.query(
+        `UPDATE "Cart" SET "customerId" = $1, "guestToken" = NULL,
+                "updatedAt" = now()
+          WHERE id = $2`,
+        [customerId, guestCart.id],
+      );
+      return;
+    }
+
+    await tx.query(
+      `INSERT INTO "CartItem" (id, "cartId", "productId", qty, "priceAtAdd")
+       SELECT gen_random_uuid()::text, $1, g."productId", g.qty, g."priceAtAdd"
+         FROM "CartItem" g WHERE g."cartId" = $2
+       ON CONFLICT ("cartId", "productId") DO UPDATE
+         SET qty = GREATEST("CartItem".qty, EXCLUDED.qty)`,
+      [own.rows[0].id, guestCart.id],
+    );
+
+    await tx.query(
+      `UPDATE "Cart" SET status = 'ABANDONED', "updatedAt" = now() WHERE id = $1`,
+      [guestCart.id],
+    );
+  }
+
+  async login(
+    companyId: string,
+    dto: { phone: string; password: string },
+    guestToken?: string,
+  ) {
     const rows = await this.db.query<{
       id: string;
       firstName: string;
@@ -245,16 +355,27 @@ export class ShopService {
     const ok = await bcrypt.compare(String(dto.password ?? ''), customer.passwordHash);
     if (!ok) throw invalid;
 
-    await this.db.query(
-      'UPDATE "Customer" SET "lastLoginAt" = now() WHERE id = $1',
-      [customer.id],
-    );
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        'UPDATE "Customer" SET "lastLoginAt" = now() WHERE id = $1',
+        [customer.id],
+      );
+
+      if (guestToken) {
+        await this.mergeGuestCart(tx, companyId, customer.id, guestToken);
+      }
+    });
 
     return {
       id: customer.id,
       firstName: customer.firstName,
       lastName: customer.lastName,
       phone: customer.phone,
+      token: this.issueToken({
+        id: customer.id,
+        companyId,
+        phone: customer.phone,
+      }),
     };
   }
 

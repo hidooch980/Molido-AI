@@ -754,6 +754,21 @@ const DICT: Record<string, Record<Lang, string>> = {
   unitCost: { fa: 'بهای واحد', en: 'Unit cost', ar: 'تكلفة الوحدة' },
   scanCamera: { fa: 'اسکن با دوربین', en: 'Scan with camera', ar: 'مسح بالكاميرا' },
   productNotFoundShort: { fa: 'کالا پیدا نشد', en: 'Product not found', ar: 'الصنف غير موجود' },
+  takeOrder: { fa: 'سفارش‌گیری', en: 'Take order', ar: 'أخذ الطلب' },
+  newTableOrder: { fa: 'سفارش میز', en: 'Table order', ar: 'طلب طاولة' },
+  guestCount: { fa: 'تعداد نفرات', en: 'Guests', ar: 'عدد الضيوف' },
+  orderType: { fa: 'نوع سفارش', en: 'Order type', ar: 'نوع الطلب' },
+  typeDINE_IN: { fa: 'سالن', en: 'Dine in', ar: 'في الصالة' },
+  typeTAKEAWAY: { fa: 'بیرون‌بر', en: 'Takeaway', ar: 'سفري' },
+  typeDELIVERY: { fa: 'ارسال', en: 'Delivery', ar: 'توصيل' },
+  addToOrder: { fa: 'افزودن', en: 'Add', ar: 'إضافة' },
+  orderEmpty: { fa: 'هنوز آیتمی انتخاب نشده', en: 'No items selected yet', ar: 'لم يتم اختيار أصناف' },
+  submitOrder: { fa: 'ثبت سفارش', en: 'Submit order', ar: 'تسجيل الطلب' },
+  itemNote: { fa: 'یادداشت آیتم', en: 'Item note', ar: 'ملاحظة الصنف' },
+  backToTables: { fa: 'بازگشت به میزها', en: 'Back to tables', ar: 'العودة للطاولات' },
+  orderCreated: { fa: 'سفارش ثبت شد', en: 'Order created', ar: 'تم تسجيل الطلب' },
+  addToExisting: { fa: 'افزودن به سفارش باز', en: 'Add to open order', ar: 'إضافة لطلب مفتوح' },
+  searchMenu: { fa: 'جستجوی منو…', en: 'Search menu…', ar: 'ابحث في القائمة…' },
 };
 
 const STORAGE_KEY = 'molido_lang';

@@ -13,6 +13,12 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { ShopService } from './shop.service';
+import {
+  CurrentCustomer,
+  CustomerAuthGuard,
+  OptionalCustomerGuard,
+  type CustomerToken,
+} from './customer-auth';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -21,7 +27,10 @@ import {
   CurrentUser,
 } from '../common/decorators/current-user.decorator';
 
-type ShopRequest = { shopCompanyId?: string };
+type ShopRequest = {
+  shopCompanyId?: string;
+  customer?: CustomerToken;
+};
 
 /**
  * مسیرهای **عمومی** فروشگاه — بدون احراز هویت.
@@ -29,10 +38,12 @@ type ShopRequest = { shopCompanyId?: string };
  * شناسهٔ شرکت از `ShopTenantMiddleware` می‌آید که آن را از پیکربندی سرور
  * می‌خواند، نه از درخواست.
  *
- * مشتری با هدر `x-customer-id` شناسایی می‌شود که پس از ورود به او داده
- * می‌شود.  ⚠️ این یک شناسهٔ ساده است نه توکن امضاشده؛ برای انتشار روی
- * اینترنت باید به JWT مستقل مشتری ارتقا یابد.  در استقرار لوکال — که
- * وضعیت فعلی است — قابل قبول است.
+ * مشتری با **توکن امضاشده** شناسایی می‌شود (`CustomerAuthGuard`).  محتوای
+ * توکن `kind: 'customer'` دارد تا هرگز با توکن کارمند اشتباه نشود.
+ *
+ * مسیرهای سبد خرید عمداً بدون نگهبان‌اند: مهمانِ بدون حساب هم باید بتواند
+ * کالا در سبد بگذارد، وگرنه نرخ تبدیل فروشگاه به‌شدت افت می‌کند.  سبد او
+ * با کلید مرورگر شناسایی می‌شود و هیچ داده‌ای جز همان سبد در دسترسش نیست.
  */
 @ApiTags('فروشگاه اینترنتی')
 @Controller('shop')
@@ -80,46 +91,64 @@ export class ShopPublicController {
   }
 
   @Post('login')
-  login(@Req() req: ShopRequest, @Body() dto: any) {
-    return this.service.login(this.company(req), dto);
+  login(
+    @Req() req: ShopRequest,
+    @Body() dto: any,
+    @Headers('x-guest-token') guestToken?: string,
+  ) {
+    // کلید مهمان فرستاده می‌شود تا سبدی که پیش از ورود ساخته، از دست نرود.
+    return this.service.login(this.company(req), dto, guestToken);
   }
 
   // ---------- سبد ----------
 
+  /**
+   * شناسهٔ مشتری از توکن، اگر توکن معتبری فرستاده شده باشد.
+   *
+   * اینجا نگهبان استفاده نمی‌شود چون سبد برای مهمان هم باز است؛ ولی توکن
+   * جعلی هم نباید پذیرفته شود، پس اگر بود، حتماً تأیید می‌شود.
+   */
+  private customerFrom(req: ShopRequest): string | undefined {
+    return req.customer?.sub;
+  }
+
   @Get('cart')
+  @UseGuards(OptionalCustomerGuard)
   cart(
     @Req() req: ShopRequest,
-    @Headers('x-customer-id') customerId?: string,
     @Headers('x-guest-token') guestToken?: string,
   ) {
-    return this.service.cart(this.company(req), { customerId, guestToken });
+    return this.service.cart(this.company(req), {
+      customerId: this.customerFrom(req),
+      guestToken,
+    });
   }
 
   @Post('cart/items')
+  @UseGuards(OptionalCustomerGuard)
   addToCart(
     @Req() req: ShopRequest,
     @Body() dto: any,
-    @Headers('x-customer-id') customerId?: string,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     return this.service.addToCart(
       this.company(req),
-      { customerId, guestToken },
+      { customerId: this.customerFrom(req), guestToken },
       dto,
     );
   }
 
   @Patch('cart/items/:id')
+  @UseGuards(OptionalCustomerGuard)
   setQty(
     @Req() req: ShopRequest,
     @Param('id') id: string,
     @Body() dto: { qty: number },
-    @Headers('x-customer-id') customerId?: string,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     return this.service.setCartQty(
       this.company(req),
-      { customerId, guestToken },
+      { customerId: this.customerFrom(req), guestToken },
       id,
       Number(dto?.qty ?? 0),
     );
@@ -127,36 +156,38 @@ export class ShopPublicController {
 
   // ---------- سفارش ----------
 
+  // از اینجا به بعد ورود اجباری است: سفارش به مشتری شناسایی‌شده نیاز
+  // دارد، هم برای پیگیری هم برای اینکه کسی به نام دیگری سفارش ندهد.
+
   @Post('checkout')
+  @UseGuards(CustomerAuthGuard)
   checkout(
     @Req() req: ShopRequest,
     @Body() dto: any,
-    @Headers('x-customer-id') customerId?: string,
+    @CurrentCustomer() customer: CustomerToken,
   ) {
-    if (!customerId) {
-      // ثبت سفارش بدون حساب ممکن نیست: پیگیری سفارش و تاریخچهٔ خرید هر دو
-      // به مشتری شناسایی‌شده نیاز دارند.
-      return { statusCode: 401, message: 'برای ثبت سفارش باید وارد شوید' };
-    }
-    return this.service.checkout(this.company(req), customerId, dto);
+    return this.service.checkout(this.company(req), customer.sub, dto);
   }
 
   @Get('my-orders')
+  @UseGuards(CustomerAuthGuard)
   myOrders(
     @Req() req: ShopRequest,
-    @Headers('x-customer-id') customerId?: string,
+    @CurrentCustomer() customer: CustomerToken,
   ) {
-    if (!customerId) return [];
-    return this.service.myOrders(this.company(req), customerId);
+    return this.service.myOrders(this.company(req), customer.sub);
   }
 
   @Get('my-orders/:id')
+  @UseGuards(CustomerAuthGuard)
   myOrder(
     @Req() req: ShopRequest,
     @Param('id') id: string,
-    @Headers('x-customer-id') customerId?: string,
+    @CurrentCustomer() customer: CustomerToken,
   ) {
-    return this.service.orderDetail(this.company(req), id, customerId);
+    // شناسهٔ مشتری از توکن می‌آید، نه از درخواست: تنها راهی که کسی نتواند
+    // سفارش دیگری را ببیند.
+    return this.service.orderDetail(this.company(req), id, customer.sub);
   }
 }
 

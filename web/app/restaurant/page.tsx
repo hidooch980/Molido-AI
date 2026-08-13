@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_URL, api, getToken } from '../../lib/api';
+import Link from 'next/link';
+
 import AppShell from '../../components/AppShell';
 import { useI18n } from '../../lib/i18n-context';
 
@@ -224,9 +226,18 @@ export default function RestaurantPage() {
       title={t('restaurantTitle')}
       subtitle={t('restaurantSubtitle')}
       actions={
-        <button type="button" className="btn-sm" onClick={() => void load()}>
-          {t('refresh')}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link
+            href="/restaurant/order"
+            className="btn-sm"
+            style={{ textDecoration: 'none' }}
+          >
+            + {t('takeOrder')}
+          </Link>
+          <button type="button" className="btn-sm" onClick={() => void load()}>
+            {t('refresh')}
+          </button>
+        </div>
       }
     >
       {error ? <div className="error">{error}</div> : null}
@@ -302,6 +313,37 @@ export default function RestaurantPage() {
                         {openOrder.orderNo} — {fa(openOrder.total)}
                       </div>
                     ) : null}
+                    {/* میز آزاد یا رزرو ⇒ سفارش تازه؛ میز مشغول ⇒ افزودن
+                        به همان سفارش باز.  گارسون نباید برای هر کدام مسیر
+                        متفاوتی یاد بگیرد. */}
+                    {['FREE', 'RESERVED'].includes(table.status) ? (
+                      <Link
+                        href={`/restaurant/order?tableId=${table.id}`}
+                        className="btn-sm"
+                        style={{
+                          marginTop: 8,
+                          display: 'inline-block',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {t('takeOrder')}
+                      </Link>
+                    ) : null}
+
+                    {openOrder ? (
+                      <Link
+                        href={`/restaurant/order?orderId=${openOrder.id}`}
+                        className="btn-sm"
+                        style={{
+                          marginTop: 8,
+                          display: 'inline-block',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {t('addToOrder')}
+                      </Link>
+                    ) : null}
+
                     {table.status === 'CLEANING' ? (
                       <button
                         type="button"

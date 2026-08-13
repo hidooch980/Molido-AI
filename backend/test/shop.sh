@@ -20,12 +20,17 @@ Q() { $C exec -T postgres psql -U postgres -d molido_ai -t -c "$1" | tr -d ' \r\
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
-# آزمون باید از هر وضعیتی اجرا شود
+# آزمون باید از هر وضعیتی اجرا شود.  هر دو مشتری آزمون و همهٔ سفارش‌ها و
+# سبدهایشان پاک می‌شوند؛ بدون این، «سفارش‌های من» سفارش‌های اجراهای قبل را
+# هم می‌شمرد و شکست‌های زنجیره‌ای می‌ساخت که هیچ‌کدام باگ نیستند.
 PHONE=09120000001
+PHONE2=09120000009
 $C exec -T postgres psql -U postgres -d molido_ai -q -c "
-  DELETE FROM \"OnlineOrder\" WHERE \"customerId\" IN (SELECT id FROM \"Customer\" WHERE phone='$PHONE');
-  DELETE FROM \"Cart\" WHERE \"customerId\" IN (SELECT id FROM \"Customer\" WHERE phone='$PHONE');
-  DELETE FROM \"Customer\" WHERE phone='$PHONE';
+  DELETE FROM \"OnlineOrder\" WHERE \"customerId\" IN
+    (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
+  DELETE FROM \"Cart\" WHERE \"customerId\" IN
+    (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
+  DELETE FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2');
 " >/dev/null 2>&1
 
 echo '--- 1) shop settings + warehouse ---'
@@ -48,6 +53,10 @@ echo '--- 5) register ---'
 R=$(curl -s -X POST $A/shop/register -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"secret123\",\"firstName\":\"Reza\",\"lastName\":\"Ahmadi\"}")
 CID=$(echo "$R" | P "d.get('id','')")
+TOK=$(echo "$R" | P "d.get('token','')")
+# توکن امضاشده جایگزین هدر شناسه شد؛ بدون آن هیچ مسیر مشتری کار نمی‌کند.
+CA="Authorization: Bearer $TOK"
+chk "token issued" "$([ -n "$TOK" ] && echo yes || echo no)" "yes"
 chk "customer registered" "$(echo "$R" | P "'yes' if d.get('id') else 'no'")" "yes"
 
 echo '--- 6) weak password rejected ---'
@@ -71,24 +80,24 @@ chk "wrong password" "$(curl -s -X POST $A/shop/login -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"nope\"}" | P "d.get('statusCode')")" "401"
 
 echo '--- 11) add to cart ---'
-CART=$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "x-customer-id: $CID" \
+CART=$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "$CA" \
   -d '{"productId":"seed-p3","qty":2}')
 chk "cart has item" "$(echo "$CART" | P "len(d.get('items',[]))")" "1"
 
 echo '--- 12) adding same product merges ---'
-CART=$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "x-customer-id: $CID" \
+CART=$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "$CA" \
   -d '{"productId":"seed-p3","qty":1}')
 chk "qty merged to 3" "$(echo "$CART" | P "int(float(d['items'][0]['qty']))")" "3"
 
 echo '--- 13) offline product cannot be added ---'
-chk "offline product blocked" "$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "x-customer-id: $CID" \
+chk "offline product blocked" "$(curl -s -X POST $A/shop/cart/items -H "$JS" -H "$CA" \
   -d '{"productId":"seed-p2","qty":1}' | P "d.get('statusCode')")" "404"
 
 echo '--- 14) checkout without login rejected ---'
-chk "anonymous checkout blocked" "$(curl -s -X POST $A/shop/checkout -H "$JS" -d '{}' | P "d.get('statusCode')")" "401"
+chk "anonymous checkout blocked" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/shop/checkout -H "$JS" -d '{}')" "401"
 
 echo '--- 15) checkout ---'
-O=$(curl -s -X POST $A/shop/checkout -H "$JS" -H "x-customer-id: $CID" \
+O=$(curl -s -X POST $A/shop/checkout -H "$JS" -H "$CA" \
   -d '{"shipAddress":"Tehran, Valiasr St","receiverName":"Reza","receiverPhone":"09120000001","paymentMethod":"COD"}')
 OID=$(echo "$O" | P "d.get('id','')")
 chk "order placed" "$(echo "$O" | P "'yes' if d.get('orderNo') else 'no'")" "yes"
@@ -97,13 +106,39 @@ echo '--- 16) shipping fee applied (subtotal < 1m) ---'
 chk "shipping fee" "$(echo "$O" | P "int(float(d.get('shippingFee',0)))")" "50000"
 
 echo '--- 17) cart emptied after checkout ---'
-chk "new empty cart" "$(curl -s "$A/shop/cart" -H "x-customer-id: $CID" | P "len(d.get('items',[]))")" "0"
+chk "new empty cart" "$(curl -s "$A/shop/cart" -H "$CA" | P "len(d.get('items',[]))")" "0"
 
 echo '--- 18) customer sees own order ---'
-chk "my orders" "$(curl -s "$A/shop/my-orders" -H "x-customer-id: $CID" | P "len(d)")" "1"
+chk "my orders" "$(curl -s "$A/shop/my-orders" -H "$CA" | P "len(d)")" "1"
 
-echo '--- 19) other customer cannot see it ---'
-chk "order isolated" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders/$OID" -H "x-customer-id: 00000000-0000-0000-0000-000000000000")" "404"
+echo '--- 19) forged token rejected ---'
+chk "forged token rejected" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders/$OID" -H "Authorization: Bearer invalid.token.here")" "401"
+
+echo '--- 19b) no token rejected ---'
+chk "no token rejected" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders/$OID")" "401"
+
+echo '--- 19c) staff token rejected on shop ---'
+chk "staff token rejected" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders" -H "$AU")" "401"
+
+echo '--- 19d) another customer cannot see the order ---'
+TOK2=$(curl -s -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE2\",\"password\":\"secret123\",\"firstName\":\"Other\"}" | P "d.get('token','')")
+chk "order isolated" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders/$OID" -H "Authorization: Bearer $TOK2")" "404"
+
+echo '--- 19e) guest cart merges on login ---'
+GUEST="guest-test-$$"
+PHONE3=09120000008
+$C exec -T postgres psql -U postgres -d molido_ai -q -c "
+  DELETE FROM \"Cart\" WHERE \"guestToken\" LIKE 'guest-test-%';
+  DELETE FROM \"Customer\" WHERE phone='$PHONE3';" >/dev/null 2>&1
+
+# مهمان کالا در سبد می‌گذارد
+curl -s -X POST $A/shop/cart/items -H "$JS" -H "x-guest-token: $GUEST"   -d '{"productId":"seed-p1","qty":2}' >/dev/null
+
+# ثبت‌نام و ورود با همان کلید مهمان
+curl -s -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\",\"firstName\":\"Guest\"}" >/dev/null
+TOK3=$(curl -s -X POST $A/shop/login -H "$JS" -H "x-guest-token: $GUEST"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\"}" | P "d.get('token','')")
+
+chk "guest cart carried over" "$(curl -s "$A/shop/cart" -H "Authorization: Bearer $TOK3" | P "len(d.get('items',[]))")" "1"
 
 echo '--- 20) confirm => SalesOrder created ---'
 CF=$(curl -s -X POST "$A/shop-admin/orders/$OID/confirm" -H "$AU" -H "$JS" -d '{}')

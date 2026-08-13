@@ -130,6 +130,11 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      # سرور Next داخل شبکهٔ داکر اجرا می‌شود و باید بک‌اند را با نام
+      # سرویس صدا بزند؛ NEXT_PUBLIC_API_URL نشانیِ قابل دسترس از مرورگر
+      # است و از داخل کانتینر لزوماً کار نمی‌کند.
+      INTERNAL_API_URL: http://backend:3000
     ports:
       - "${WEB_PORT:-3001}:3001"
     networks:

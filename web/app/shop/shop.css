@@ -1,0 +1,366 @@
+/* =============================================
+   فروشگاه اینترنتی — تم روشن
+
+   متغیرها با پیشوند --s تعریف می‌شوند تا با متغیرهای پنل مدیریت که در
+   globals.css روی :root نشسته‌اند تداخل نکنند.  دامنه‌اش `.shop` است، پس
+   بقیهٔ برنامه دست‌نخورده می‌ماند.
+   ============================================= */
+
+.shop {
+  --s-bg: #f7f8fb;
+  --s-surface: #ffffff;
+  --s-border: #e4e7ee;
+  --s-text: #16192b;
+  --s-text-dim: #6b7280;
+  --s-primary: #4f46e5;
+  --s-primary-dark: #4338ca;
+  --s-success: #16a34a;
+  --s-danger: #dc2626;
+  --s-warning: #d97706;
+  --s-radius: 14px;
+  --s-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --s-shadow-lg: 0 8px 28px rgba(16, 24, 40, 0.12);
+
+  /* فاصله‌ها: مقیاس ۴ پایه‌ای، فشرده‌تر از صفحهٔ فرود ولی بازتر از پنل */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+
+  min-height: 100vh;
+  background: var(--s-bg);
+  color: var(--s-text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- سربرگ ---------- */
+
+.shop-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--s-surface);
+  border-bottom: 1px solid var(--s-border);
+}
+
+.shop-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.shop-logo {
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--s-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shop-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--s-2);
+}
+
+.shop-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  background: var(--s-bg);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.shop-main {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-4);
+}
+
+.shop-footer {
+  border-top: 1px solid var(--s-border);
+  background: var(--s-surface);
+  padding: var(--s-6) var(--s-4);
+  text-align: center;
+  color: var(--s-text-dim);
+  font-size: 14px;
+}
+
+/* ---------- دکمه ---------- */
+
+.shop button,
+.shop .btn {
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  border: 1px solid transparent;
+  border-radius: var(--s-radius);
+  background: var(--s-primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  /* ۱۵۰ms: به‌اندازه‌ای که دیده شود، نه آن‌قدر که کند حس شود */
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.shop button:hover:not(:disabled) {
+  background: var(--s-primary-dark);
+}
+
+.shop button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shop button.ghost {
+  background: transparent;
+  border-color: var(--s-border);
+  color: var(--s-text);
+}
+
+.shop button.ghost:hover:not(:disabled) {
+  background: var(--s-bg);
+}
+
+/* حلقهٔ فوکوس هرگز حذف نمی‌شود — تنها راهنمای کاربر صفحه‌کلید است. */
+.shop :focus-visible {
+  outline: 2px solid var(--s-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- کارت ---------- */
+
+.shop-card {
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  padding: var(--s-4);
+  box-shadow: var(--s-shadow);
+}
+
+/* ---------- شبکهٔ کالا ---------- */
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-4);
+}
+
+.product-card {
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+
+.product-card:hover {
+  box-shadow: var(--s-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* نسبت ثابت: جای تصویر پیش از بارگذاری رزرو می‌شود تا صفحه نپرد. */
+.product-image {
+  aspect-ratio: 1;
+  background: var(--s-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--s-text-dim);
+  border-bottom: 1px solid var(--s-border);
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-body {
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  flex: 1;
+}
+
+.product-name {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+  /* دو خط، بعد سه‌نقطه — تا ارتفاع کارت‌ها یکسان بماند */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-price {
+  font-weight: 800;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+
+.product-stock {
+  font-size: 13px;
+}
+
+.in-stock {
+  color: var(--s-success);
+}
+
+.out-stock {
+  color: var(--s-danger);
+}
+
+/* ---------- سبد ---------- */
+
+.cart-badge {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: -6px;
+  inset-inline-end: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--s-danger);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-row {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--s-border);
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.qty-control button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: var(--s-bg);
+  color: var(--s-text);
+  border: 1px solid var(--s-border);
+  font-size: 18px;
+}
+
+/* ---------- فرم ---------- */
+
+.shop-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin-bottom: var(--s-3);
+}
+
+/* برچسب همیشه دیده می‌شود؛ placeholder به‌تنهایی با شروع تایپ ناپدید
+   می‌شود و کاربر دیگر نمی‌داند این خانه چه می‌خواست. */
+.shop-field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--s-text-dim);
+}
+
+.shop-field input,
+.shop-field textarea,
+.shop-field select {
+  min-height: 44px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.shop-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: var(--s-radius);
+  padding: var(--s-3);
+  margin-bottom: var(--s-4);
+  font-size: 14px;
+}
+
+.shop-empty {
+  text-align: center;
+  padding: var(--s-8) var(--s-4);
+  color: var(--s-text-dim);
+}
+
+.shop-muted {
+  color: var(--s-text-dim);
+  font-size: 14px;
+}
+
+/* ---------- موبایل ---------- */
+
+@media (max-width: 640px) {
+  .shop-header-inner {
+    flex-wrap: wrap;
+  }
+
+  .shop-search {
+    order: 3;
+    width: 100%;
+  }
+
+  .shop-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--s-3);
+  }
+}
+
+/* کاربری که حرکت را آزاردهنده می‌داند، نباید مجبور به تحملش شود. */
+@media (prefers-reduced-motion: reduce) {
+  .shop *,
+  .shop *::before,
+  .shop *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .product-card:hover {
+    transform: none;
+  }
+}

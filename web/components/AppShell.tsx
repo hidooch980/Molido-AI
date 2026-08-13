@@ -7,11 +7,12 @@ import { clearToken, getToken } from '../lib/api';
 import { LANGS, type Lang } from '../lib/i18n';
 import { useI18n } from '../lib/i18n-context';
 import { hasFeature, type FeatureKey } from '../lib/product';
+import { Icon, type IconName } from './icons';
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: string;
+  icon: IconName;
   /** در نوار پایین موبایل نمایش داده شود */
   primary?: boolean;
   /** اگر تعیین شود، فقط در محصولی دیده می‌شود که این قابلیت را دارد */
@@ -20,26 +21,26 @@ export type NavItem = {
 
 export const NAV: NavItem[] = [
   // label کلید ترجمه است؛ متن در زمان رندر ساخته می‌شود.
-  { href: '/dashboard', label: 'menuDashboard', icon: '🏠', primary: true },
-  { href: '/pos', label: 'menuCashier', icon: '💳', primary: true, feature: 'retail' as FeatureKey },
-  { href: '/restaurant', label: 'menuRestaurant', icon: '☕', primary: true, feature: 'restaurant' as FeatureKey },
-  { href: '/products', label: 'menuProducts', icon: '📦', primary: true },
-  { href: '/inventory', label: 'menuInventory', icon: '🏬', primary: true },
-  { href: '/stock-count', label: 'menuStockCount', icon: '📋' },
-  { href: '/customers', label: 'menuCustomers', icon: '👥' },
-  { href: '/sales', label: 'menuSales', icon: '🧾' },
-  { href: '/sales-chain', label: 'menuChain', icon: '🔗' },
-  { href: '/sales-agents', label: 'menuAgents', icon: '🧑‍💼' },
-  { href: '/crm', label: 'menuCrm', icon: '🎯', feature: 'crm' as FeatureKey },
-  { href: '/returns', label: 'menuReturns', icon: '↩️' },
-  { href: '/accounting', label: 'menuAccounting', icon: '📒', feature: 'finance' as FeatureKey },
-  { href: '/assets', label: 'menuAssets', icon: '🏢', feature: 'finance' as FeatureKey },
-  { href: '/fiscal-year', label: 'menuFiscalYear', icon: '📅', feature: 'finance' as FeatureKey },
-  { href: '/purchases', label: 'menuPurchases', icon: '📥' },
-  { href: '/treasury', label: 'menuTreasury', icon: '🏦', feature: 'finance' as FeatureKey },
-  { href: '/reports', label: 'menuReports2', icon: '📊' },
-  { href: '/labels', label: 'menuLabels', icon: '🏷️' },
-  { href: '/users', label: 'menuUsers', icon: '👤' },
+  { href: '/dashboard', label: 'menuDashboard', icon: 'home', primary: true },
+  { href: '/pos', label: 'menuCashier', icon: 'pos', primary: true, feature: 'retail' as FeatureKey },
+  { href: '/restaurant', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
+  { href: '/products', label: 'menuProducts', icon: 'package', primary: true },
+  { href: '/inventory', label: 'menuInventory', icon: 'warehouse', primary: true },
+  { href: '/stock-count', label: 'menuStockCount', icon: 'clipboard' },
+  { href: '/customers', label: 'menuCustomers', icon: 'users' },
+  { href: '/sales', label: 'menuSales', icon: 'receipt' },
+  { href: '/sales-chain', label: 'menuChain', icon: 'link' },
+  { href: '/sales-agents', label: 'menuAgents', icon: 'agent' },
+  { href: '/crm', label: 'menuCrm', icon: 'target', feature: 'crm' as FeatureKey },
+  { href: '/returns', label: 'menuReturns', icon: 'return' },
+  { href: '/accounting', label: 'menuAccounting', icon: 'ledger', feature: 'finance' as FeatureKey },
+  { href: '/assets', label: 'menuAssets', icon: 'building', feature: 'finance' as FeatureKey },
+  { href: '/fiscal-year', label: 'menuFiscalYear', icon: 'calendar', feature: 'finance' as FeatureKey },
+  { href: '/purchases', label: 'menuPurchases', icon: 'inbox' },
+  { href: '/treasury', label: 'menuTreasury', icon: 'bank', feature: 'finance' as FeatureKey },
+  { href: '/reports', label: 'menuReports2', icon: 'chart' },
+  { href: '/labels', label: 'menuLabels', icon: 'tag' },
+  { href: '/users', label: 'menuUsers', icon: 'user' },
 ];
 
 /**
@@ -127,7 +128,7 @@ export default function AppShell({
               href={item.href}
               className={`nav-item${pathname === item.href ? ' active' : ''}`}
             >
-              <span>{item.icon}</span>
+              <Icon name={item.icon} />
               <span>{t(item.label)}</span>
             </Link>
           ))}
@@ -159,7 +160,7 @@ export default function AppShell({
                   href={item.href}
                   className={`nav-item${pathname === item.href ? ' active' : ''}`}
                 >
-                  <span>{item.icon}</span>
+                  <Icon name={item.icon} />
                   <span>{t(item.label)}</span>
                 </Link>
               ))}
@@ -198,7 +199,7 @@ export default function AppShell({
             onClick={() => setDrawerOpen(true)}
             aria-label={t('menu')}
           >
-            ☰
+            <Icon name="menu" size={22} />
           </button>
 
           <div className="topbar-title">
@@ -235,7 +236,7 @@ export default function AppShell({
             href={item.href}
             className={`bottom-item${pathname === item.href ? ' active' : ''}`}
           >
-            <span className="bi-icon">{item.icon}</span>
+            <Icon name={item.icon} size={22} />
             <span className="bi-label">{t(item.label)}</span>
           </Link>
         ))}
@@ -245,7 +246,7 @@ export default function AppShell({
           className="bottom-item"
           onClick={() => setDrawerOpen(true)}
         >
-          <span className="bi-icon">☰</span>
+          <Icon name="more" size={22} />
           <span className="bi-label">{t('more')}</span>
         </button>
       </nav>

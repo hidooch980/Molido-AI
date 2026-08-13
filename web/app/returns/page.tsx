@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
 
@@ -290,22 +291,22 @@ export default function ReturnsPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">↩️</div>
+          <div className="stat-icon"><Icon name="return" size={22} /></div>
           <div className="stat-label">{t('statSaleReturns')}</div>
           <div className="stat-value">{fa(stats?.saleReturns)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">📤</div>
+          <div className="stat-icon"><Icon name="return" size={22} /></div>
           <div className="stat-label">{t('statPurchaseReturns')}</div>
           <div className="stat-value">{fa(stats?.purchaseReturns)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💵</div>
+          <div className="stat-icon"><Icon name="money" size={22} /></div>
           <div className="stat-label">{t('statReturnValue')}</div>
           <div className="stat-value">{fa(stats?.saleReturnValue)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--warning)' }}>
-          <div className="stat-icon">💸</div>
+          <div className="stat-icon"><Icon name="money" size={22} /></div>
           <div className="stat-label">{t('statCashRefunded')}</div>
           <div className="stat-value">{fa(stats?.cashRefunded)}</div>
         </div>

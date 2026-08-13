@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
 
@@ -186,22 +187,22 @@ export default function InventoryPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">📦</div>
+          <div className="stat-icon"><Icon name="package" size={22} /></div>
           <div className="stat-label">{t('statSkus')}</div>
           <div className="stat-value">{fa(stats.skus)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--warning)' }}>
-          <div className="stat-icon">⚠️</div>
+          <div className="stat-icon"><Icon name="alert" size={22} /></div>
           <div className="stat-label">{t('statLowStock')}</div>
           <div className="stat-value">{fa(stats.low)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--danger)' }}>
-          <div className="stat-icon">🚫</div>
+          <div className="stat-icon"><Icon name="x" size={22} /></div>
           <div className="stat-label">{t('statOutOfStock')}</div>
           <div className="stat-value">{fa(stats.out)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💰</div>
+          <div className="stat-icon"><Icon name="money" size={22} /></div>
           <div className="stat-label">{t('statStockValue')}</div>
           <div className="stat-value">{fa(stats.value)}</div>
         </div>

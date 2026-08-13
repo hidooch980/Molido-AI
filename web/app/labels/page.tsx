@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { DataTable, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { barcodeSvg } from '../../lib/barcode';
@@ -328,7 +329,7 @@ export default function LabelsPage() {
                 disabled={!sheet.length}
                 onClick={print}
               >
-                🖨 {t('printLabels')}
+          <Icon name="print" size={18} /> {t('printLabels')}
               </button>
             </div>
           </div>

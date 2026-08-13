@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { DataTable, NUM, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -244,7 +245,7 @@ export default function FiscalYearPage() {
                     disabled={busy}
                     onClick={() => void close(year)}
                   >
-                    🔒 {t('closeYear')}
+          <Icon name="settings" size={18} /> {t('closeYear')}
                   </button>
                 ) : null}
               </td>

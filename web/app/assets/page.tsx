@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { DataTable, NUM, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -183,22 +184,22 @@ export default function AssetsPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">🏢</div>
+          <div className="stat-icon"><Icon name="building" size={22} /></div>
           <div className="stat-label">{t('statAssetCount')}</div>
           <div className="stat-value">{fa(stats?.activeCount)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💰</div>
+          <div className="stat-icon"><Icon name="money" size={22} /></div>
           <div className="stat-label">{t('statAssetCost')}</div>
           <div className="stat-value">{fa(stats?.totalCost)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--warning)' }}>
-          <div className="stat-icon">📉</div>
+          <div className="stat-icon"><Icon name="trendDown" size={22} /></div>
           <div className="stat-label">{t('statAccumulated')}</div>
           <div className="stat-value">{fa(stats?.totalDepreciation)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--success)' }}>
-          <div className="stat-icon">📗</div>
+          <div className="stat-icon"><Icon name="ledger" size={22} /></div>
           <div className="stat-label">{t('statBookValue')}</div>
           <div className="stat-value">{fa(stats?.totalBookValue)}</div>
         </div>
@@ -228,7 +229,7 @@ export default function AssetsPage() {
           disabled={busy}
           onClick={() => void runDepreciation()}
         >
-          ⚙️ {t('runDepreciation')}
+          <Icon name="settings" size={18} /> {t('runDepreciation')}
         </button>
 
         <button

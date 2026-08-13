@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
 import { printReceipt } from '../../lib/receipt';
@@ -500,7 +501,8 @@ export default function PosPage() {
       {/* سبد */}
       <div className="card">
         <div className="row-between">
-          <h3>🛒 {t('cart')} ({fa(cart.length)})</h3>
+          <h3>
+          <Icon name="package" size={18} /> {t('cart')} ({fa(cart.length)})</h3>
           {cart.length ? (
             <button type="button" className="ghost" onClick={resetSale}>
               {t('clearCart')}
@@ -622,7 +624,7 @@ export default function PosPage() {
                 maxLength={10}
               />
               <button type="submit" className="ghost">
-                🎫 {t('ration')}
+          <Icon name="tag" size={18} /> {t('ration')}
               </button>
             </form>
           )}
@@ -684,7 +686,7 @@ export default function PosPage() {
               {t('lastInvoice')}: {lastSale.invoiceNo}
             </span>
             <button type="button" onClick={() => printReceipt(lastSale, { currency: currentCurrency() })}>
-              🖨 {t('printReceipt')}
+          <Icon name="print" size={18} /> {t('printReceipt')}
             </button>
           </div>
         </div>

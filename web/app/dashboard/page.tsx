@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
 
@@ -79,7 +80,8 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="card">
-        <h3 style={{ marginBottom: 10 }}>🔔 {t('notifications')}</h3>
+        <h3 style={{ marginBottom: 10 }}>
+          <Icon name="alert" size={18} /> {t('notifications')}</h3>
 
         {notifications.length === 0 ? (
           <p className="muted">{t('noNotifications')}</p>

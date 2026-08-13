@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { DataTable, NUM, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -236,17 +237,17 @@ export default function CrmPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">🎯</div>
+          <div className="stat-icon"><Icon name="target" size={22} /></div>
           <div className="stat-label">{t('statOpenLeads')}</div>
           <div className="stat-value">{fa(stats?.openLeads)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💼</div>
+          <div className="stat-icon"><Icon name="building" size={22} /></div>
           <div className="stat-label">{t('statOpenOpps')}</div>
           <div className="stat-value">{fa(stats?.openOpportunities)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">📈</div>
+          <div className="stat-icon"><Icon name="trendUp" size={22} /></div>
           <div className="stat-label">{t('statPipeline')}</div>
           <div className="stat-value">{fa(stats?.pipelineValue)}</div>
         </div>
@@ -260,7 +261,7 @@ export default function CrmPage() {
             }`,
           }}
         >
-          <div className="stat-icon">⏰</div>
+          <div className="stat-icon"><Icon name="clock" size={22} /></div>
           <div className="stat-label">{t('dueFollowUps')}</div>
           <div className="stat-value">{fa(stats?.dueFollowUps)}</div>
         </div>

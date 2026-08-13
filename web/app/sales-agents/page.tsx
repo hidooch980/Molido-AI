@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { Icon } from '../../components/icons';
 import { DataTable, NUM, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -179,22 +180,22 @@ export default function SalesAgentsPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">🧑‍💼</div>
+          <div className="stat-icon"><Icon name="agent" size={22} /></div>
           <div className="stat-label">{t('statActiveAgents')}</div>
           <div className="stat-value">{fa(stats?.activeAgents)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💰</div>
+          <div className="stat-icon"><Icon name="money" size={22} /></div>
           <div className="stat-label">{t('statAgentSales')}</div>
           <div className="stat-value">{fa(stats?.monthSales)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">📊</div>
+          <div className="stat-icon"><Icon name="chart" size={22} /></div>
           <div className="stat-label">{t('statTotalCommission')}</div>
           <div className="stat-value">{fa(stats?.totalCommission)}</div>
         </div>
         <div className="stat-card" style={{ borderTop: '3px solid var(--warning)' }}>
-          <div className="stat-icon">⏳</div>
+          <div className="stat-icon"><Icon name="clock" size={22} /></div>
           <div className="stat-label">{t('statUnpaidCommission')}</div>
           <div className="stat-value">{fa(stats?.unpaidCommission)}</div>
         </div>
@@ -216,7 +217,7 @@ export default function SalesAgentsPage() {
           disabled={busy}
           onClick={() => void calculate()}
         >
-          ⚙️ {t('calcCommission')}
+          <Icon name="settings" size={18} /> {t('calcCommission')}
         </button>
 
         <button

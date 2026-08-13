@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
+import { PoolClient } from 'pg';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { PostingService } from '../accounting/posting.service';
+import {
+  payrollEntry,
+  payrollPaymentEntry,
+} from '../accounting/posting-rules';
 import { Params, setClause } from '../database/sql';
 
 type Employee = Record<string, unknown> & {
@@ -37,7 +43,10 @@ const INSURANCE_RATE = 0.07;
 
 @Injectable()
 export class PayrollService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly posting: PostingService,
+  ) {}
 
   // ---------- کارمندان ----------
 
@@ -245,34 +254,120 @@ export class PayrollService {
     };
   }
 
-  async approveSlip(id: string, companyId: string) {
-    return this.advanceSlip(id, companyId, 'DRAFT', 'APPROVED', 'فقط فیش پیش‌نویس قابل تأیید است');
+  /**
+   * تأیید فیش — و ثبت سند حسابداری.
+   *
+   * سند در لحظهٔ **تأیید** زده می‌شود نه پرداخت: تعهد از همان لحظه وجود
+   * دارد و اگر تا پایان دوره پرداخت نشود، باید به‌عنوان بدهی در ترازنامه
+   * دیده شود.  پیش از این هیچ سندی زده نمی‌شد و هزینهٔ حقوق در صورت سود و
+   * زیان اصلاً نمی‌آمد.
+   */
+  async approveSlip(id: string, companyId: string, userId?: string) {
+    return this.db.transaction(async (tx) => {
+      const slip = await this.advanceIn(
+        tx,
+        id,
+        companyId,
+        'DRAFT',
+        'APPROVED',
+        'فقط فیش پیش‌نویس قابل تأیید است',
+      );
+
+      const gross =
+        Number(slip.baseSalary ?? 0) +
+        Number(slip.allowances ?? 0) +
+        Number(slip.overtimePay ?? 0) +
+        Number(slip.bonus ?? 0);
+
+      const entry = await this.posting.postAuto(tx, companyId, {
+        sourceType: 'PayrollSlip',
+        sourceId: id,
+        description: `فیش حقوق دورهٔ ${slip.period}`,
+        userId: userId ?? null,
+        lines: payrollEntry({
+          gross,
+          insurance: Number(slip.insurance ?? 0),
+          tax: Number(slip.tax ?? 0),
+          netPay: Number(slip.netPay ?? 0),
+        }),
+      });
+
+      if (entry) {
+        await tx.query(
+          'UPDATE "PayrollSlip" SET "journalEntryId" = $1 WHERE id = $2',
+          [entry.id, id],
+        );
+      }
+
+      return slip;
+    });
   }
 
-  async paySlip(id: string, companyId: string) {
-    return this.advanceSlip(id, companyId, 'APPROVED', 'PAID', 'فقط فیش تأییدشده قابل پرداخت است');
+  /** پرداخت فیش: بدهی به کارمند تسویه و پول از صندوق یا بانک خارج می‌شود. */
+  async paySlip(
+    id: string,
+    companyId: string,
+    userId?: string,
+    method = 'BANK_TRANSFER',
+  ) {
+    return this.db.transaction(async (tx) => {
+      const slip = await this.advanceIn(
+        tx,
+        id,
+        companyId,
+        'APPROVED',
+        'PAID',
+        'فقط فیش تأییدشده قابل پرداخت است',
+      );
+
+      await tx.query(
+        'UPDATE "PayrollSlip" SET "paymentMethod" = $1 WHERE id = $2',
+        [method, id],
+      );
+
+      await this.posting.postAuto(tx, companyId, {
+        sourceType: 'PayrollPayment',
+        sourceId: id,
+        description: `پرداخت حقوق دورهٔ ${slip.period}`,
+        userId: userId ?? null,
+        lines: payrollPaymentEntry({
+          netPay: Number(slip.netPay ?? 0),
+          method,
+        }),
+      });
+
+      return slip;
+    });
   }
 
-  private async advanceSlip(
+  /**
+   * تغییر وضعیت داخل تراکنش.
+   *
+   * شرط `status = $4` داخل خودِ UPDATE است تا دو درخواست هم‌زمان نتوانند
+   * یک فیش را دو بار تأیید کنند و دو سند بزنند.
+   */
+  private async advanceIn(
+    tx: PoolClient,
     id: string,
     companyId: string,
     from: string,
     to: string,
     rejection: string,
-  ) {
+  ): Promise<Slip> {
     const paidAt = to === 'PAID' ? ', "paidAt" = now()' : '';
-    const rows = await this.db.query<Slip>(
+
+    const rows = await tx.query<Slip>(
       `UPDATE "PayrollSlip" SET status = $1${paidAt}, "updatedAt" = now()
        WHERE id = $2 AND "companyId" = $3 AND status = $4 RETURNING *`,
       [to, id, companyId, from],
     );
-    if (rows[0]) return rows[0];
+    if (rows.rows[0]) return rows.rows[0];
 
-    const existing = await this.db.query<{ id: string }>(
+    const existing = await tx.query<{ id: string }>(
       'SELECT id FROM "PayrollSlip" WHERE id = $1 AND "companyId" = $2',
       [id, companyId],
     );
-    if (!existing[0]) throw new NotFoundException('فیش حقوقی یافت نشد');
+    if (!existing.rows[0]) throw new NotFoundException('فیش حقوقی یافت نشد');
     throw new BadRequestException(rejection);
   }
 

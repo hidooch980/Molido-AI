@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsNotEmpty,
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -68,4 +69,25 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  /**
+   * کرایهٔ حمل ورودی.  به نسبت ارزش روی اقلام سرشکن می‌شود و در بهای
+   * تمام‌شدهٔ کالا می‌نشیند — نه به‌عنوان هزینهٔ دوره.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  freightCost?: number;
+
+  @IsOptional()
+  @IsString()
+  freightCarrier?: string;
+
+  /**
+   * اگر false باشد کرایه هزینهٔ دوره می‌شود، نه بخشی از بهای کالا.
+   * انتخاب باید صریح باشد چون اثرش روی سود ناخالص مستقیم است.
+   */
+  @IsOptional()
+  @IsBoolean()
+  capitalizeFreight?: boolean;
 }

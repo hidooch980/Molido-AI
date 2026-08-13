@@ -31,6 +31,12 @@ export const ACCOUNTS = {
   retainedEarnings: '3102',
   commissionExpense: '5206',
   commissionPayable: '2106',
+  salaryPayable: '2104',
+  insurancePayable: '2105',
+  salaryExpense: '5201',
+  freightExpense: '5204',
+  freightRevenue: '4106',
+  freightPayable: '2107',
 } as const;
 
 /** روش پرداخت را به حسابی که پول در آن می‌نشیند نگاشت می‌کند. */
@@ -421,4 +427,183 @@ export function agentCommissionEntry(amount: number): PostingLine[] {
   });
 
   return lines;
+}
+
+/**
+ * فیش حقوق: هزینهٔ ناخالص شناسایی می‌شود و کسورات به‌عنوان بدهی به سازمان
+ * بیمه و دارایی می‌نشیند؛ خالص پرداختی بدهی به کارمند است.
+ *
+ * ثبت در لحظهٔ **تأیید** فیش انجام می‌شود، نه پرداخت: تعهد از همان لحظه
+ * وجود دارد و اگر تا پایان ماه پرداخت نشود، باید در ترازنامه دیده شود.
+ */
+export function payrollEntry(input: {
+  gross: number;
+  insurance: number;
+  tax: number;
+  netPay: number;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.salaryExpense,
+    debit: Number(input.gross),
+    description: 'هزینهٔ حقوق و دستمزد',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.insurancePayable,
+    credit: Number(input.insurance),
+    description: 'بیمهٔ پرداختنی',
+  });
+
+  // مالیات حقوق هم بدهی به دولت است و در همان حساب مالیات می‌نشیند.
+  push(lines, {
+    accountCode: ACCOUNTS.outputVat,
+    credit: Number(input.tax),
+    description: 'مالیات حقوق پرداختنی',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.salaryPayable,
+    credit: Number(input.netPay),
+    description: 'حقوق پرداختنی',
+  });
+
+  return lines;
+}
+
+/** پرداخت فیش: بدهی به کارمند تسویه و پول از صندوق یا بانک خارج می‌شود. */
+export function payrollPaymentEntry(input: {
+  netPay: number;
+  method: string;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: ACCOUNTS.salaryPayable,
+    debit: Number(input.netPay),
+    description: 'تسویهٔ حقوق پرداختنی',
+  });
+
+  push(lines, {
+    accountCode: accountForMethod(input.method),
+    credit: Number(input.netPay),
+    description: 'پرداخت حقوق',
+  });
+
+  return lines;
+}
+
+/**
+ * کرایهٔ حمل ورودی که روی بهای کالا سرشکن می‌شود.
+ *
+ * موجودی بدهکار می‌شود (نه هزینه) چون کرایه بخشی از بهای تمام‌شدهٔ رسیده
+ * است.  اگر هزینه شود، بهای موجودی کمتر از واقع می‌ماند و سود ناخالص بیش
+ * از واقع گزارش می‌شود — و در ماه فروش، ناگهان افت می‌کند.
+ */
+export function inboundFreightEntry(input: {
+  amount: number;
+  capitalize: boolean;
+  paid: boolean;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  push(lines, {
+    accountCode: input.capitalize ? ACCOUNTS.inventory : ACCOUNTS.freightExpense,
+    debit: Number(input.amount),
+    description: input.capitalize
+      ? 'کرایه حمل — سرشکن بر بهای کالا'
+      : 'هزینهٔ کرایه حمل خرید',
+  });
+
+  push(lines, {
+    accountCode: input.paid ? ACCOUNTS.cash : ACCOUNTS.freightPayable,
+    credit: Number(input.amount),
+    description: 'کرایه حمل',
+  });
+
+  return lines;
+}
+
+/**
+ * کرایهٔ حمل خروجی.
+ *
+ * دو سمت مستقل دارد و عمداً در یک سند می‌آیند: آنچه از مشتری گرفته می‌شود
+ * درآمد است و آنچه به باربری داده می‌شود هزینه.  جدا نگه داشتنشان تنها راه
+ * فهمیدن این است که توزیع سودده است یا زیان‌ده.
+ */
+export function outboundFreightEntry(input: {
+  /** مبلغ دریافتی از مشتری */
+  charge: number;
+  /** هزینهٔ پرداختی به باربری */
+  cost: number;
+  /** آیا وجه باربری همان لحظه نقداً پرداخت شده */
+  paid: boolean;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+
+  // سمت درآمد: مشتری بدهکار یا وجه نقد دریافت شده
+  push(lines, {
+    accountCode: ACCOUNTS.receivable,
+    debit: Number(input.charge),
+    description: 'کرایه حمل دریافتنی از مشتری',
+  });
+
+  push(lines, {
+    accountCode: ACCOUNTS.freightRevenue,
+    credit: Number(input.charge),
+    description: 'درآمد حمل و نقل',
+  });
+
+  // سمت هزینه: پرداخت به باربری
+  push(lines, {
+    accountCode: ACCOUNTS.freightExpense,
+    debit: Number(input.cost),
+    description: 'هزینهٔ کرایه حمل',
+  });
+
+  push(lines, {
+    accountCode: input.paid ? ACCOUNTS.cash : ACCOUNTS.freightPayable,
+    credit: Number(input.cost),
+    description: 'پرداخت به باربری',
+  });
+
+  return lines;
+}
+
+/**
+ * سرشکن کرایه بر اقلام، به نسبت ارزش هر قلم.
+ *
+ * به نسبت **ارزش** است نه تعداد یا وزن: کالای گران‌تر معمولاً بیمه و
+ * مسئولیت بیشتری در حمل دارد، و تقسیم بر تعداد باعث می‌شود یک قلم ارزان
+ * پرتعداد، بیشتر کرایه بگیرد.
+ *
+ * تابع خالص است تا بدون دیتابیس آزموده شود.  آخرین قلم باقی‌مانده را
+ * می‌گیرد تا مجموع سهم‌ها دقیقاً برابر کرایه بماند و ریالی گم نشود.
+ */
+export function allocateFreight(
+  items: Array<{ total: number }>,
+  freight: number,
+): number[] {
+  const amount = Number(freight);
+  if (!items.length || amount <= 0) return items.map(() => 0);
+
+  const base = items.reduce((sum, item) => sum + Number(item.total), 0);
+
+  // اگر ارزش کل صفر باشد (کالای رایگان)، مساوی تقسیم می‌شود.
+  if (base <= 0) {
+    const share = Math.round((amount / items.length) * 100) / 100;
+    const shares = items.map(() => share);
+    shares[shares.length - 1] = Math.round((amount - share * (items.length - 1)) * 100) / 100;
+    return shares;
+  }
+
+  const shares = items.map(
+    (item) => Math.round(((Number(item.total) / base) * amount) * 100) / 100,
+  );
+
+  const assigned = shares.slice(0, -1).reduce((sum, value) => sum + value, 0);
+  shares[shares.length - 1] = Math.round((amount - assigned) * 100) / 100;
+
+  return shares;
 }

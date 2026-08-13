@@ -1,10 +1,25 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
 import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  AuthUser,
+  CurrentUser,
+} from '../common/decorators/current-user.decorator';
+
+const HR = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as const;
 
 @ApiTags('حضور و غیاب')
 @ApiBearerAuth()
@@ -15,34 +30,67 @@ export class AttendanceController {
 
   @Get('stats')
   stats(@CurrentUser() user: AuthUser) {
-    return this.service.stats(user.companyId!!);
+    return this.service.stats(user.companyId!);
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query() q: any) {
-    return this.service.findAll(user.companyId!, q);
+  findAll(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.findAll(user.companyId!, from, to);
+  }
+
+  @Get('summary')
+  summary(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
+    return this.service.monthlySummary(
+      user.companyId!,
+      period ?? new Date().toISOString().slice(0, 10),
+    );
   }
 
   @Post()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@CurrentUser() user: AuthUser, @Body() dto: any) {
-    return this.service.create(user.companyId!, dto);
+  @Roles(...HR)
+  record(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.record(user.companyId!, dto);
   }
 
-  @Get(':id')
-  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.service.findOne(user.companyId!, id);
+  // ---------- مرخصی ----------
+
+  @Get('leaves')
+  leaves(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    return this.service.leaves(user.companyId!, status);
   }
 
-  @Patch(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {
-    return this.service.update(user.companyId!, id, dto);
+  @Post('leaves')
+  requestLeave(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.requestLeave(user.companyId!, dto);
   }
 
-  @Delete(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN')
-  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.service.remove(user.companyId!, id);
+  @Patch('leaves/:id/decide')
+  @Roles(...HR)
+  decideLeave(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { approve: boolean; note?: string },
+  ) {
+    return this.service.decideLeave(user.companyId!, user.userId, id, dto);
+  }
+
+  // ---------- مانده مرخصی ----------
+
+  @Get('balances')
+  balances(@CurrentUser() user: AuthUser, @Query('year') year?: string) {
+    return this.service.balances(
+      user.companyId!,
+      year ? Number(year) : undefined,
+    );
+  }
+
+  @Post('balances')
+  @Roles(...HR)
+  setEntitlement(@CurrentUser() user: AuthUser, @Body() dto: any) {
+    return this.service.setEntitlement(user.companyId!, dto);
   }
 }

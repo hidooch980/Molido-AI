@@ -13,20 +13,22 @@ export type FeatureKey =
   | 'sales'
   | 'retail'
   | 'restaurant'
+  | 'hr'
   | 'ration'
   | 'finance'
   | 'crm'
   | 'municipality';
 
 const FEATURES: Record<string, FeatureKey[]> = {
-  store: ['catalogue', 'sales', 'retail', 'ration', 'finance', 'crm'],
-  resto: ['catalogue', 'sales', 'restaurant', 'finance', 'crm'],
+  store: ['catalogue', 'sales', 'retail', 'ration', 'hr', 'finance', 'crm'],
+  resto: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm'],
   suite: [
     'catalogue',
     'sales',
     'retail',
     'restaurant',
     'ration',
+    'hr',
     'finance',
     'crm',
     'municipality',

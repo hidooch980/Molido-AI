@@ -75,7 +75,7 @@ async function main() {
   const cashbox = new CashBoxService(db);
   const cheques = new ChequesService(db);
   const treasury = new TreasuryService(db);
-  const payroll = new PayrollService(db);
+  const payroll = new PayrollService(db, posting);
   const ai = new AiService(db, llm);
   const notifications = new NotificationsService(db);
   const accounting = new AccountingService(db);

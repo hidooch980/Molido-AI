@@ -7,6 +7,10 @@ import {
 
 import { DatabaseService } from '../database/database.service';
 import { applyStockDelta } from '../inventory/inventory.service';
+import {
+  allocateFreight,
+  inboundFreightEntry,
+} from '../accounting/posting-rules';
 import { PostingService } from '../accounting/posting.service';
 import { purchaseEntry } from '../accounting/posting-rules';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
@@ -130,8 +134,10 @@ export class PurchasesService {
       const created = await tx.query<Purchase>(
         `INSERT INTO "Purchase"
            (id, "companyId", "supplierId", "warehouseId", "purchaseNo", status,
-            subtotal, discount, tax, total, note)
-         VALUES ($1, $2, $3, $4, $5, 'PENDING', $6, $7, $8, $9, $10) RETURNING *`,
+            subtotal, discount, tax, total, note,
+            "freightCost", "freightCarrier", "capitalizeFreight")
+         VALUES ($1, $2, $3, $4, $5, 'PENDING', $6, $7, $8, $9, $10, $11, $12, $13)
+         RETURNING *`,
         [
           randomUUID(),
           companyId,
@@ -143,6 +149,10 @@ export class PurchasesService {
           tax,
           total,
           dto.note ?? null,
+          dto.freightCost ?? 0,
+          dto.freightCarrier ?? null,
+          // پیش‌فرض سرشکن است: کرایه بخشی از بهای تمام‌شدهٔ کالاست.
+          dto.capitalizeFreight ?? true,
         ],
       );
       const purchase = created.rows[0];
@@ -190,9 +200,48 @@ export class PurchasesService {
       }
 
       const items = await tx.query<PurchaseItem>(
-        'SELECT * FROM "PurchaseItem" WHERE "purchaseId" = $1',
+        'SELECT * FROM "PurchaseItem" WHERE "purchaseId" = $1 ORDER BY id',
         [id],
       );
+
+      // کرایهٔ حمل بخشی از بهای تمام‌شدهٔ رسیده است، نه هزینهٔ دوره.  به
+      // نسبت ارزش هر قلم سرشکن می‌شود و در بهای واحد می‌نشیند؛ اگر هزینه
+      // شود، بهای موجودی کمتر از واقع می‌ماند و سود ناخالص بیش از واقع
+      // گزارش می‌شود.
+      const freight = Number(purchase.freightCost ?? 0);
+      const capitalize = purchase.capitalizeFreight !== false;
+
+      const shares =
+        freight > 0 && capitalize
+          ? allocateFreight(
+              items.rows.map((row) => ({ total: Number(row.total) })),
+              freight,
+            )
+          : items.rows.map(() => 0);
+
+      for (const [index, row] of items.rows.entries()) {
+        const share = shares[index] ?? 0;
+        if (share === 0) continue;
+
+        const qty = Number(row.quantity) || 1;
+        const landed =
+          Math.round((Number(row.purchasePrice) + share / qty) * 100) / 100;
+
+        await tx.query(
+          `UPDATE "PurchaseItem"
+              SET "freightShare" = $1::numeric, "landedUnitCost" = $2::numeric
+            WHERE id = $3`,
+          [share, landed, row.id],
+        );
+
+        // بهای خرید کالا با بهای تمام‌شدهٔ رسیده به‌روز می‌شود تا بهای
+        // تمام‌شدهٔ فروش هم کرایه را در بر بگیرد.
+        await tx.query(
+          'UPDATE "Product" SET "purchasePrice" = $1::numeric WHERE id = $2',
+          [landed, row.productId],
+        );
+      }
+
       for (const item of items.rows) {
         await applyStockDelta(
           tx,
@@ -249,6 +298,21 @@ export class PurchasesService {
           total: Number(purchase.total),
         }),
       });
+
+      // سند کرایه جدا از سند خرید است: مبلغ به باربری داده می‌شود نه به
+      // تأمین‌کننده، و اغلب سند و زمان‌بندی جداگانه دارد.
+      if (freight > 0) {
+        await this.posting.postAuto(tx, companyId, {
+          sourceType: 'PurchaseFreight',
+          sourceId: id,
+          description: `کرایه حمل خرید ${purchase.purchaseNo}`,
+          lines: inboundFreightEntry({
+            amount: freight,
+            capitalize,
+            paid: false,
+          }),
+        });
+      }
 
       const updated = await tx.query<Purchase>(
         `UPDATE "Purchase" SET status = 'RECEIVED', "updatedAt" = now() WHERE id = $1 RETURNING *`,

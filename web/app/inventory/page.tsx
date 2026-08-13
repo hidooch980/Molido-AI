@@ -6,6 +6,9 @@ import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
+import BarcodeScanner, {
+  isScannerSupported,
+} from '../../components/BarcodeScanner';
 
 type Warehouse = { id: string; name: string; code: string | null };
 
@@ -36,6 +39,8 @@ export default function InventoryPage() {
   const [rows, setRows] = useState<Stock[]>([]);
   const [warehouseId, setWarehouseId] = useState('');
   const [search, setSearch] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [lowOnly, setLowOnly] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,6 +73,10 @@ export default function InventoryPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setCameraReady(isScannerSupported());
+  }, []);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -239,6 +248,20 @@ export default function InventoryPage() {
           style={{ ...TOUCH, flex: 1, minWidth: 200 }}
         />
 
+        {/* انباردار روی گوشی بیشتر از صندوق‌دار به دوربین نیاز دارد: در
+            قفسه ایستاده و صفحه‌کلید سخت‌افزاری ندارد. */}
+        {cameraReady ? (
+          <button
+            type="button"
+            className="ghost"
+            style={TOUCH}
+            onClick={() => setScanning(true)}
+            aria-label="اسکن با دوربین"
+          >
+            <Icon name="pos" size={20} />
+          </button>
+        ) : null}
+
         <button
           type="button"
           className={lowOnly ? '' : 'ghost'}
@@ -248,6 +271,18 @@ export default function InventoryPage() {
           {t('lowStockOnly')}
         </button>
       </div>
+
+      {scanning ? (
+        <BarcodeScanner
+          onScan={(code) => {
+            // بارکد در جستجو می‌نشیند: انباردار می‌خواهد کالا را پیدا کند،
+            // نه اینکه موجودی را کور تغییر دهد.
+            setSearch(code);
+            setScanning(false);
+          }}
+          onClose={() => setScanning(false)}
+        />
+      ) : null}
 
       <div className="card">
         {loading ? (

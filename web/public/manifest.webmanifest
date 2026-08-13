@@ -6,13 +6,20 @@
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
-  "orientation": "any",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "portrait-primary",
   "background_color": "#0b1220",
   "theme_color": "#0b1220",
   "lang": "fa",
   "dir": "rtl",
-  "categories": ["business", "productivity", "finance"],
+  "categories": [
+    "business",
+    "productivity",
+    "finance"
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -35,22 +42,48 @@
   ],
   "shortcuts": [
     {
-      "name": "کافه رستوران",
-      "short_name": "رستوران",
-      "url": "/restaurant",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
       "name": "صندوق فروش",
-      "short_name": "POS",
+      "short_name": "صندوق",
       "url": "/pos",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
-      "name": "کالاها",
-      "short_name": "کالا",
-      "url": "/products",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "name": "انبار و موجودی",
+      "short_name": "انبار",
+      "url": "/inventory",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "انبارگردانی",
+      "short_name": "شمارش",
+      "url": "/stock-count",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "فروشگاه اینترنتی",
+      "short_name": "فروشگاه",
+      "url": "/shop",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

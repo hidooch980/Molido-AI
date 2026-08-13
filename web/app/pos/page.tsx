@@ -4,8 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { useI18n } from '../../lib/i18n-context';
+import BarcodeScanner, {
+  isScannerSupported,
+} from '../../components/BarcodeScanner';
 import { api } from '../../lib/api';
 import { printReceipt } from '../../lib/receipt';
+import {
+  isAgentAvailable,
+  openCashDrawer,
+  printViaAgent,
+  receiptToText,
+} from '../../lib/print-agent';
 import { amountOnly, currentCurrency, loadCurrency, money } from '../../lib/money';
 
 type Warehouse = { id: string; name: string };
@@ -93,6 +102,16 @@ export default function PosPage() {
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [code, setCode] = useState('');
+  const [scanning, setScanning] = useState(false);
+  // پشتیبانی دوربین فقط در مرورگر معلوم می‌شود؛ خواندنش هنگام رندر باعث
+  // اختلاف رندر سرور و کلاینت می‌شود.
+  const [cameraReady, setCameraReady] = useState(false);
+  // عامل چاپ روی دستگاه صندوق نصب می‌شود؛ اگر نباشد، چاپ معمولی مرورگر
+  // استفاده می‌شود و هیچ‌چیز نمی‌شکند.
+  const [agentReady, setAgentReady] = useState(false);
+  // اقلام آخرین فروش برای چاپ نگه داشته می‌شوند؛ سبد بلافاصله پس از ثبت
+  // خالی می‌شود و بدون این، رسید بدون قلم چاپ می‌شد.
+  const [lastLines, setLastLines] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState(0);
   const [cashAmount, setCashAmount] = useState('');
   const [cardAmount, setCardAmount] = useState('');
@@ -192,35 +211,86 @@ export default function PosPage() {
     });
   }
 
+  useEffect(() => {
+    setCameraReady(isScannerSupported());
+    void isAgentAvailable().then(setAgentReady);
+  }, []);
+
+  /**
+   * چاپ رسید: اول عامل محلی، بعد مرورگر.
+   *
+   * عامل بی‌صدا چاپ می‌کند و کشوی پول را هم باز می‌کند — که در صندوق
+   * شلوغ تفاوت چند ثانیه در هر فروش است.
+   */
+  async function print(sale: Sale, lines: CartLine[]) {
+    const text = receiptToText({
+      invoiceNo: sale.invoiceNo,
+      createdAt: sale.createdAt,
+      // اقلام از سبدِ همان فروش می‌آید: پاسخ ثبت فاکتور فقط سربرگ
+      // برمی‌گرداند و گرفتن دوبارهٔ فاکتور برای چاپ، یک رفت‌وبرگشت اضافه
+      // در شلوغ‌ترین لحظهٔ صندوق است.
+      items: lines.map((line) => ({
+        name: line.name,
+        quantity: Number(line.quantity),
+        price: Number(line.price),
+        total: Number(line.quantity) * Number(line.price),
+      })),
+      subtotal: Number(sale.subtotal),
+      discount: Number(sale.discount ?? 0),
+      tax: Number(sale.tax ?? 0),
+      total: Number(sale.total),
+    });
+
+    const printed = await printViaAgent(text, { drawer: true });
+
+    // بازگشت به چاپ مرورگر: شکست عامل نباید صندوق‌دار را بدون رسید بگذارد.
+    if (!printed) {
+      printReceipt(sale, { currency: currentCurrency() });
+    }
+  }
+
+  /**
+   * افزودن کالا با کد — مشترک بین ورود دستی، بارکدخوان سخت‌افزاری و
+   * دوربین.  یکی بودنشان یعنی هر سه رفتار یکسانی دارند؛ سه نسخهٔ جدا دیر
+   * یا زود از هم واگرا می‌شدند.
+   */
+  const addByCode = useCallback(
+    async (input: string) => {
+      const value = input.trim();
+      if (!value || !shift) return;
+
+      setError('');
+
+      try {
+        const params = new URLSearchParams({ code: value });
+        if (shift.warehouseId) params.set('warehouseId', shift.warehouseId);
+
+        const result = await api<ScanResult>(`/retail/scan?${params}`);
+
+        if (result.available !== null && result.available < result.quantity) {
+          setError(
+            t('stockShort')
+              .replace('{0}', result.product.name)
+              .replace('{1}', fa(result.available)),
+          );
+        }
+
+        addLine(result);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('productNotFound'));
+      }
+    },
+    [shift, t, fa, addLine],
+  );
+
   async function onScan(event: React.FormEvent) {
     event.preventDefault();
 
     const input = code.trim();
-    if (!input || !shift) return;
-
     setCode('');
-    setError('');
 
-    try {
-      const params = new URLSearchParams({ code: input });
-      if (shift.warehouseId) params.set('warehouseId', shift.warehouseId);
-
-      const result = await api<ScanResult>(`/retail/scan?${params}`);
-
-      if (result.available !== null && result.available < result.quantity) {
-        setError(
-          t('stockShort')
-            .replace('{0}', result.product.name)
-            .replace('{1}', fa(result.available)),
-        );
-      }
-
-      addLine(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('productNotFound'));
-    } finally {
-      refocus();
-    }
+    await addByCode(input);
+    refocus();
   }
 
   function changeQty(key: string, delta: number) {
@@ -411,6 +481,8 @@ export default function PosPage() {
       });
 
       setLastSale(sale);
+      // پیش از resetSale که سبد را خالی می‌کند
+      setLastLines(cart);
       setMessage(`${t('saleRecorded').replace('{0}', sale.invoiceNo)} ✅`);
       resetSale();
       await loadShift();
@@ -496,7 +568,33 @@ export default function PosPage() {
           inputMode="none"
         />
         <button type="submit">{t('add')}</button>
+
+        {/* دکمهٔ دوربین فقط جایی دیده می‌شود که مرورگر پشتیبانی کند؛
+            نمایشِ دکمه‌ای که کار نمی‌کند بدتر از نبودنش است. */}
+        {cameraReady ? (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setScanning(true)}
+            aria-label="اسکن با دوربین"
+            style={{ minWidth: 48 }}
+          >
+            <Icon name="pos" size={20} />
+          </button>
+        ) : null}
       </form>
+
+      {scanning ? (
+        <BarcodeScanner
+          onScan={(scanned) => {
+            void addByCode(scanned);
+          }}
+          onClose={() => {
+            setScanning(false);
+            refocus();
+          }}
+        />
+      ) : null}
 
       {/* سبد */}
       <div className="card">
@@ -685,9 +783,24 @@ export default function PosPage() {
             <span>
               {t('lastInvoice')}: {lastSale.invoiceNo}
             </span>
-            <button type="button" onClick={() => printReceipt(lastSale, { currency: currentCurrency() })}>
-          <Icon name="print" size={18} /> {t('printReceipt')}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => void print(lastSale, lastLines)}>
+                <Icon name="print" size={18} /> {t('printReceipt')}
+              </button>
+
+              {/* کشوی پول جدا هم باز می‌شود: برای دادن پول خرد بدون فروش
+                  تازه.  فقط وقتی عامل هست، چون بدون آن ممکن نیست. */}
+              {agentReady ? (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => void openCashDrawer()}
+                  aria-label="باز کردن کشوی پول"
+                >
+                  <Icon name="money" size={18} />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}

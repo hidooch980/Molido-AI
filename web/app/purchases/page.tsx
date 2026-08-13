@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import Link from 'next/link';
+
 import AppShell from '../../components/AppShell';
 import {
   DataTable,
@@ -125,9 +127,14 @@ export default function PurchasesPage() {
       title={t('purchasesTitle')}
       subtitle={t('purchasesSubtitle')}
       actions={
-        <button type="button" className="btn-sm" onClick={() => void load()}>
-          {t('refresh')}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/purchases/new" className="btn-sm" style={{ textDecoration: 'none' }}>
+            + {t('newPurchase')}
+          </Link>
+          <button type="button" className="btn-sm" onClick={() => void load()}>
+            {t('refresh')}
+          </button>
+        </div>
       }
     >
       {error ? <div className="error">{error}</div> : null}

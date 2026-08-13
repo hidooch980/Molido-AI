@@ -740,6 +740,20 @@ const DICT: Record<string, Record<Lang, string>> = {
   statPipeline: { fa: 'ارزش قیف', en: 'Pipeline value', ar: 'قيمة القمع' },
   statWinRate: { fa: 'نرخ برد (٪)', en: 'Win rate (%)', ar: 'نسبة النجاح (٪)' },
   linkedTo: { fa: 'مرتبط با', en: 'Linked to', ar: 'مرتبط بـ' },
+  newPurchase: { fa: 'فاکتور خرید جدید', en: 'New purchase', ar: 'فاتورة شراء جديدة' },
+  scanToAdd: { fa: 'اسکن یا کد کالا…', en: 'Scan or type code…', ar: 'امسح أو أدخل الرمز…' },
+  freightCost: { fa: 'کرایه حمل', en: 'Freight cost', ar: 'أجرة الشحن' },
+  capitalizeFreight: { fa: 'سرشکن بر بهای کالا', en: 'Add to item cost', ar: 'إضافة لتكلفة الصنف' },
+  addItem: { fa: 'افزودن قلم', en: 'Add item', ar: 'إضافة بند' },
+  noItemsYet: { fa: 'هنوز قلمی افزوده نشده است.', en: 'No items yet.', ar: 'لا توجد بنود.' },
+  savePurchase: { fa: 'ثبت فاکتور خرید', en: 'Save purchase', ar: 'حفظ فاتورة الشراء' },
+  receiveNow: { fa: 'ثبت و دریافت کالا', en: 'Save and receive', ar: 'حفظ واستلام' },
+  purchaseSaved: { fa: 'فاکتور خرید ثبت شد', en: 'Purchase saved', ar: 'تم حفظ الفاتورة' },
+  pickSupplier: { fa: 'تأمین‌کننده را انتخاب کنید', en: 'Pick a supplier', ar: 'اختر مورداً' },
+  pickWarehouse: { fa: 'انبار را انتخاب کنید', en: 'Pick a warehouse', ar: 'اختر مستودعاً' },
+  unitCost: { fa: 'بهای واحد', en: 'Unit cost', ar: 'تكلفة الوحدة' },
+  scanCamera: { fa: 'اسکن با دوربین', en: 'Scan with camera', ar: 'مسح بالكاميرا' },
+  productNotFoundShort: { fa: 'کالا پیدا نشد', en: 'Product not found', ar: 'الصنف غير موجود' },
 };
 
 const STORAGE_KEY = 'molido_lang';

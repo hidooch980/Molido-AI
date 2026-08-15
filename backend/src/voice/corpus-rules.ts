@@ -1,0 +1,176 @@
+/**
+ * سنجش آمادگی پیکرهٔ صوتی — عمداً خالص و بدون دیتابیس.
+ *
+ * پرسشی که باید صریح جواب داشته باشد: «کِی داده کافی است؟»
+ *
+ * جواب اشتباه هر دو طرف گران است.  زود شروع کردنِ آموزش یعنی مدلی که
+ * کار نمی‌کند و کسی نمی‌فهمد چرا؛ دیر شروع کردن یعنی ماه‌ها ضبط بی‌جهت.
+ */
+
+export type PhraseStat = {
+  phraseId: string;
+  textFa: string;
+  textTarget: string | null;
+  kind: 'PRODUCT' | 'NUMBER' | 'COMMAND';
+  /** ضبط‌های تأییدشده */
+  approved: number;
+  /** گویندگان متفاوت در ضبط‌های تأییدشده */
+  speakers: number;
+};
+
+/**
+ * حداقل‌ها برای یک عبارت.
+ *
+ * پنج ضبط از سه گوینده — نه یک ضبط، نه پنجاه.
+ *
+ * چرا سه گوینده: مدلی که فقط صدای یک نفر را شنیده، همان یک نفر را
+ * می‌شناسد.  در فروشگاهی که سه صندوق‌دار دارد، این یعنی دو نفرشان
+ * نمی‌توانند از آن استفاده کنند.
+ *
+ * چرا پنج ضبط: کمتر از آن، مدل تلفظ را حفظ می‌کند نه یاد می‌گیرد.
+ */
+export const MIN_SAMPLES = 5;
+export const MIN_SPEAKERS = 3;
+
+/** عبارتی که هنوز به حد نصاب نرسیده. */
+export type Gap = PhraseStat & {
+  needSamples: number;
+  needSpeakers: number;
+  reason: string;
+};
+
+/**
+ * شرطِ کامل بودن — یک تعریف، دو مصرف.
+ *
+ * `gapsOf` و `readiness` هر دو باید یک چیز را کامل بدانند.  وقتی جدا
+ * بودند، عبارتی که ضبطش کافی بود ولی متن بلوچی نداشت در `readiness`
+ * ناقص شمرده می‌شد و در `gapsOf` نمی‌آمد — یعنی درصد زیر صد بود و
+ * هیچ کمبودی برای رفع کردن فهرست نمی‌شد.
+ */
+export function isComplete(s: PhraseStat): boolean {
+  return (
+    Boolean(s.textTarget) && s.approved >= MIN_SAMPLES && s.speakers >= MIN_SPEAKERS
+  );
+}
+
+export function gapsOf(stats: PhraseStat[]): Gap[] {
+  return stats
+    .filter((s) => !isComplete(s))
+    .map((s) => {
+      const needSamples = Math.max(0, MIN_SAMPLES - s.approved);
+      const needSpeakers = Math.max(0, MIN_SPEAKERS - s.speakers);
+
+      const parts: string[] = [];
+      if (!s.textTarget) parts.push('متن بلوچی وارد نشده');
+      if (needSamples > 0) parts.push(`${needSamples} ضبط دیگر`);
+      if (needSpeakers > 0) parts.push(`${needSpeakers} گویندهٔ دیگر`);
+
+      return { ...s, needSamples, needSpeakers, reason: parts.join(' · ') };
+    })
+    .sort((a, b) => b.needSamples - a.needSamples);
+}
+
+export type Readiness = {
+  /** عبارت‌های کامل */
+  ready: number;
+  /** کل عبارت‌ها */
+  total: number;
+  percent: number;
+  /** جمع ضبط‌های تأییدشده */
+  samples: number;
+  /** کل گویندگان متفاوت در پیکره */
+  speakers: number;
+  /** تخمین دقیقهٔ صدای تأییدشده */
+  minutes: number;
+  /** آیا می‌شود آموزش را شروع کرد */
+  canTrain: boolean;
+  advice: string;
+};
+
+/**
+ * وضعیت کلی پیکره.
+ *
+ * `canTrain` سخت‌گیرانه است: **همهٔ** عبارت‌ها باید کامل باشند، نه
+ * اکثرشان.  عبارتی که داده ندارد، در مدل به عبارت مشابهش نگاشت
+ * می‌شود — یعنی صندوق‌دار «برنج» می‌گوید و «بربری» اضافه می‌شود، که
+ * از کار نکردن بدتر است.
+ */
+export function readiness(stats: PhraseStat[], totalDurationMs: number): Readiness {
+  const total = stats.length;
+  const ready = stats.filter(isComplete).length;
+
+  const samples = stats.reduce((sum, s) => sum + s.approved, 0);
+  const speakers = new Set<string>().size; // از سرویس می‌آید؛ اینجا فقط شکل
+  const minutes = Math.round(totalDurationMs / 60_000);
+  const percent = total ? Math.round((ready / total) * 100) : 0;
+
+  let advice: string;
+  if (!total) {
+    advice = 'هنوز عبارتی برای ضبط ساخته نشده';
+  } else if (percent < 100) {
+    advice = `${total - ready} عبارت هنوز به حد نصاب نرسیده (${MIN_SAMPLES} ضبط از ${MIN_SPEAKERS} گوینده)`;
+  } else if (minutes < 30) {
+    // حد نصاب هر عبارت رسیده ولی کل صدا کم است: مدل روی عبارت‌های
+    // کوتاه خوب می‌شود و روی جملهٔ واقعی نه.
+    advice = `همهٔ عبارت‌ها کامل‌اند ولی فقط ${minutes} دقیقه صداست — برای شروع کافی است، برای دقت بالا نه`;
+  } else {
+    advice = `${minutes} دقیقه صدای تأییدشده — آمادهٔ آموزش`;
+  }
+
+  return {
+    ready,
+    total,
+    percent,
+    samples,
+    speakers,
+    minutes,
+    canTrain: total > 0 && percent === 100,
+    advice,
+  };
+}
+
+/**
+ * اعداد پایه‌ای که هر فروشگاه لازم دارد.
+ *
+ * ۱ تا ۲۰ و گِردها.  «سیصد و چهل و دو» ضبط نمی‌شود: ترکیب‌ها را مدل
+ * از اجزایشان می‌سازد، و ضبط همهٔ ترکیب‌ها بی‌نهایت است.
+ *
+ * جفتِ «رقم، واژه» است نه فقط رقم.  دلیلش دو چیز است:
+ *
+ * ۱) کسی که ضبط می‌کند «۳» را روی صفحه می‌بیند و نمی‌داند باید فارسیِ
+ *    آن را بگوید یا بلوچی‌اش — ولی «سه» را می‌بیند و می‌داند معادل
+ *    بلوچی‌اش را می‌خواهیم.
+ *
+ * ۲) واژه‌نامه واژه دارد نه رقم؛ سطرِ «سه,سئے» با ردیفی که متنش «۳»
+ *    است هیچ‌وقت تطبیق نمی‌خورد و اعداد برای همیشه بی‌ترجمه می‌مانند.
+ *
+ * رقم هم نگه داشته می‌شود چون صندوق در پایان به عدد نیاز دارد نه به
+ * واژه.
+ */
+export const BASE_NUMBERS: ReadonlyArray<readonly [number, string]> = [
+  [1, 'یک'], [2, 'دو'], [3, 'سه'], [4, 'چهار'], [5, 'پنج'],
+  [6, 'شش'], [7, 'هفت'], [8, 'هشت'], [9, 'نه'], [10, 'ده'],
+  [11, 'یازده'], [12, 'دوازده'], [13, 'سیزده'], [14, 'چهارده'], [15, 'پانزده'],
+  [16, 'شانزده'], [17, 'هفده'], [18, 'هجده'], [19, 'نوزده'], [20, 'بیست'],
+  [30, 'سی'], [40, 'چهل'], [50, 'پنجاه'], [60, 'شصت'], [70, 'هفتاد'],
+  [80, 'هشتاد'], [90, 'نود'], [100, 'صد'], [500, 'پانصد'], [1000, 'هزار'],
+];
+
+/**
+ * فرمان‌های صندوق.
+ *
+ * کوتاه و متمایز: فرمانی که شبیه فرمان دیگری باشد، مدل را سردرگم
+ * می‌کند و اشتباهش وسط فروش رخ می‌دهد.
+ */
+export const BASE_COMMANDS = [
+  'اضافه کن',
+  'حذف کن',
+  'پاک کن',
+  'جمع',
+  'پرداخت',
+  'نقدی',
+  'کارت',
+  'چاپ',
+  'لغو',
+  'بعدی',
+];

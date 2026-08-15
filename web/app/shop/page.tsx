@@ -24,6 +24,9 @@ type Settings = {
 
 const fa = (value: unknown) => Number(value ?? 0).toLocaleString('fa-IR');
 
+/** زیر این تعداد، «آخرین موجودی» نشان داده می‌شود. */
+const LOW_STOCK = 5;
+
 /**
  * کاتالوگ — **کامپوننت سرور**.
  *
@@ -61,42 +64,29 @@ export default async function ShopPage({
     );
   }
 
+  // دستهٔ خالی نمایش داده نمی‌شود: کلیک روی آن به صفحهٔ «کالایی یافت نشد»
+  // می‌رسد که برای مشتری شبیه خرابی است.
   const visibleCategories = categories.filter(
     (item) => Number(item.productCount) > 0,
   );
 
+  const activeCategory = visibleCategories.find((item) => item.id === categoryId);
+
   return (
     <>
       {settings.freeShippingOver ? (
-        <div
-          className="shop-card"
-          style={{
-            marginBottom: 'var(--s-4)',
-            borderInlineStart: '4px solid var(--s-success)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-          }}
-        >
+        <div className="shop-banner">
           <Icon name="package" size={18} />
           ارسال رایگان برای خرید بالای {fa(settings.freeShippingOver)} ریال
         </div>
       ) : null}
 
       {visibleCategories.length > 0 ? (
-        <nav
-          aria-label="دسته‌بندی"
-          style={{
-            display: 'flex',
-            gap: 'var(--s-2)',
-            flexWrap: 'wrap',
-            marginBottom: 'var(--s-6)',
-          }}
-        >
+        <nav className="shop-cats" aria-label="دسته‌بندی">
           <Link
             href="/shop"
-            className={`btn ${categoryId ? 'ghost' : ''}`}
-            style={{ textDecoration: 'none' }}
+            className={`cat-pill${categoryId ? '' : ' active'}`}
+            aria-current={categoryId ? undefined : 'page'}
           >
             همه
           </Link>
@@ -104,13 +94,23 @@ export default async function ShopPage({
             <Link
               key={cat.id}
               href={`/shop?categoryId=${cat.id}`}
-              className={`btn ${categoryId === cat.id ? '' : 'ghost'}`}
-              style={{ textDecoration: 'none' }}
+              className={`cat-pill${categoryId === cat.id ? ' active' : ''}`}
+              aria-current={categoryId === cat.id ? 'page' : undefined}
             >
               {cat.name}
             </Link>
           ))}
         </nav>
+      ) : null}
+
+      {search || activeCategory ? (
+        <h1 className="shop-section-title">
+          {search ? `نتیجهٔ جستجوی «${search}»` : activeCategory?.name}
+          <span className="shop-muted" style={{ fontWeight: 400 }}>
+            {' '}
+            — {fa(products.length)} کالا
+          </span>
+        </h1>
       ) : null}
 
       {products.length === 0 ? (
@@ -122,14 +122,25 @@ export default async function ShopPage({
               ? `نتیجه‌ای برای «${search}» پیدا نشد.`
               : 'هنوز کالایی در فروشگاه نیست.'}
           </p>
+          {search || categoryId ? (
+            <p style={{ marginTop: 'var(--s-4)' }}>
+              <Link href="/shop" className="btn ghost">
+                دیدن همهٔ کالاها
+              </Link>
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="shop-grid">
           {products.map((product) => {
-            const available = Number(product.stock) > 0;
+            const stock = Number(product.stock);
+            const available = stock > 0;
 
             return (
-              <article key={product.id} className="product-card">
+              <article
+                key={product.id}
+                className={`product-card${available ? '' : ' sold-out'}`}
+              >
                 <Link
                   href={`/shop/product/${product.id}`}
                   className="product-image"
@@ -141,28 +152,30 @@ export default async function ShopPage({
                   ) : (
                     <Icon name="package" size={40} />
                   )}
+
+                  {/* کمبود موجودی پیش از قیمت دیده می‌شود؛ همان چیزی است
+                      که تصمیم خرید را جلو می‌اندازد. */}
+                  {!available ? (
+                    <span className="product-flag">ناموجود</span>
+                  ) : stock <= LOW_STOCK ? (
+                    <span className="product-flag low">
+                      {fa(stock)} عدد مانده
+                    </span>
+                  ) : null}
                 </Link>
 
                 <div className="product-body">
                   <Link
                     href={`/shop/product/${product.id}`}
                     className="product-name"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
                   >
                     {product.name}
                   </Link>
 
-                  <span
-                    className={`product-stock ${available ? 'in-stock' : 'out-stock'}`}
-                  >
-                    {available ? 'موجود' : 'ناموجود'}
-                  </span>
-
                   <span className="product-price">
                     {fa(product.price)}
-                    <span className="shop-muted" style={{ fontWeight: 400 }}>
-                      {' '}
-                      ریال
+                    <span className="unit">
+                      ریال{product.unit ? ` / ${product.unit}` : ''}
                     </span>
                   </span>
 

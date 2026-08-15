@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
 
 import { ShopService } from './shop.service';
 import {
@@ -15,7 +16,7 @@ import {
 @Module({
   // AuthModule ماژول JWT را صادر می‌کند؛ همان کلید برای توکن مشتری هم به
   // کار می‌رود و `kind` در محتوا دو نوع را از هم جدا نگه می‌دارد.
-  imports: [AuthModule],
+  imports: [AuthModule, LoyaltyModule],
   controllers: [ShopPublicController, ShopAdminController],
   providers: [ShopService, ShopTenantMiddleware, CustomerAuthGuard, OptionalCustomerGuard],
   exports: [ShopService],

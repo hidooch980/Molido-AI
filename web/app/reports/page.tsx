@@ -202,14 +202,14 @@ export default function ReportsPage() {
       </div>
 
       <div className="stats-grid" style={{ marginTop: 18 }}>
-        <StatCard icon="💰" label={t('statTotalRevenue')} value={fa(summary.revenue)} />
+        <StatCard icon="money" label={t('statTotalRevenue')} value={fa(summary.revenue)} />
         <StatCard
-          icon="🧾"
+          icon="receipt"
           label={t('statInvoices')}
           value={fa(summary.invoices)}
         />
         <StatCard
-          icon="📈"
+          icon="trendUp"
           label={t('statProfit')}
           value={fa(profit?.profit)}
           accent={
@@ -217,20 +217,20 @@ export default function ReportsPage() {
           }
         />
         <StatCard
-          icon="📊"
+          icon="chart"
           label={t('statMargin')}
           value={`${fa(profit?.margin)}٪`}
         />
-        <StatCard icon="🎯" label={t('statAvgInvoice')} value={fa(summary.avg)} />
-        <StatCard icon="🏛" label={t('statVat')} value={fa(summary.vat)} />
+        <StatCard icon="target" label={t('statAvgInvoice')} value={fa(summary.avg)} />
+        <StatCard icon="building" label={t('statVat')} value={fa(summary.vat)} />
         <StatCard
-          icon="↩️"
+          icon="return"
           label={t('statReturned')}
           value={fa(summary.returned)}
           accent="var(--warning)"
         />
         <StatCard
-          icon="✅"
+          icon="check"
           label={t('statNetSales')}
           value={fa(summary.net)}
           accent="var(--success)"

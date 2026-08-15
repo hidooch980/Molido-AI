@@ -6,7 +6,18 @@ import Link from 'next/link';
 import { clearToken, getToken } from '../lib/api';
 import { LANGS, type Lang } from '../lib/i18n';
 import { useI18n } from '../lib/i18n-context';
+import { companyName, loadCompany } from '../lib/company';
 import { hasFeature, type FeatureKey } from '../lib/product';
+import {
+  autoTheme,
+  currentChoice,
+  isDark,
+  loadTheme,
+  setChoice,
+  watchSystemTheme,
+  type ThemeKey,
+} from '../lib/theme';
+import CommandPalette from './CommandPalette';
 import { Icon, type IconName } from './icons';
 
 export type NavItem = {
@@ -23,10 +34,16 @@ export const NAV: NavItem[] = [
   // label کلید ترجمه است؛ متن در زمان رندر ساخته می‌شود.
   { href: '/dashboard', label: 'menuDashboard', icon: 'home', primary: true },
   { href: '/pos', label: 'menuCashier', icon: 'pos', primary: true, feature: 'retail' as FeatureKey },
+  { href: '/quick-keys', label: 'menuQuickKeys', icon: 'tag', feature: 'retail' as FeatureKey },
   { href: '/restaurant', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
   { href: '/products', label: 'menuProducts', icon: 'package', primary: true },
   { href: '/inventory', label: 'menuInventory', icon: 'warehouse', primary: true },
   { href: '/stock-count', label: 'menuStockCount', icon: 'clipboard' },
+  { href: '/catalogue', label: 'menuCatalogue', icon: 'package' },
+  { href: '/pricing', label: 'menuPricing', icon: 'tag' },
+  { href: '/loyalty', label: 'menuLoyalty', icon: 'target' },
+  { href: '/sms', label: 'menuSms', icon: 'inbox' },
+  { href: '/online-orders', label: 'menuOnlineOrders', icon: 'inbox' },
   { href: '/customers', label: 'menuCustomers', icon: 'users' },
   { href: '/sales', label: 'menuSales', icon: 'receipt' },
   { href: '/sales-chain', label: 'menuChain', icon: 'link' },
@@ -37,9 +54,16 @@ export const NAV: NavItem[] = [
   { href: '/assets', label: 'menuAssets', icon: 'building', feature: 'finance' as FeatureKey },
   { href: '/fiscal-year', label: 'menuFiscalYear', icon: 'calendar', feature: 'finance' as FeatureKey },
   { href: '/purchases', label: 'menuPurchases', icon: 'inbox' },
+  { href: '/purchasing', label: 'menuPurchasing', icon: 'agent' },
+  { href: '/voice', label: 'menuVoice', icon: 'user' },
   { href: '/treasury', label: 'menuTreasury', icon: 'bank', feature: 'finance' as FeatureKey },
   { href: '/reports', label: 'menuReports2', icon: 'chart' },
   { href: '/labels', label: 'menuLabels', icon: 'tag' },
+  { href: '/tax', label: 'menuTax', icon: 'building', feature: 'finance' as FeatureKey },
+  { href: '/import', label: 'menuImport', icon: 'inbox' },
+  { href: '/definitions', label: 'menuDefinitions', icon: 'settings' },
+  { href: '/operations', label: 'menuOperations', icon: 'alert' },
+  { href: '/settings', label: 'menuSettings', icon: 'settings' },
   { href: '/users', label: 'menuUsers', icon: 'user' },
 ];
 
@@ -65,6 +89,31 @@ export default function AppShell({
 
   const { lang, setLang, t } = useI18n();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // ---------- منوی کشویی ----------
+  //
+  // صفحهٔ فروش و انبار جدول‌های پهن دارند؛ ۲۵۰ پیکسل منو روی نمایشگر
+  // ۱۳ اینچی یعنی دو ستون کمتر.  انتخاب ذخیره می‌شود چون کسی که منو
+  // را بسته، هر بار باز کردن صفحه نمی‌خواهد دوباره ببندد.
+  //
+  // مقدار اولیه `false` است و پس از سوارشدن از حافظه خوانده می‌شود:
+  // خواندن localStorage در رندر، خروجی سرور و کلاینت را متفاوت می‌کند.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem('molido_sidebar') === 'collapsed');
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem('molido_sidebar', next ? 'collapsed' : 'open');
+      return next;
+    });
+  }
+  // نام فروشگاه یا شرکت.  تا رسیدن پاسخ، نام محصول نشان داده می‌شود —
+  // جای خالی در سربرگ، صفحه را نیم‌ساخته نشان می‌دهد.
+  const [brand, setBrand] = useState(t('appName'));
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
@@ -88,6 +137,35 @@ export default function AppShell({
   }, [router]);
 
   // با تغییر صفحه، منوی کشویی بسته شود
+  useEffect(() => {
+    void loadCompany().then(() => setBrand(companyName(t('appName'))));
+  }, [t]);
+
+  // پوسته پس از سوارشدن اعمال می‌شود، نه هنگام رندر: خواندن
+  // localStorage در رندر، خروجی سرور و کلاینت را متفاوت می‌کند.
+  const [theme, setThemeState] = useState<ThemeKey>('minimal');
+
+  useEffect(() => {
+    setThemeState(loadTheme());
+    // اگر کاربر «خودکار» را انتخاب کرده، تغییر تنظیم سیستم باید همان
+    // لحظه اثر کند — نه بعد از تازه‌سازی صفحه.
+    return watchSystemTheme(setThemeState);
+  }, []);
+
+  /**
+   * کلید سریع تاریک/روشن.
+   *
+   * سه حالت نمی‌سازد؛ فقط بین روشن و تاریک جابه‌جا می‌کند و انتخاب را
+   * صریح ثبت می‌کند.  کاربری که دستی زده، دیگر نمی‌خواهد سیستم
+   * تصمیم بگیرد — وگرنه انتخابش با تغییر ساعت روز از بین می‌رود.
+   * «خودکار» در تنظیمات در دسترس است.
+   */
+  function toggleDark() {
+    const next = isDark(theme) ? 'minimal' : 'night';
+    setChoice(next);
+    setThemeState(next);
+  }
+
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   function switchLang(next: Lang) {
@@ -108,13 +186,16 @@ export default function AppShell({
   const primary = visible.filter((item) => item.primary);
 
   return (
-    <div className="shell">
+    <div className="shell" data-sidebar={sidebarCollapsed ? 'collapsed' : 'open'}>
+      {/* Ctrl+K و کلیدهای F — سراسری، پس در پوسته می‌نشیند نه در صفحه‌ها. */}
+      <CommandPalette />
+
       {/* ───── سایدبار دسکتاپ ───── */}
       <aside className="sidebar">
         <div className="brand-row">
           <div className="mini-logo">M</div>
-          <div>
-            <div style={{ fontWeight: 800 }}>Molido AI</div>
+          <div className="brand-text">
+            <div style={{ fontWeight: 800 }}>{brand}</div>
             <div className="muted" style={{ fontSize: 11.5 }}>
               v2.1
             </div>
@@ -134,8 +215,20 @@ export default function AppShell({
           ))}
         </nav>
 
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+          title={sidebarCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+        >
+          <Icon name="menu" size={17} />
+          {!sidebarCollapsed && <span>جمع کردن منو</span>}
+        </button>
+
         <button type="button" className="danger sidebar-logout" onClick={logout}>
-          {t('logout')}
+          <Icon name="logout" size={17} />
+          <span>{t('logout')}</span>
         </button>
       </aside>
 
@@ -150,7 +243,7 @@ export default function AppShell({
           <aside className="drawer">
             <div className="brand-row">
               <div className="mini-logo">M</div>
-              <div style={{ fontWeight: 800 }}>Molido AI</div>
+              <div style={{ fontWeight: 800 }}>{brand}</div>
             </div>
 
             <nav>
@@ -209,6 +302,16 @@ export default function AppShell({
 
           <div className="actions">
             {actions}
+
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={toggleDark}
+              aria-label={isDark(theme) ? 'پوستهٔ روشن' : 'پوستهٔ تاریک'}
+              title={isDark(theme) ? 'پوستهٔ روشن' : 'پوستهٔ تاریک'}
+            >
+              <Icon name={isDark(theme) ? 'sun' : 'moon'} size={19} />
+            </button>
 
             <div className="lang-pills desktop-only" style={{ marginBottom: 0 }}>
               {LANGS.map((item) => (

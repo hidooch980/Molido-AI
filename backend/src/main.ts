@@ -5,10 +5,12 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
-import { I18nHttpExceptionFilter } from './i18n/http-exception.filter';
+import { ErrorRecorderFilter } from './operations/error-recorder.filter';
+import { OperationsService } from './operations/operations.service';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { buildCorsCheck } from './common/cors';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -17,7 +19,28 @@ async function bootstrap() {
   // امنیت هدرهای HTTP
   app.use(helmet());
 
-  app.useGlobalFilters(new I18nHttpExceptionFilter());
+  // پشت reverse proxy، نشانی واقعی کاربر در `X-Forwarded-For` است.
+  //
+  // بدون این، Express نشانیِ خودِ proxy را می‌بیند و محدودیت نرخ برای
+  // **همهٔ** کاربران یک سطل مشترک می‌شود: یک نفر با چند تلاش ورود، صندوق
+  // بقیه را هم قفل می‌کند.  هیچ خطایی هم نمی‌دهد — فقط ۴۲۹های بی‌دلیل.
+  //
+  // عمداً پیش‌فرض خاموش است: روی شبکهٔ محلی proxy‌ای در کار نیست و
+  // اعتماد به این هدر یعنی هر کسی می‌تواند نشانی‌اش را جعل کند و از
+  // محدودیت نرخ فرار کند.  مقدار عدد است (تعداد proxy‌های مورد اعتماد)،
+  // پس `TRUST_PROXY=1` یعنی «فقط proxy بلافصل».
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy) {
+    const hops = Number(trustProxy);
+    app.set('trust proxy', Number.isFinite(hops) && hops > 0 ? hops : trustProxy);
+  }
+
+  // فیلتر خطا از کانتینر ساخته می‌شود تا `OperationsService` را بگیرد.
+  //
+  // `@Catch()` بدون آرگومان یعنی **همهٔ** استثناها، نه فقط `HttpException` —
+  // خطاهای ۵۰۰ که مهم‌ترین‌اند، پیش از این اصلاً از فیلتر رد نمی‌شدند و
+  // پاسخ خام Nest به کاربر می‌رسید.
+  app.useGlobalFilters(new ErrorRecorderFilter(app.get(OperationsService)));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -31,7 +54,7 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') || 3000;
 
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN') || true,
+    origin: buildCorsCheck(configService.get<string>('CORS_ORIGIN')),
     credentials: true,
   });
 

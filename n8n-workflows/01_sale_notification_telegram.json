@@ -1,4 +1,5 @@
 {
+  "id": "molido-sale-telegram",
   "name": "Molido - اعلان فروش جدید در Telegram",
   "nodes": [
     {
@@ -11,7 +12,10 @@
       "name": "Molido Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
@@ -29,7 +33,10 @@
       "name": "Filter: sale.created",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [500, 300]
+      "position": [
+        500,
+        300
+      ]
     },
     {
       "parameters": {
@@ -43,7 +50,10 @@
       "name": "Telegram Message",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [750, 200]
+      "position": [
+        750,
+        200
+      ]
     },
     {
       "parameters": {
@@ -54,20 +64,45 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [750, 400]
+      "position": [
+        750,
+        400
+      ]
     }
   ],
   "connections": {
     "Molido Webhook": {
-      "main": [[{ "node": "Filter: sale.created", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filter: sale.created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter: sale.created": {
       "main": [
-        [{ "node": "Telegram Message", "type": "main", "index": 0 }],
-        [{ "node": "Respond", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

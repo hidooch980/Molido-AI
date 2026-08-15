@@ -21,7 +21,9 @@
     "test:products": "tsx test/product-routes.ts",
     "check:schema": "tsx tools/check-schema-drift.ts",
     "db:migrate": "tsx src/database/migrate.ts",
-    "seed": "tsx src/database/seed.ts"
+    "seed": "tsx src/database/seed.ts",
+    "docs:api": "tsx tools/generate-api-docs.ts",
+    "check:api": "tsx tools/generate-api-docs.ts --check"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

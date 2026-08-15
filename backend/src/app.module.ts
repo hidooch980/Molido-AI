@@ -20,6 +20,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CustomersModule } from './customers/customers.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { PurchasingModule } from './purchasing/purchasing.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -35,6 +36,7 @@ import { ComplaintsModule } from './complaints/complaints.module';
 import { MunicipalFeesModule } from './municipal-fees/municipal-fees.module';
 import { ChequesModule } from './cheques/cheques.module';
 import { SmsModule } from './sms/sms.module';
+import { VoiceModule } from './voice/voice.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { PosTerminalsModule } from './pos-terminals/pos-terminals.module';
 import { TreasuryModule } from './treasury/treasury.module';
@@ -50,7 +52,10 @@ import { ConstructionProjectsModule } from './construction-projects/construction
 import { FleetModule } from './fleet/fleet.module';
 import { ServiceZonesModule } from './service-zones/service-zones.module';
 import { LettersModule } from './letters/letters.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 import { PricingModule } from './pricing/pricing.module';
+import { OperationsModule } from './operations/operations.module';
+import { TaxModule } from './tax/tax.module';
 import { ShopModule } from './shop/shop.module';
 import { CrmModule } from './crm/crm.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
@@ -110,6 +115,7 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
     InventoryModule,
     ProductsModule,
     PurchasesModule,
+    PurchasingModule,
     SerialNumbersModule,
     SuppliersModule,
     WarehousesModule,
@@ -117,6 +123,9 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
 
   sales: [
     PricingModule,
+    LoyaltyModule,
+    TaxModule,
+    OperationsModule,
     CashBoxModule,
     CashierShiftModule,
     CustomersModule,
@@ -228,6 +237,7 @@ const CORE_MODULES = [
   AuditLogModule,
   RevenueModule,
   SmsModule,
+  VoiceModule,
   UploadsModule,
   WebhooksModule,
   ApiKeysModule,
@@ -255,11 +265,27 @@ function productModules(): unknown[] {
       isGlobal: true,
     }),
 
-    // محدودیت تعداد درخواست (Rate Limiting): ۱۲۰ درخواست در دقیقه
+    // محدودیت تعداد درخواست.
+    //
+    // ۱۲۰ در دقیقه برای فروشگاه واقعی کم بود: هر اسکن در صندوق چند
+    // درخواست می‌زند، و چند صندوق همزمان به‌راحتی از آن رد می‌شوند.
+    // نتیجه‌اش خطای گنگ وسط فروش است — و در آزمون‌ها، شکست‌هایی که
+    // ربطی به کد نداشتند.
+    //
+    // دو سطل جدا: «short» جلوی هجوم لحظه‌ای را می‌گیرد، «long» سقف
+    // دقیقه‌ای است.  محدودیتِ سخت روی ورود جداگانه و روی خود مسیر
+    // اعمال می‌شود (به `auth.controller.ts` نگاه کنید) — آنجا سخت‌گیری
+    // لازم است چون هدفِ حدس رمز همان است.
     ThrottlerModule.forRoot([
       {
+        name: 'short',
+        ttl: 1000,
+        limit: Number(process.env.RATE_LIMIT_BURST ?? 50),
+      },
+      {
+        name: 'long',
         ttl: 60000,
-        limit: 120,
+        limit: Number(process.env.RATE_LIMIT ?? 1200),
       },
     ]),
 

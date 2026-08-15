@@ -12,9 +12,11 @@ import { Params } from '../database/sql';
 import { applyStockDelta } from '../inventory/inventory.service';
 import { RationService } from '../ration/ration.service';
 import { PostingService } from '../accounting/posting.service';
-import { cogsEntry, saleEntry } from '../accounting/posting-rules';
+import { cogsEntry, collectionEntry, saleEntry } from '../accounting/posting-rules';
 import { N8nService } from '../n8n/n8n.service';
 import { CashierShiftService } from '../retail/cashier-shift.service';
+import { PricingService } from '../pricing/pricing.service';
+import { TaxService } from '../tax/tax.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 
 type Sale = Record<string, unknown> & { id: string; status: string; total: string };
@@ -26,6 +28,21 @@ type SaleDetail = Sale & {
   items: SaleItem[];
   payments: Array<Record<string, unknown>>;
 };
+
+/**
+ * فرار کاراکترهای HTML.
+ *
+ * نام کالا، نام مشتری و مشخصات شرکت همه از دیتابیس می‌آیند و مستقیم داخل
+ * قالب فاکتور می‌نشینند.  نامی که `<` داشته باشد — چه از سر شیطنت، چه
+ * تصادفی — قالب را می‌شکند یا اسکریپت اجرا می‌کند.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_INSTALLMENT_INTERVAL_DAYS = 30;
@@ -40,6 +57,13 @@ export class SalesService {
     @Optional() @Inject(RationService)
     private readonly ration: RationService | null,
     private readonly posting: PostingService,
+    // قیمت‌گذاری در پروفایل‌های دیگر ممکن است بارگذاری نشده باشد؛ نبودش
+    // یعنی بازگشت به قیمت پایهٔ کالا، نه شکستن فروش.
+    @Optional() @Inject(PricingService)
+    private readonly pricing: PricingService | null,
+    // ارسال مالیاتی فقط در پروفایل مالی هست و ممکن است اصلاً فعال نباشد.
+    @Optional() @Inject(TaxService)
+    private readonly tax: TaxService | null,
   ) {}
 
   async findAll(
@@ -123,12 +147,28 @@ export class SalesService {
    * - کاهش خودکار موجودی انبار (تراکنشی)
    * - ثبت پرداخت و به‌روزرسانی صندوق (اختیاری)
    */
-  async create(dto: CreateSaleDto, companyId: string, userId: string) {
+  /**
+   * `options.agreedPrices` — قیمت توافقیِ سفارش فروش یا پیش‌فاکتور.
+   *
+   * عمداً **پارامتر تابع** است، نه میدان DTO: از HTTP دست‌نیافتنی می‌ماند
+   * و فقط مسیرهای داخلی (تبدیل سفارش به فاکتور) می‌توانند بفرستندش.
+   * اگر در DTO بود، همان حفرهٔ «قیمت را کلاینت تعیین می‌کند» دوباره باز
+   * می‌شد — که پیش از این با تخفیفِ دستی هم رخ داده بود.
+   *
+   * بدون این، قیمتی که با مشتری توافق شده هنگام صدور فاکتور بی‌صدا
+   * دور ریخته می‌شد و قیمت روز کاتالوگ جایش می‌نشست.
+   */
+  async create(
+    dto: CreateSaleDto,
+    companyId: string,
+    userId: string,
+    options?: { agreedPrices?: Map<string, number> },
+  ) {
     // فاکتور صندوق خودکار به شیفت باز همان کاربر گره می‌خورد؛ فروش خارج از
     // صندوق (بدون شیفت) همچنان مجاز است.
     const shiftId = (await this.shifts.current(companyId, userId))?.id ?? null;
 
-    return this.db.transaction(async (tx) => {
+    const sale = await this.db.transaction(async (tx) => {
       const warehouses = await tx.query<{ id: string }>(
         'SELECT id FROM "Warehouse" WHERE id = $1 AND "companyId" = $2',
         [dto.warehouseId, companyId],
@@ -142,8 +182,9 @@ export class SalesService {
         salePrice: string;
         purchasePrice: string;
         trackInventory: boolean;
+        taxRate: string | null;
       }>(
-        `SELECT id, name, "salePrice", "purchasePrice", "trackInventory"
+        `SELECT id, name, "salePrice", "purchasePrice", "trackInventory", "taxRate"
          FROM "Product" WHERE id = ANY($1) AND "companyId" = $2`,
         [productIds, companyId],
       );
@@ -152,19 +193,171 @@ export class SalesService {
       }
       const productMap = new Map(products.rows.map((product) => [product.id, product]));
 
+      // قیمت و تخفیف خودکار را **سرور** تعیین می‌کند، نه صندوق.
+      //
+      // پیش از این `item.price` که کلاینت می‌فرستاد پذیرفته می‌شد؛ یعنی
+      // هر کسی با توکن صندوق‌دار می‌توانست فاکتور را به هر مبلغی ثبت کند.
+      // قیمت‌گذاری همان‌جایی است که سوءاستفاده اتفاق می‌افتد، پس عددی که
+      // مبلغ فاکتور را می‌سازد نباید از کلاینت بیاید.
+      //
+      // خواندن قیمت بیرون از تراکنش انجام می‌شود: جدول‌های قیمت در همین
+      // تراکنش تغییر نمی‌کنند، و بردنشان به داخل چیزی را امن‌تر نمی‌کند.
+      const quote = this.pricing
+        ? await this.pricing.quote(
+            companyId,
+            dto.items.map((item) => ({
+              productId: item.productId,
+              qty: item.quantity,
+            })),
+            { customerId: dto.customerId, code: dto.discountCode },
+          )
+        : null;
+
+      // کد نامعتبر بی‌سروصدا نادیده گرفته نمی‌شود: صندوق‌دار به مشتری
+      // گفته «تخفیف اعمال شد» و فاکتور باید همان را نشان دهد یا خطا.
+      if (dto.discountCode && quote?.codeError) {
+        throw new BadRequestException(quote.codeError);
+      }
+
+      // سقف تخفیف دستی.
+      //
+      // تخفیف قلمی بدون سقف یعنی صندوق‌دار می‌تواند کالا را رایگان بدهد —
+      // پرتکرارترین شکل سوءاستفاده در خرده‌فروشی.  سقف در سطح شرکت تعریف
+      // می‌شود و صفر یعنی «تخفیف دستی ممنوع».
+      const [company] = await tx.query<{ maxLineDiscountPercent: string }>(
+        'SELECT "maxLineDiscountPercent" FROM "Company" WHERE id = $1',
+        [companyId],
+      ).then((r) => r.rows);
+
+      const maxPercent = Number(company?.maxLineDiscountPercent ?? 0);
+
       let subtotal = 0;
-      const itemsData = dto.items.map((item) => {
+      let lineTax = 0;
+      const itemsData = dto.items.map((item, index) => {
         const product = productMap.get(item.productId)!;
-        const price = item.price ?? Number(product.salePrice);
-        const discount = item.discount ?? 0;
-        const total = price * item.quantity - discount;
+        // ترتیب خطوط قیمت‌دهی همان ترتیب ورودی است؛ کالای وزنی برای هر
+        // بسته سطر جدا دارد و نباید با هم ادغام شوند.
+        const priced = quote?.lines[index];
+
+        // قیمت توافقی مقدم است؛ بعد قیمت‌گذاری، بعد قیمت کاتالوگ.
+        const agreed = options?.agreedPrices?.get(item.productId);
+        const price =
+          agreed !== undefined && agreed >= 0
+            ? agreed
+            : priced
+              ? Number(priced.unitPrice)
+              : Number(product.salePrice);
+        const autoDiscount = priced ? Number(priced.discount) : 0;
+
+        // تخفیف دستیِ همین قلم — جدا از تخفیف خودکار قواعد.
+        //
+        // جدا نگه داشتنشان لازم است: تخفیف خودکار سیاست فروشگاه است و
+        // تخفیف دستی تصمیم صندوق‌دار.  در گزارش پایان شیفت باید بشود
+        // دومی را جدا دید.
+        const gross = price * item.quantity;
+        const requested = Math.max(0, Number(item.manualDiscount ?? 0));
+
+        let manual = 0;
+
+        if (requested > 0) {
+          if (maxPercent <= 0) {
+            throw new BadRequestException('تخفیف دستی در این فروشگاه مجاز نیست');
+          }
+
+          const ceiling = (gross * maxPercent) / 100;
+
+          if (requested > ceiling) {
+            throw new BadRequestException(
+              `تخفیف «${product.name}» بیشتر از سقف مجاز (${maxPercent}٪) است`,
+            );
+          }
+
+          manual = requested;
+        }
+
+        // تخفیف کل هرگز از مبلغ سطر بیشتر نشود، وگرنه مبلغ فاکتور منفی
+        // می‌شود و از آنجا به بعد همه‌چیز خراب است.
+        const discount = Math.min(autoDiscount + manual, gross);
+        const total = gross - discount;
+
+        // مالیات هر ردیف از نرخ خودِ کالا، نه یک نرخ برای کل فاکتور.
+        //
+        // فروشگاهی که هم کالای مشمول دارد و هم معاف (مواد خام معاف
+        // است، بسته‌بندی نه)، با یک نرخ سراسری همیشه مبلغ غلط می‌دهد —
+        // و صورتحساب مؤدیان با فاکتور نمی‌خواند.
+        //
+        // پایه، مبلغ **پس از تخفیف** است؛ مالیات روی چیزی که مشتری
+        // نپرداخته بسته نمی‌شود.
+        const taxRate = Math.max(0, Math.min(Number(product.taxRate ?? 0), 100));
+        const taxAmount = Math.round((total * taxRate) / 100);
+
         subtotal += total;
-        return { ...item, price, discount, total };
+        lineTax += taxAmount;
+        return {
+          ...item,
+          price,
+          discount,
+          manualDiscount: manual,
+          total,
+          taxRate,
+          taxAmount,
+        };
       });
 
-      const discount = dto.discount ?? 0;
-      const tax = dto.tax ?? 0;
-      const total = subtotal - discount + tax;
+      // تخفیف سطح فاکتور — با **همان** سقفی که تخفیف قلمی دارد.
+      //
+      // بدون این، سقف تخفیف قلمی بی‌معنا بود: صندوق‌داری که نمی‌توانست
+      // روی یک قلم ۱۰٪ تخفیف بدهد، می‌توانست همان مبلغ را در
+      // `discount` سطح فاکتور بفرستد و کل فاکتور را رایگان کند.
+      // پرتکرارترین شکل سوءاستفاده در خرده‌فروشی همین است.
+      const requestedDiscount = Math.max(0, Number(dto.discount ?? 0));
+      let discount = 0;
+
+      if (requestedDiscount > 0) {
+        if (maxPercent <= 0) {
+          throw new BadRequestException('تخفیف در این فروشگاه مجاز نیست');
+        }
+
+        // پایه، جمع اقلام **پس از** تخفیف قلمی است: وگرنه دو تخفیف روی
+        // هم می‌نشینند و مجموعشان از سقف رد می‌شود.
+        const ceiling = Math.round((subtotal * maxPercent) / 100);
+        if (requestedDiscount > ceiling) {
+          throw new BadRequestException(
+            `تخفیف فاکتور بیشتر از سقف مجاز (${maxPercent}٪) است`,
+          );
+        }
+        discount = requestedDiscount;
+      }
+
+      // مالیات ارسالی از کلاینت فقط وقتی به کار می‌آید که هیچ کالایی
+      // نرخ نداشته باشد — وگرنه جمع نرخ‌های ردیفی ملاک است.  اگر هر دو
+      // را جمع کنیم، مالیات دو بار بسته می‌شود.
+      // تخفیف سطح فاکتور، پایهٔ مالیات را هم کم می‌کند.
+      //
+      // بدون این، مالیات روی مبلغی بسته می‌شد که مشتری نپرداخته — و
+      // چون مالیات ردیفی پیش از این تخفیف حساب شده بود، مبلغ فاکتور با
+      // محاسبهٔ سمت فرم هم نمی‌خواند.
+      //
+      // سهم هر ردیف به نسبت کم می‌شود، نه اینکه یک عدد کلی جایگزین
+      // شود: صورتحساب مؤدیان مالیات را **به تفکیک ردیف** می‌خواهد و اگر
+      // جمع ردیف‌ها با سربرگ نخواند، رد می‌شود.
+      const taxScale = subtotal > 0 ? (subtotal - discount) / subtotal : 1;
+
+      let tax = 0;
+      if (lineTax > 0) {
+        for (const item of itemsData) {
+          item.taxAmount = Math.round(item.taxAmount * taxScale);
+          tax += item.taxAmount;
+        }
+      } else {
+        tax = Math.round((dto.tax ?? 0) * taxScale);
+      }
+      // اضافات (کرایه، بسته‌بندی) و کسورات (گرد کردن، کسر توافقی).  جدا از
+      // تخفیف نگه داشته می‌شوند چون هم سند حسابداری‌شان فرق دارد و هم
+      // گزارش تخفیف را دروغ می‌کنند اگر با هم قاطی شوند.
+      const additions = dto.additions ?? 0;
+      const deductions = dto.deductions ?? 0;
+      const total = subtotal - discount + tax + additions - deductions;
       if (total < 0) throw new BadRequestException('مبلغ فاکتور نامعتبر است');
 
       // شناسه پیش از کسر موجودی ساخته می‌شود چون حرکت انبار باید به همین
@@ -182,6 +375,26 @@ export class SalesService {
           [dto.customerId],
         );
         salesAgentId = owner.rows[0]?.salesAgentId ?? null;
+      }
+
+      // پورسانت را همین‌جا حساب و ثبت می‌کنیم، نه در گزارش.
+      //
+      // نرخ ویزیتور فردا عوض می‌شود؛ اگر مبلغ را هر بار از نرخِ روز
+      // حساب کنیم، تسویهٔ ماه گذشته با تغییر امروز به هم می‌ریزد و هیچ
+      // ردی هم نمی‌ماند که چرا.
+      //
+      // پایه: مبلغ اقلام پس از تخفیف، بدون مالیات و کرایه — ویزیتور
+      // بابت مالیاتِ دولت پورسانت نمی‌گیرد.
+      let agentCommission = 0;
+      if (salesAgentId) {
+        const agent = await tx.query<{ commissionRate: string | null }>(
+          'SELECT "commissionRate" FROM "SalesAgent" WHERE id = $1 AND "companyId" = $2',
+          [salesAgentId, companyId],
+        );
+        const rate = Number(agent.rows[0]?.commissionRate ?? 0);
+        if (rate > 0) {
+          agentCommission = Math.round(((subtotal - discount) * rate) / 100);
+        }
       }
 
       // کاهش موجودی انبار
@@ -246,8 +459,17 @@ export class SalesService {
         rationAmount = Math.min(eligibility.eligibleTotal, total);
       }
 
+      // نسیه پرداخت نیست، **تعهد** است.
+      //
+      // اگر در جمع پرداختی بیاید، فاکتور نسیه «تسویه‌شده» ثبت می‌شود و
+      // از گزارش مطالبات بیرون می‌ماند — یعنی طلبی که هیچ‌کس دنبالش
+      // نمی‌رود.  سند حسابداری‌اش از قبل درست بود (حساب دریافتنی)، ولی
+      // وضعیت فاکتور و موجودی صندوق غلط می‌شد.
+      const CREDIT = 'CREDIT';
+      const settledTenders = tenders.filter((tender) => tender.method !== CREDIT);
+
       const paidAmount =
-        tenders.reduce((sum, tender) => sum + tender.amount, 0) + rationAmount;
+        settledTenders.reduce((sum, tender) => sum + tender.amount, 0) + rationAmount;
       if (paidAmount > total) {
         throw new BadRequestException('مبلغ پرداختی بیشتر از مبلغ فاکتور است');
       }
@@ -257,9 +479,10 @@ export class SalesService {
       const created = await tx.query<Sale>(
         `INSERT INTO "Sale"
            (id, "companyId", "customerId", "userId", "warehouseId", "shiftId", "invoiceNo",
-            status, subtotal, discount, tax, total, "rationAccountId", "rationAmount", note,
-            "salesAgentId")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
+            status, subtotal, discount, tax, total, "rationAccountId", "rationAmount", note, "discountCodeId",
+            "salesAgentId", reference, "dueDate", additions, deductions,
+            "invoiceDate", "agentCommission")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *`,
         [
           saleId,
           companyId,
@@ -276,10 +499,41 @@ export class SalesService {
           dto.rationAccountId ?? null,
           rationAmount,
           dto.note ?? null,
+          quote?.codeId ?? null,
           salesAgentId,
+          dto.reference?.trim() || null,
+          dto.dueDate ?? null,
+          additions,
+          deductions,
+          // تاریخ فاکتور، نه لحظهٔ ثبت.  فاکتوری که امروز برای فروش
+          // دیروز زده می‌شود باید در گزارش دیروز بنشیند.
+          dto.invoiceDate ?? null,
+          agentCommission,
         ],
       );
       const sale = created.rows[0];
+
+      // مصرف کد و شناسایی، **پس از** ساخته شدن فاکتور و داخل همان تراکنش:
+      // اگر بیرون بود، شکست ثبت فاکتور کد را سوزانده رها می‌کرد.
+      if (quote?.codeId) {
+        await tx.query(
+          `UPDATE "DiscountCode"
+              SET "usedCount" = "usedCount" + 1,
+                  "redeemedAt" = COALESCE("redeemedAt", now()),
+                  "updatedAt" = now()
+            WHERE id = $1 AND "usedCount" < "maxUses"`,
+          [quote.codeId],
+        );
+      }
+
+      if (dto.checkinId) {
+        await tx.query(
+          `UPDATE "CustomerCheckin"
+              SET "usedAt" = now(), "saleId" = $1
+            WHERE id = $2 AND "companyId" = $3 AND "usedAt" IS NULL`,
+          [sale.id, dto.checkinId, companyId],
+        );
+      }
 
       if (rationAmount > 0 && this.ration) {
         await this.ration.spendIn(
@@ -294,8 +548,8 @@ export class SalesService {
       const items: SaleItem[] = [];
       for (const item of itemsData) {
         const row = await tx.query<SaleItem>(
-          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total)
-           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total, "manualDiscount", note, "taxRate", "taxAmount", serial)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
           [
             randomUUID(),
             sale.id,
@@ -304,6 +558,11 @@ export class SalesService {
             item.price,
             item.discount,
             item.total,
+            item.manualDiscount ?? 0,
+            item.note?.trim() || null,
+            item.taxRate,
+            item.taxAmount,
+            item.serial?.trim() || null,
           ],
         );
         items.push(row.rows[0]);
@@ -325,7 +584,11 @@ export class SalesService {
           ],
         );
 
-        if (tender.cashBoxId) {
+        // صندوق فقط با پول واقعی بالا می‌رود.  نسیه هیچ وجهی وارد
+        // صندوق نمی‌کند و اگر اینجا اضافه شود، تراز آخر روز به اندازهٔ
+        // همان نسیه اضافه می‌آید و صندوق‌دار دنبال پولی می‌گردد که
+        // اصلاً دریافت نشده.
+        if (tender.cashBoxId && tender.method !== 'CREDIT') {
           const credited = await tx.query<{ id: string }>(
             `UPDATE "CashBox" SET balance = balance + $1, "updatedAt" = now()
              WHERE id = $2 AND "companyId" = $3 RETURNING id`,
@@ -349,6 +612,8 @@ export class SalesService {
           tax,
           total,
           rationAmount,
+          additions,
+          deductions,
           tenders: tenders.map((tender) => ({
             method: tender.method,
             amount: tender.amount,
@@ -374,6 +639,31 @@ export class SalesService {
 
       return { ...sale, items, payments: tenders, rationAmount };
     });
+
+    // پس از قطعی شدن فاکتور، نه داخل تراکنش.
+    await this.queueForTax(companyId, sale.id);
+
+    return sale;
+  }
+
+  /**
+   * افزودن خودکار فاکتور به صف مالیاتی.
+   *
+   * **بیرون از تراکنش** و با خطای بلعیده‌شده، عمداً:
+   *
+   * ارسال مالیاتی یک کار جانبی است.  اگر داخل تراکنش بود، یک تنظیم ناقص
+   * مالیاتی کل فروش را برمی‌گرداند — یعنی صندوق فروشگاه به‌خاطر سامانهٔ
+   * سازمان می‌خوابید.  فاکتور ثبت می‌شود؛ اگر صف نگرفت، در صفحهٔ مؤدیان
+   * زیر «در صف نیست» دیده می‌شود و دستی افزوده می‌شود.
+   */
+  private async queueForTax(companyId: string, saleId: string) {
+    if (!this.tax) return;
+
+    try {
+      await this.tax.enqueue(companyId, saleId);
+    } catch {
+      // شمارشش در `notQueued` می‌آید؛ همان‌جا دیده و رفع می‌شود.
+    }
   }
 
   /** لغو فاکتور و برگرداندن موجودی */
@@ -451,15 +741,29 @@ export class SalesService {
   async printInvoice(id: string, companyId: string) {
     const sale = await this.findOne(id, companyId);
 
+    // سربرگ شرکت.  بدون آن، فاکتوری که به دست مشتری می‌رسد معلوم نیست از
+    // کدام فروشگاه است — و برای اظهار مالیاتی هم بی‌اعتبار است.
+    const [company] = await this.db.query<{
+      name: string;
+      legalName: string | null;
+      address: string | null;
+      phone: string | null;
+      taxNumber: string | null;
+    }>(
+      `SELECT name, "legalName", address, phone, "taxNumber"
+         FROM "Company" WHERE id = $1`,
+      [companyId],
+    );
+
     const customer = sale.customer as Record<string, string> | null;
-    const customerName = customer
-      ? `${customer.firstName} ${customer.lastName ?? ''}`.trim()
-      : 'مشتری نقدی';
+    const customerName = escapeHtml(
+      customer ? `${customer.firstName} ${customer.lastName ?? ''}`.trim() : 'مشتری نقدی',
+    );
 
     const rows = (sale.items as Array<Record<string, unknown>>)
       .map(
         (item, index) =>
-          `<tr><td>${index + 1}</td><td>${item.productName ?? '-'}</td><td>${Number(
+          `<tr><td>${index + 1}</td><td>${escapeHtml(item.productName ?? '-')}</td><td>${Number(
             item.quantity ?? 0,
           )}</td><td>${Number(item.price ?? 0).toLocaleString(
             'fa-IR',
@@ -478,6 +782,9 @@ export class SalesService {
   table { width: 100%; border-collapse: collapse; margin-top: 16px; }
   th, td { border: 1px solid #999; padding: 8px; text-align: center; }
   th { background: #f0f0f0; }
+  .brand { text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px; }
+  .brand h1 { margin: 0 0 4px; font-size: 20px; }
+  .brand div { font-size: 12px; color: #444; }
   .totals { margin-top: 16px; width: 300px; margin-right: auto; }
   .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
   .grand { font-weight: bold; border-top: 1px solid #333; }
@@ -485,6 +792,16 @@ export class SalesService {
 </style>
 </head>
 <body>
+  <div class="brand">
+    <h1>${escapeHtml(company?.legalName || company?.name || '')}</h1>
+    ${[company?.address, company?.phone]
+      .filter(Boolean)
+      .map((line) => `<div>${escapeHtml(String(line))}</div>`)
+      .join('')}
+    ${company?.taxNumber
+      ? `<div>شناسهٔ مالیاتی: ${escapeHtml(company.taxNumber)}</div>`
+      : ''}
+  </div>
   <div class="header">
     <div>
       <h2>فاکتور فروش</h2>
@@ -633,6 +950,24 @@ export class SalesService {
           Number(paid.rows[0]?.sum ?? 0) >= Number(installment.saleTotal) ? 'PAID' : 'PARTIAL',
           installment.saleId,
         ]);
+
+        // سند وصول — تا امروز زده نمی‌شد.
+        //
+        // صندوق بالا می‌رفت و فاکتور تسویه می‌شد، ولی دفتر کل خبر
+        // نداشت: موجودی صندوق در گزارش با مانده‌اش در دفتر برای همیشه
+        // اختلاف پیدا می‌کرد و هیچ‌کس نمی‌فهمید از کجا.
+        //
+        // داخل همان تراکنش: اگر سند نخورد، وصول هم ثبت نمی‌شود.
+        await this.posting.postAuto(tx, companyId, {
+          sourceType: 'Installment',
+          sourceId: installment.id,
+          description: `وصول قسط فاکتور ${installment.saleId}`,
+          lines: collectionEntry({
+            amount: Number(installment.amount),
+            method: 'CASH',
+            description: 'وصول قسط',
+          }),
+        });
       }
 
       return updated.rows[0];

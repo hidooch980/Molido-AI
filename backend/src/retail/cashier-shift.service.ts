@@ -119,13 +119,18 @@ export class CashierShiftService {
       card: string;
     }>(
       `SELECT
-         count(DISTINCT s.id)::text AS count,
-         COALESCE(sum(DISTINCT s.total), 0)::text AS sales,
-         COALESCE(sum(p.amount) FILTER (WHERE p.method = 'CASH'), 0)::text AS cash,
-         COALESCE(sum(p.amount) FILTER (WHERE p.method <> 'CASH'), 0)::text AS card
-       FROM "Sale" s
-       LEFT JOIN "Payment" p ON p."saleId" = s.id AND p.status = 'COMPLETED'
-       WHERE s."shiftId" = $1 AND s.status = ANY($2)`,
+         (SELECT count(*)::text FROM "Sale"
+           WHERE "shiftId" = $1 AND status = ANY($2)) AS count,
+         (SELECT COALESCE(sum(total), 0)::text FROM "Sale"
+           WHERE "shiftId" = $1 AND status = ANY($2)) AS sales,
+         (SELECT COALESCE(sum(p.amount), 0)::text
+            FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
+           WHERE s."shiftId" = $1 AND s.status = ANY($2)
+             AND p.status = 'COMPLETED' AND p.method = 'CASH') AS cash,
+         (SELECT COALESCE(sum(p.amount), 0)::text
+            FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
+           WHERE s."shiftId" = $1 AND s.status = ANY($2)
+             AND p.status = 'COMPLETED' AND p.method <> 'CASH') AS card`,
       [shiftId, COUNTED_STATUSES],
     );
 

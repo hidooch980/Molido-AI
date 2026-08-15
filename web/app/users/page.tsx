@@ -188,15 +188,15 @@ export default function UsersPage() {
       {error ? <div className="error">{error}</div> : null}
 
       <div className="stats-grid">
-        <StatCard icon="👤" label={t('statUsers')} value={fa(stats.users)} />
+        <StatCard icon="user" label={t('statUsers')} value={fa(stats.users)} />
         <StatCard
-          icon="✅"
+          icon="check"
           label={t('statActiveUsers')}
           value={fa(stats.active)}
           accent="var(--success)"
         />
-        <StatCard icon="🔑" label={t('statRoles')} value={fa(stats.roles)} />
-        <StatCard icon="📝" label={t('statActivity')} value={fa(stats.activity)} />
+        <StatCard icon="settings" label={t('statRoles')} value={fa(stats.roles)} />
+        <StatCard icon="clipboard" label={t('statActivity')} value={fa(stats.activity)} />
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} t={t} />

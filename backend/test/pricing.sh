@@ -6,12 +6,19 @@
 #    به علامت سؤال تبدیل می‌کند.
 
 cd "$(dirname "$0")/../.." || exit 1
-A=http://localhost:3000
-C="docker compose -f docker-compose.yml -f docker-compose.store.yml"
+A=${MOLIDO_API:-http://localhost:3000}
+PW=${MOLIDO_ADMIN_PASSWORD:-admin123}
+C=${MOLIDO_COMPOSE:-"docker compose -f docker-compose.yml -f docker-compose.store.yml"}
 
-T=$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"admin@molido.ai","password":"admin123"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
+# توکن مشترک: اگر `run-tests.sh` یک بار وارد شده باشد، دوباره وارد
+# نمی‌شویم.  سقف ورود عمداً سخت است (جلوی حدس رمز را می‌گیرد)، و ورودِ
+# جداگانه در هر مجموعه همان سقف را می‌خورد، توکن خالی برمی‌گردد، و
+# مجموعه با شکست‌هایی می‌افتد که هیچ ربطی به کد ندارند.
+T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json'   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}'   | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))")}
+if [ -z "$T" ]; then
+  echo "  ✗ ورود ناموفق — سقف ورود خورده یا سرویس بالا نیست"
+  exit 1
+fi
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
 P() { python3 -c "import sys,json,io;sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
 

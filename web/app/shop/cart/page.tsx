@@ -224,7 +224,7 @@ export default function CartPage() {
         </div>
 
         {/* تسویه */}
-        <div className="shop-card">
+        <div className="shop-card cart-summary">
           <h2 style={{ fontSize: 18, marginBottom: 'var(--s-3)' }}>تسویه</h2>
 
           <div className="shop-field">
@@ -287,6 +287,7 @@ export default function CartPage() {
 
           <button
             type="button"
+            className="mobile-hidden"
             style={{ width: '100%', marginTop: 'var(--s-3)' }}
             disabled={busy || belowMinimum}
             onClick={() => void checkout()}
@@ -298,6 +299,19 @@ export default function CartPage() {
             پرداخت هنگام تحویل کالا
           </p>
         </div>
+      </div>
+
+      {/* نوار چسبان موبایل: مبلغ و دکمه همیشه در دسترس‌اند.  بدون آن مشتری
+          باید از ته فهرست سبد و کل فرم آدرس رد شود تا دکمه را ببیند. */}
+      <div className="cart-bar">
+        <span className="total">{fa(subtotal + shipping)} ریال</span>
+        <button
+          type="button"
+          disabled={busy || belowMinimum}
+          onClick={() => void checkout()}
+        >
+          {busy ? 'در حال ثبت…' : 'ثبت سفارش'}
+        </button>
       </div>
     </>
   );

@@ -13,6 +13,8 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { ShopService } from './shop.service';
+import { CheckinService } from '../loyalty/checkin.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
   CurrentCustomer,
   CustomerAuthGuard,
@@ -26,6 +28,15 @@ import {
   AuthUser,
   CurrentUser,
 } from '../common/decorators/current-user.decorator';
+import {
+  AddToCartDto,
+  OrderStatusDto,
+  SetCartQtyDto,
+  ShopCheckoutDto,
+  ShopLoginDto,
+  ShopRegisterDto,
+  ShopSettingsDto,
+} from './dto/shop.dto';
 
 type ShopRequest = {
   shopCompanyId?: string;
@@ -48,7 +59,11 @@ type ShopRequest = {
 @ApiTags('فروشگاه اینترنتی')
 @Controller('shop')
 export class ShopPublicController {
-  constructor(private readonly service: ShopService) {}
+  constructor(
+    private readonly service: ShopService,
+    private readonly loyalty: LoyaltyService,
+    private readonly checkin: CheckinService,
+  ) {}
 
   private company(req: ShopRequest): string {
     return req.shopCompanyId ?? '';
@@ -86,14 +101,14 @@ export class ShopPublicController {
   // ---------- حساب مشتری ----------
 
   @Post('register')
-  register(@Req() req: ShopRequest, @Body() dto: any) {
+  register(@Req() req: ShopRequest, @Body() dto: ShopRegisterDto) {
     return this.service.register(this.company(req), dto);
   }
 
   @Post('login')
   login(
     @Req() req: ShopRequest,
-    @Body() dto: any,
+    @Body() dto: ShopLoginDto,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     // کلید مهمان فرستاده می‌شود تا سبدی که پیش از ورود ساخته، از دست نرود.
@@ -128,7 +143,7 @@ export class ShopPublicController {
   @UseGuards(OptionalCustomerGuard)
   addToCart(
     @Req() req: ShopRequest,
-    @Body() dto: any,
+    @Body() dto: AddToCartDto,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     return this.service.addToCart(
@@ -143,7 +158,7 @@ export class ShopPublicController {
   setQty(
     @Req() req: ShopRequest,
     @Param('id') id: string,
-    @Body() dto: { qty: number },
+    @Body() dto: SetCartQtyDto,
     @Headers('x-guest-token') guestToken?: string,
   ) {
     return this.service.setCartQty(
@@ -163,7 +178,7 @@ export class ShopPublicController {
   @UseGuards(CustomerAuthGuard)
   checkout(
     @Req() req: ShopRequest,
-    @Body() dto: any,
+    @Body() dto: ShopCheckoutDto,
     @CurrentCustomer() customer: CustomerToken,
   ) {
     return this.service.checkout(this.company(req), customer.sub, dto);
@@ -189,6 +204,31 @@ export class ShopPublicController {
     // سفارش دیگری را ببیند.
     return this.service.orderDetail(this.company(req), id, customer.sub);
   }
+
+  /** کدهای تخفیف فعال مشتری. */
+  @Get('my-codes')
+  @UseGuards(CustomerAuthGuard)
+  myCodes(@Req() req: ShopRequest, @CurrentCustomer() customer: CustomerToken) {
+    return this.loyalty.customerCodes(this.company(req), customer.sub);
+  }
+
+  /**
+   * QR شناسایی برای خرید حضوری.
+   *
+   * مشتری این را در فروشگاه نشان می‌دهد و صندوق‌دار اسکنش می‌کند؛ فاکتور
+   * به حساب او می‌خورد و تخفیف شخصی‌اش اعمال می‌شود.
+   *
+   * POST است نه GET: هر بار توکن **تازه** می‌سازد و قبلی را باطل می‌کند،
+   * یعنی عملیات است نه خواندن.
+   */
+  @Post('checkin-token')
+  @UseGuards(CustomerAuthGuard)
+  checkinToken(
+    @Req() req: ShopRequest,
+    @CurrentCustomer() customer: CustomerToken,
+  ) {
+    return this.checkin.issue(this.company(req), customer.sub);
+  }
 }
 
 /** مدیریت فروشگاه — پشت احراز هویت کارکنان. */
@@ -211,7 +251,7 @@ export class ShopAdminController {
 
   @Post('settings')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  saveSettings(@CurrentUser() user: AuthUser, @Body() dto: any) {
+  saveSettings(@CurrentUser() user: AuthUser, @Body() dto: ShopSettingsDto) {
     return this.service.saveSettings(user.companyId!, dto);
   }
 
@@ -236,7 +276,7 @@ export class ShopAdminController {
   setStatus(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
-    @Body() dto: { status: string },
+    @Body() dto: OrderStatusDto,
   ) {
     return this.service.setStatus(user.companyId!, id, dto.status);
   }

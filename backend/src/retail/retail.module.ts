@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
+import { ParkedSaleService } from './parked-sale.service';
 import { ScanService } from './scan.service';
+import { QuickKeysService } from './quick-keys.service';
 import { RetailController } from './retail.controller';
 
 /**
@@ -11,7 +13,7 @@ import { RetailController } from './retail.controller';
 @Global()
 @Module({
   controllers: [RetailController],
-  providers: [ScanService],
-  exports: [ScanService],
+  providers: [ScanService, ParkedSaleService, QuickKeysService],
+  exports: [ScanService, ParkedSaleService, QuickKeysService],
 })
 export class RetailModule {}

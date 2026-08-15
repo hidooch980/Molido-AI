@@ -88,6 +88,11 @@ services:
       PGUSER: ${APP_DB_USER:-molido_app}
       PGPASSWORD: ${APP_DB_PASSWORD:-molido_app_local}
       PGDATABASE: ${POSTGRES_DB:-molido_ai}
+      # رمز مدیر برای `seed`.  بودنش در .env کافی نیست: آن فقط برای
+      # جای‌گذاری در همین فایل است، نه محیط داخل کانتینر — و seed دقیقاً
+      # داخل کانتینر اجرا می‌شود.  نبودن این خط باعث شد نصب سرور با رمز
+      # پیش‌فرض بالا بیاید در حالی که اسکریپت رمز قوی ساخته بود.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # داده اولیه باید روی همهٔ شرکت‌ها کار کند، پس با نقش صاحب اجرا می‌شود.
       PGADMIN_USER: ${POSTGRES_USER:-postgres}
       PGADMIN_PASSWORD: ${POSTGRES_PASSWORD:-password}
@@ -140,11 +145,41 @@ services:
     networks:
       - molido_net
 
+  # ورکفلوها باید خودکار وارد شوند.  README می‌گفت «کافی است Import کنید»،
+  # ولی این یک مرحلهٔ دستی است که روی سرور مشتری هیچ‌کس انجامش نمی‌دهد —
+  # نتیجه‌اش n8n خالی بود در حالی که مستندات وعدهٔ اتوماسیون می‌داد.
+  #
+  # قبل از n8n اصلی اجرا می‌شود، نه بعدش: نمونهٔ در حال اجرا قفل مهاجرت
+  # دیتابیس را نگه می‌دارد و import پشت آن می‌ماند.
+  n8n-import:
+    image: n8nio/n8n:latest
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-postgres}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    entrypoint: ["n8n", "import:workflow", "--separate", "--input=/workflows"]
+    volumes:
+      - ./n8n-workflows:/workflows:ro
+    networks:
+      - molido_net
+
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+      # وگرنه هر دو همزمان مهاجرت می‌زنند و import پشت قفل می‌ماند
+      n8n-import:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
@@ -185,6 +220,8 @@ services:
       PGDATABASE: ${POSTGRES_DB:-molido_ai}
       BACKUP_CRON: ${BACKUP_CRON:-17 2 * * *}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS:-8}
+      BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-12}
       TZ: ${TZ:-Asia/Tehran}
     volumes:
       - backup_data:/backups

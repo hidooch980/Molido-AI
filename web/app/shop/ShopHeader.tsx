@@ -14,7 +14,7 @@ import {
 
 type CartResponse = { items?: Array<{ qty: string | number }> };
 
-function HeaderInner() {
+function HeaderInner({ shopName }: { shopName: string }) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -60,24 +60,28 @@ function HeaderInner() {
     <header className="shop-header">
       <div className="shop-header-inner">
         <Link href="/shop" className="shop-logo">
-          Molido
+          {shopName}
         </Link>
 
+        {/* آیکون داخل خانه، نه دکمهٔ جدا: دکمهٔ جستجو در موبایل جای
+            خانهٔ متن را می‌گیرد و Enter در هر حال همان کار را می‌کند. */}
         <form className="shop-search" onSubmit={submitSearch} role="search">
+          <span className="search-icon" aria-hidden="true">
+            <Icon name="search" size={18} />
+          </span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="جستجوی کالا…"
             aria-label="جستجوی کالا"
+            type="search"
+            enterKeyHint="search"
           />
-          <button type="submit" aria-label="جستجو">
-            <Icon name="search" size={18} />
-          </button>
         </form>
 
         <Link
           href="/shop/cart"
-          className="btn ghost cart-badge"
+          className="btn ghost cart-badge icon-only"
           aria-label={`سبد خرید (${count} قلم)`}
         >
           <Icon name="package" size={18} />
@@ -86,11 +90,22 @@ function HeaderInner() {
 
         {customer ? (
           <>
+            {/* حساب پیش از سفارش‌ها می‌آید: کد شناسایی همان چیزی است که
+                مشتری پای صندوق و با عجله لازم دارد. */}
+            <Link href="/shop/account" className="btn ghost">
+              <Icon name="user" size={18} />
+              <span className="desktop-only">حساب من</span>
+            </Link>
             <Link href="/shop/orders" className="btn ghost">
               <Icon name="receipt" size={18} />
               <span className="desktop-only">سفارش‌ها</span>
             </Link>
-            <button type="button" className="ghost" onClick={logout}>
+            <button
+              type="button"
+              className="ghost icon-only"
+              onClick={logout}
+              aria-label="خروج"
+            >
               <Icon name="logout" size={18} />
             </button>
           </>
@@ -104,12 +119,12 @@ function HeaderInner() {
   );
 }
 
-export default function ShopHeader() {
+export default function ShopHeader({ shopName }: { shopName: string }) {
   // `useSearchParams` نیاز به مرز Suspense دارد، وگرنه کل صفحه در ساخت
   // ایستا به رندر سمت کلاینت می‌افتد.
   return (
     <Suspense fallback={<header className="shop-header" />}>
-      <HeaderInner />
+      <HeaderInner shopName={shopName} />
     </Suspense>
   );
 }

@@ -1,39 +1,88 @@
 /* =============================================
-   فروشگاه اینترنتی — تم روشن
+   فروشگاه اینترنتی
 
    متغیرها با پیشوند --s تعریف می‌شوند تا با متغیرهای پنل مدیریت که در
    globals.css روی :root نشسته‌اند تداخل نکنند.  دامنه‌اش `.shop` است، پس
    بقیهٔ برنامه دست‌نخورده می‌ماند.
+
+   سبک: تخت (Flat).  به‌جای سایه، مرز و تغییر زمینه.  سایه روی کارت کالا
+   در شبکه‌ای که سی کارت دارد، هم شلوغ دیده می‌شود و هم هر بار هاور،
+   لایه‌بندی صفحه را دوباره می‌سازد.
    ============================================= */
 
 .shop {
-  --s-bg: #f7f8fb;
-  --s-surface: #ffffff;
-  --s-border: #e4e7ee;
-  --s-text: #16192b;
-  --s-text-dim: #6b7280;
-  --s-primary: #4f46e5;
-  --s-primary-dark: #4338ca;
-  --s-success: #16a34a;
-  --s-danger: #dc2626;
-  --s-warning: #d97706;
-  --s-radius: 14px;
-  --s-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
-  --s-shadow-lg: 0 8px 28px rgba(16, 24, 40, 0.12);
+  /* سبز تازه + کهربایی: رنگ‌بندی خواروبار.  بنفش عمومی هرچیزی می‌توانست
+     باشد؛ این یکی می‌گوید اینجا خوراکی می‌فروشند. */
+  /* #059669 پیشنهاد اولیه بود ولی با متن سفید کنتراست ۳.۷۷ می‌دهد —
+     زیر حد ۴.۵ برای متن ۱۵px.  یک پله تیره‌تر، ۵.۱ می‌دهد و همان سبز
+     تازه می‌ماند. */
+  --s-primary: #047857;
+  --s-primary-dark: #065f46;
+  --s-primary-soft: #ecfdf5;
+  --s-accent: #d97706;
+  /* رنگ متن روی زمینهٔ اصلی.  توکن است نه مقدار ثابت در قاعدهٔ دکمه:
+     در تم تیره سبزِ روشن‌تر می‌شود و متن سفید رویش کنتراست ۱.۹ می‌دهد —
+     یعنی عملاً ناخوانا. */
+  --s-on-primary: #ffffff;
+  /* کهربایی با متن سفید حتی در تم روشن کنتراست ۳ می‌دهد؛ روی نشان‌های
+     ریز که متنشان ۱۲px است، این عملاً خوانده نمی‌شود. */
+  --s-on-accent: #2b1d02;
+  --s-on-danger: #ffffff;
 
-  /* فاصله‌ها: مقیاس ۴ پایه‌ای، فشرده‌تر از صفحهٔ فرود ولی بازتر از پنل */
+  --s-bg: #f8faf9;
+  --s-surface: #ffffff;
+  --s-surface-2: #f1f5f4;
+  --s-border: #e3eae8;
+  --s-text: #0f172a;
+  --s-text-dim: #64748b;
+
+  --s-success: #059669;
+  --s-danger: #dc2626;
+
+  --s-radius: 14px;
+  --s-radius-sm: 10px;
+  --s-radius-pill: 999px;
+
+  /* فاصله‌ها: مقیاس ۴ پایه‌ای */
   --s-1: 4px;
   --s-2: 8px;
   --s-3: 12px;
   --s-4: 16px;
   --s-6: 24px;
   --s-8: 32px;
+  --s-12: 48px;
 
   min-height: 100vh;
   background: var(--s-bg);
   color: var(--s-text);
   display: flex;
   flex-direction: column;
+}
+
+/* حالت تاریک.
+   کاربر شب با موبایل خرید می‌کند؛ صفحهٔ سفید در تاریکی آزاردهنده است.
+   زمینه خاکستری-سبز است نه سیاه محض: سیاه مطلق با متن روشن، لبه‌ها را
+   می‌لرزاند و خواندن را سخت می‌کند. */
+@media (prefers-color-scheme: dark) {
+  .shop {
+    --s-primary: #34d399;
+    --s-primary-dark: #6ee7b7;
+    --s-primary-soft: #0d2b22;
+    --s-accent: #fbbf24;
+    --s-on-primary: #06251d;
+    --s-on-accent: #2b1d02;
+    --s-on-danger: #350808;
+
+    --s-bg: #0b1210;
+    --s-surface: #141c1a;
+    --s-surface-2: #1c2624;
+    --s-border: #24312e;
+    --s-text: #e8f0ed;
+    --s-text-dim: #94a8a2;
+
+    --s-success: #34d399;
+    --s-danger: #f87171;
+  }
 }
 
 /* ---------- سربرگ ---------- */
@@ -47,15 +96,20 @@
 }
 
 .shop-header-inner {
-  max-width: 1200px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: var(--s-3) var(--s-4);
   display: flex;
   align-items: center;
-  gap: var(--s-4);
+  gap: var(--s-3);
 }
 
 .shop-logo {
+  display: inline-flex;
+  align-items: center;
+  /* برند هم لینک است و روی موبایل باید به‌اندازهٔ یک هدف لمسی باشد. */
+  min-height: 44px;
+  gap: var(--s-2);
   font-weight: 800;
   font-size: 20px;
   color: var(--s-primary);
@@ -66,26 +120,42 @@
 .shop-search {
   flex: 1;
   min-width: 0;
+  position: relative;
   display: flex;
-  gap: var(--s-2);
 }
 
 .shop-search input {
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  padding: 0 var(--s-3);
+  /* جای آیکون جستجو در ابتدای خانه باز می‌ماند */
+  padding-inline: 42px var(--s-3);
   border: 1px solid var(--s-border);
-  border-radius: var(--s-radius);
-  background: var(--s-bg);
+  border-radius: var(--s-radius-pill);
+  background: var(--s-surface-2);
   color: var(--s-text);
   font-family: inherit;
   font-size: 15px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.shop-search input:focus {
+  background: var(--s-surface);
+  border-color: var(--s-primary);
+}
+
+.shop-search .search-icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--s-text-dim);
+  pointer-events: none;
 }
 
 .shop-main {
   flex: 1;
-  max-width: 1200px;
+  max-width: 1180px;
   width: 100%;
   margin: 0 auto;
   padding: var(--s-6) var(--s-4);
@@ -107,9 +177,9 @@
   min-height: 44px;
   padding: 0 var(--s-4);
   border: 1px solid transparent;
-  border-radius: var(--s-radius);
+  border-radius: var(--s-radius-pill);
   background: var(--s-primary);
-  color: #fff;
+  color: var(--s-on-primary);
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
@@ -118,27 +188,38 @@
   align-items: center;
   justify-content: center;
   gap: var(--s-2);
+  white-space: nowrap;
   /* ۱۵۰ms: به‌اندازه‌ای که دیده شود، نه آن‌قدر که کند حس شود */
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
-.shop button:hover:not(:disabled) {
+.shop button:hover:not(:disabled),
+.shop .btn:hover {
   background: var(--s-primary-dark);
 }
 
 .shop button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-.shop button.ghost {
+.shop button.ghost,
+.shop .btn.ghost {
   background: transparent;
   border-color: var(--s-border);
   color: var(--s-text);
 }
 
-.shop button.ghost:hover:not(:disabled) {
-  background: var(--s-bg);
+.shop button.ghost:hover:not(:disabled),
+.shop .btn.ghost:hover {
+  background: var(--s-surface-2);
+  border-color: var(--s-text-dim);
+}
+
+/* دکمهٔ فقط-آیکون باید مربع بماند، وگرنه با padding افقی کشیده می‌شود. */
+.shop .icon-only {
+  min-width: 44px;
+  padding: 0;
 }
 
 /* حلقهٔ فوکوس هرگز حذف نمی‌شود — تنها راهنمای کاربر صفحه‌کلید است. */
@@ -154,47 +235,121 @@
   border: 1px solid var(--s-border);
   border-radius: var(--s-radius);
   padding: var(--s-4);
-  box-shadow: var(--s-shadow);
+}
+
+/* ---------- نوار اطلاع‌رسانی ---------- */
+
+.shop-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  margin-bottom: var(--s-6);
+  border-radius: var(--s-radius);
+  background: var(--s-primary-soft);
+  color: var(--s-primary-dark);
+  border: 1px solid var(--s-border);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shop-banner {
+    color: var(--s-primary);
+  }
+}
+
+/* ---------- دسته‌بندی ---------- */
+
+/* نوار افقی به‌جای بسته‌بندی چندسطری: با ده دسته، حالت wrap نصف صفحهٔ
+   موبایل را می‌خورد و کالاها زیر خط تا پایین می‌روند. */
+.shop-cats {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  padding-bottom: var(--s-2);
+  margin-bottom: var(--s-6);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shop-cats::-webkit-scrollbar {
+  display: none;
+}
+
+.cat-pill {
+  flex: 0 0 auto;
+  /* ۴۴px حداقل هدف لمسی؛ با ۴۰ در نوار افقی، انگشت روی دستهٔ بغلی
+     می‌نشیند و فیلتر عوض می‌شود. */
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--s-radius-pill);
+  border: 1px solid var(--s-border);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.cat-pill:hover {
+  border-color: var(--s-primary);
+}
+
+.cat-pill.active {
+  background: var(--s-primary);
+  border-color: var(--s-primary);
+  color: var(--s-on-primary);
 }
 
 /* ---------- شبکهٔ کالا ---------- */
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: var(--s-4);
 }
 
 .product-card {
+  position: relative;
   background: var(--s-surface);
   border: 1px solid var(--s-border);
   border-radius: var(--s-radius);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 150ms ease, transform 150ms ease;
+  transition: border-color 150ms ease;
 }
 
 .product-card:hover {
-  box-shadow: var(--s-shadow-lg);
-  transform: translateY(-2px);
+  border-color: var(--s-primary);
 }
 
 /* نسبت ثابت: جای تصویر پیش از بارگذاری رزرو می‌شود تا صفحه نپرد. */
 .product-image {
+  position: relative;
   aspect-ratio: 1;
-  background: var(--s-bg);
+  background: var(--s-surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--s-text-dim);
-  border-bottom: 1px solid var(--s-border);
+  overflow: hidden;
 }
 
 .product-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 200ms ease;
+}
+
+.product-card:hover .product-image img {
+  transform: scale(1.04);
 }
 
 .product-body {
@@ -208,7 +363,9 @@
 .product-name {
   font-weight: 600;
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.45;
+  color: inherit;
+  text-decoration: none;
   /* دو خط، بعد سه‌نقطه — تا ارتفاع کارت‌ها یکسان بماند */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -218,21 +375,42 @@
 
 .product-price {
   font-weight: 800;
-  font-size: 17px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
   margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-1);
 }
 
-.product-stock {
+.product-price .unit {
+  font-weight: 400;
   font-size: 13px;
+  color: var(--s-text-dim);
 }
 
-.in-stock {
-  color: var(--s-success);
+/* نشان روی تصویر: ناموجودی باید پیش از خواندن قیمت دیده شود. */
+.product-flag {
+  position: absolute;
+  top: var(--s-2);
+  inset-inline-start: var(--s-2);
+  padding: 3px var(--s-2);
+  border-radius: var(--s-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--s-danger);
+  color: var(--s-on-danger);
 }
 
-.out-stock {
-  color: var(--s-danger);
+.product-flag.low {
+  background: var(--s-accent);
+  color: var(--s-on-accent);
+}
+
+/* کالای ناموجود کم‌رنگ می‌شود ولی حذف نمی‌شود: مشتری باید بداند
+   فروشگاه این کالا را دارد، فقط الان تمام شده. */
+.product-card.sold-out .product-image {
+  opacity: 0.55;
 }
 
 /* ---------- سبد ---------- */
@@ -243,14 +421,14 @@
 
 .cart-count {
   position: absolute;
-  top: -6px;
-  inset-inline-end: -6px;
+  top: -4px;
+  inset-inline-end: -4px;
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border-radius: 10px;
-  background: var(--s-danger);
-  color: #fff;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-accent);
+  color: var(--s-on-accent);
   font-size: 12px;
   font-weight: 700;
   display: flex;
@@ -269,17 +447,67 @@
 .qty-control {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-1);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-pill);
+  padding: 3px;
 }
 
 .qty-control button {
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 34px;
+  min-height: 34px;
   padding: 0;
-  background: var(--s-bg);
+  background: transparent;
   color: var(--s-text);
-  border: 1px solid var(--s-border);
+  border: none;
   font-size: 18px;
+}
+
+.qty-control button:hover:not(:disabled) {
+  background: var(--s-surface-2);
+}
+
+.qty-control span {
+  min-width: 28px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* نوار چسبان تسویه در موبایل.
+   مبلغ و دکمهٔ ادامه همیشه در دسترس‌اند؛ بدون آن مشتری باید تا ته فهرست
+   بلندِ سبد اسکرول کند تا دکمه را پیدا کند. */
+/* روی دسکتاپ، خلاصهٔ سفارش کنار فهرست می‌ماند و همیشه دیده می‌شود. */
+.cart-summary {
+  position: sticky;
+  top: 84px;
+}
+
+/* فقط موبایل: روی دسکتاپ خلاصهٔ چسبان همین کار را می‌کند و دو دکمهٔ
+   «ثبت سفارش» در یک صفحه گیج‌کننده است. */
+.cart-bar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  margin-top: var(--s-6);
+  /* منفیِ padding والد تا نوار تا لبه‌ها کشیده شود */
+  margin-inline: calc(-1 * var(--s-4));
+  background: var(--s-surface);
+  border-top: 1px solid var(--s-border);
+  /* روی آیفون، نوار خانه روی محتوا می‌افتد */
+  padding-bottom: max(var(--s-3), env(safe-area-inset-bottom));
+}
+
+.cart-bar .total {
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- فرم ---------- */
@@ -305,18 +533,25 @@
   min-height: 44px;
   padding: var(--s-2) var(--s-3);
   border: 1px solid var(--s-border);
-  border-radius: var(--s-radius);
+  border-radius: var(--s-radius-sm);
   background: var(--s-surface);
   color: var(--s-text);
   font-family: inherit;
   font-size: 15px;
+  transition: border-color 150ms ease;
+}
+
+.shop-field input:focus,
+.shop-field textarea:focus,
+.shop-field select:focus {
+  border-color: var(--s-primary);
 }
 
 .shop-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  border-radius: var(--s-radius);
+  background: color-mix(in srgb, var(--s-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--s-danger) 35%, transparent);
+  color: var(--s-danger);
+  border-radius: var(--s-radius-sm);
   padding: var(--s-3);
   margin-bottom: var(--s-4);
   font-size: 14px;
@@ -324,8 +559,14 @@
 
 .shop-empty {
   text-align: center;
-  padding: var(--s-8) var(--s-4);
+  padding: var(--s-12) var(--s-4);
   color: var(--s-text-dim);
+}
+
+.shop-empty h2 {
+  margin: var(--s-3) 0 var(--s-1);
+  color: var(--s-text);
+  font-size: 19px;
 }
 
 .shop-muted {
@@ -333,11 +574,18 @@
   font-size: 14px;
 }
 
+.shop-section-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: var(--s-3);
+}
+
 /* ---------- موبایل ---------- */
 
 @media (max-width: 640px) {
   .shop-header-inner {
     flex-wrap: wrap;
+    gap: var(--s-2);
   }
 
   .shop-search {
@@ -345,9 +593,35 @@
     width: 100%;
   }
 
+  .shop-main {
+    padding: var(--s-4) var(--s-3);
+  }
+
   .shop-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
     gap: var(--s-3);
+  }
+
+  .cart-bar {
+    display: flex;
+    margin-inline: calc(-1 * var(--s-3));
+  }
+
+  /* خلاصه روی موبایل چسبان نمی‌شود؛ نوار پایین جایش را گرفته. */
+  .cart-summary {
+    position: static;
+  }
+
+  /* `.shop button` هم `display` می‌دهد و ویژگی‌اش بالاتر است؛ بدون
+     `.shop` اینجا، این قاعده بی‌اثر می‌ماند و دو دکمهٔ «ثبت سفارش» در
+     یک صفحه دیده می‌شود. */
+  .shop .mobile-hidden {
+    display: none;
+  }
+
+  /* در موبایل جا نیست؛ آیکون به‌تنهایی معنا را می‌رساند. */
+  .desktop-only {
+    display: none;
   }
 }
 
@@ -360,7 +634,7 @@
     animation-duration: 0.01ms !important;
   }
 
-  .product-card:hover {
+  .product-card:hover .product-image img {
     transform: none;
   }
 }

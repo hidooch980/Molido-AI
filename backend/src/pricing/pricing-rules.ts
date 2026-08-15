@@ -23,6 +23,8 @@ export type DiscountRule = {
   endsAt?: Date | string | null;
   isActive?: boolean;
   code?: string | null;
+  /** قاعده‌ای که فقط با کد باز می‌شود ولی کدش در جدول کدها زندگی می‌کند. */
+  requiresCode?: boolean | null;
   maxUses?: number | null;
   usedCount?: number | null;
 };
@@ -75,11 +77,32 @@ export function isRuleActive(rule: DiscountRule, at: Date = new Date()): boolean
   return true;
 }
 
+/**
+ * آیا این قاعده بدون کد اعمال نمی‌شود.
+ *
+ * دو حالت: کد ثابت روی خود قاعده (کد عمومی مثل NOWRUZ)، یا قاعده‌ای که
+ * کدهایش شخصی‌اند و در جدول کدها نگه داشته می‌شوند.
+ */
+export function needsUnlock(rule: DiscountRule): boolean {
+  return Boolean(rule.code?.trim()) || rule.requiresCode === true;
+}
+
 /** آیا قاعده به این قلم می‌خورد. */
 export function ruleMatches(
   rule: DiscountRule,
   line: { productId: string; categoryId?: string | null; qty: number; unitPrice: number },
+  unlocked?: ReadonlySet<string> | null,
 ): boolean {
+  // قاعدهٔ کددار فقط وقتی اعمال می‌شود که کدی آن را باز کرده باشد.
+  //
+  // بدون این بررسی، کدی که برای یک کارزار ساخته می‌شود به همهٔ مشتری‌ها
+  // می‌خورد — یعنی فرستادن کد بی‌معنا می‌شود و فروشگاه روی هر فروشی
+  // تخفیف می‌دهد بی‌آنکه بداند.
+  //
+  // ورودی «مجموعهٔ بازشده» است نه خودِ رشتهٔ کد: کد شخصیِ هر مشتری با
+  // کدِ روی قاعده یکی نیست، و تطبیق رشته‌ای فقط حالت اول را می‌گرفت.
+  if (needsUnlock(rule) && !unlocked?.has(rule.id)) return false;
+
   // قاعدهٔ مخصوص یک کالا فقط به همان کالا؛ قاعدهٔ دسته به همهٔ کالاهای
   // آن دسته؛ قاعدهٔ بدون هیچ‌کدام، سراسری است.
   if (rule.productId && rule.productId !== line.productId) return false;
@@ -142,12 +165,13 @@ export function bestDiscount(
   rules: DiscountRule[],
   line: { productId: string; categoryId?: string | null; qty: number; unitPrice: number },
   at: Date = new Date(),
+  unlocked?: ReadonlySet<string> | null,
 ): { rule: DiscountRule; amount: number } | null {
   let best: { rule: DiscountRule; amount: number } | null = null;
 
   for (const rule of rules) {
     if (!isRuleActive(rule, at)) continue;
-    if (!ruleMatches(rule, line)) continue;
+    if (!ruleMatches(rule, line, unlocked)) continue;
 
     const amount = lineDiscount(rule, line);
     if (amount <= 0) continue;

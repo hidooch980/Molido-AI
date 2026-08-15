@@ -118,6 +118,7 @@ export class ReturnsService {
         status: string;
         tax: string;
         subtotal: string;
+        discount: string;
       }>('SELECT * FROM "Sale" WHERE id = $1 AND "companyId" = $2 FOR UPDATE', [
         dto.saleId,
         companyId,
@@ -125,6 +126,13 @@ export class ReturnsService {
 
       const sale = sales.rows[0];
       if (!sale) throw new NotFoundException('فاکتور فروش یافت نشد');
+
+      // نسبت مبلغِ واقعاً دریافتی به جمع اقلام.  با تخفیف سطح فاکتور
+      // کمتر از یک می‌شود؛ بدون آن، مرجوعی بیش از دریافتی برمی‌گرداند.
+      let returnedTax = 0;
+      const invoiceBase = Number(sale.subtotal) || 0;
+      const saleScale =
+        invoiceBase > 0 ? (invoiceBase - Number(sale.discount ?? 0)) / invoiceBase : 1;
       if (sale.status === 'CANCELLED') {
         throw new BadRequestException('فاکتور لغو شده است؛ مرجوعی معنا ندارد');
       }
@@ -155,12 +163,13 @@ export class ReturnsService {
           price: string;
           discount: string;
           quantity: string;
+          taxAmount: string;
         }>(
           `UPDATE "SaleItem"
               SET "returnedQty" = "returnedQty" + $1::numeric
             WHERE id = $2 AND "saleId" = $3
               AND "returnedQty" + $1::numeric <= quantity
-            RETURNING "productId", price, discount, quantity`,
+            RETURNING "productId", price, discount, quantity, "taxAmount"`,
           [qty, line.sourceItemId, dto.saleId],
         );
 
@@ -198,7 +207,22 @@ export class ReturnsService {
         const unitNet =
           Number(item.price) -
           Number(item.discount ?? 0) / Math.max(Number(item.quantity), 1);
-        const total = unitNet * qty;
+
+        // …و منهای سهم این سطر از **تخفیف سطح فاکتور**.
+        //
+        // تا امروز فقط تخفیف قلمی کم می‌شد.  فاکتوری با ۲۰٪ تخفیف کلی،
+        // هنگام مرجوعی مبلغ پیش از تخفیف را برمی‌گرداند — یعنی فروشگاه
+        // بیشتر از آنچه گرفته پس می‌داد، و هیچ‌جا هم معلوم نمی‌شد.
+        const total = unitNet * qty * saleScale;
+
+        // مالیات همین سطر، به نسبت مقدار برگشتی.
+        //
+        // پیش از این، مالیات کل فاکتور به نسبت **مبلغ** سرشکن می‌شد —
+        // که وقتی فاکتور اقلامی با نرخ‌های متفاوت دارد (مواد خام معاف،
+        // بسته‌بندی مشمول) مبلغ غلط می‌دهد.  حالا نرخ هر ردیف ذخیره
+        // می‌شود، پس دقیقش را داریم.
+        const lineQty = Math.max(Number(item.quantity), 1);
+        returnedTax += (Number(item.taxAmount ?? 0) * qty) / lineQty;
 
         subtotal += total;
         cost += Number(product?.purchasePrice ?? 0) * qty;
@@ -223,10 +247,14 @@ export class ReturnsService {
         });
       }
 
-      // مالیات به نسبت مبلغ برگشتی از فاکتور اصلی گرفته می‌شود؛ نرخ ثابت
-      // فرض نمی‌شود چون فاکتور ممکن است اقلامی با نرخ متفاوت داشته باشد.
-      const saleSubtotal = Number(sale.subtotal) || 1;
-      const tax = (Number(sale.tax) * subtotal) / saleSubtotal;
+      // مالیات از نرخ ذخیره‌شدهٔ هر ردیف می‌آید، نه سرشکن مبلغی.
+      //
+      // فاکتورهای قدیمی `taxAmount` ندارند (پیش از مهاجرت ۰۳۰)، پس اگر
+      // صفر درآمد به روش قدیمی برمی‌گردیم — وگرنه مرجوعیِ فاکتور قدیمی
+      // مالیاتش را اصلاً پس نمی‌دهد.
+      const paidBase = Math.max(Number(sale.subtotal) - Number(sale.discount ?? 0), 1);
+      const tax =
+        returnedTax > 0 ? returnedTax : (Number(sale.tax) * subtotal) / paidBase;
       const total = subtotal + tax;
 
       const returnNo = await this.nextNo(tx, companyId);

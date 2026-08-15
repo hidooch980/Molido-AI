@@ -452,11 +452,23 @@ export class SalesChainService {
         items: items.map((item: { productId: string | null; qty: string; unitPrice: string }) => ({
           productId: item.productId as string,
           quantity: Number(item.qty),
-          unitPrice: Number(item.unitPrice),
         })),
       } as never,
       companyId,
       userId,
+      {
+        // قیمتی که با مشتری توافق شده — نه قیمت امروزِ کاتالوگ.
+        //
+        // `unitPrice` پیش از این در همان شیء فرستاده می‌شد ولی سرویس
+        // نمی‌شناختش و بی‌صدا دور می‌ریخت؛ پیش‌فاکتور امضاشده با فاکتور
+        // صادرشده مبلغ متفاوت داشت و علتش هیچ‌جا پیدا نبود.
+        agreedPrices: new Map(
+          items.map((item: { productId: string | null; unitPrice: string }) => [
+            item.productId as string,
+            Number(item.unitPrice),
+          ]),
+        ),
+      },
     );
 
     const saleId = (sale as { id: string }).id;

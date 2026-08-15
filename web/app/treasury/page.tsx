@@ -145,20 +145,20 @@ export default function TreasuryPage() {
       {error ? <div className="error">{error}</div> : null}
 
       <div className="stats-grid">
-        <StatCard icon="🏦" label={t('statAccounts')} value={fa(stats.accounts)} />
+        <StatCard icon="bank" label={t('statAccounts')} value={fa(stats.accounts)} />
         <StatCard
-          icon="💰"
+          icon="money"
           label={t('statTotalBalance')}
           value={fa(stats.balance)}
         />
         <StatCard
-          icon="📗"
+          icon="trendUp"
           label={t('statChequesIn')}
           value={fa(stats.chequesIn)}
           accent="var(--success)"
         />
         <StatCard
-          icon="📕"
+          icon="trendDown"
           label={t('statChequesOut')}
           value={fa(stats.chequesOut)}
           accent="var(--danger)"

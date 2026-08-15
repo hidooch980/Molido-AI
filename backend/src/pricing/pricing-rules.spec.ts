@@ -2,6 +2,7 @@ import {
   bestDiscount,
   isRuleActive,
   lineDiscount,
+  needsUnlock,
   ruleMatches,
   tierPrice,
   type DiscountRule,
@@ -106,5 +107,74 @@ describe('انتخاب بهترین تخفیف', () => {
   it('قاعدهٔ نامرتبط اعمال نمی‌شود', () => {
     expect(bestDiscount([rule({ productId: 'other' })], line)).toBeNull();
     expect(ruleMatches(rule({ minQty: 10 }), line)).toBe(false);
+  });
+});
+
+describe('کد تخفیف', () => {
+  const line = { productId: 'p1', qty: 1, unitPrice: 100_000 };
+
+  /** کد عمومی: روی خود قاعده نوشته شده. */
+  const publicCode = {
+    id: 'r1',
+    name: 'NOWRUZ',
+    kind: 'PERCENT' as const,
+    value: 20,
+    code: 'NOWRUZ',
+  };
+
+  /** کد شخصی: قاعده کد ندارد، کدها در جدول جدا صادر می‌شوند. */
+  const personal = {
+    id: 'r3',
+    name: 'loyal',
+    kind: 'PERCENT' as const,
+    value: 30,
+    requiresCode: true,
+  };
+
+  const open = { id: 'r2', name: 'open', kind: 'PERCENT' as const, value: 5 };
+
+  it('قاعدهٔ کددار بدون کد اعمال نمی‌شود', () => {
+    // مهم‌ترین حالت: بدون این، کدی که برای یک کارزار فرستاده می‌شود به
+    // همهٔ مشتری‌ها می‌خورد و فروشگاه بی‌خبر روی هر فروش تخفیف می‌دهد.
+    expect(bestDiscount([publicCode], line)).toBeNull();
+    expect(bestDiscount([personal], line)).toBeNull();
+  });
+
+  it('با باز شدن قاعده اعمال می‌شود', () => {
+    expect(bestDiscount([publicCode], line, new Date(), new Set(['r1']))?.amount)
+      .toBe(20_000);
+    expect(bestDiscount([personal], line, new Date(), new Set(['r3']))?.amount)
+      .toBe(30_000);
+  });
+
+  it('باز شدن قاعدهٔ دیگر، این یکی را باز نمی‌کند', () => {
+    expect(bestDiscount([publicCode], line, new Date(), new Set(['r9']))).toBeNull();
+  });
+
+  it('قاعدهٔ بدون کد همیشه اعمال می‌شود', () => {
+    expect(bestDiscount([open], line)?.amount).toBe(5_000);
+    expect(bestDiscount([open], line, new Date(), new Set(['r1']))?.amount).toBe(5_000);
+  });
+
+  it('قاعدهٔ بازشده، قاعدهٔ عمومی را کنار می‌زند اگر بهتر باشد', () => {
+    const best = bestDiscount([open, publicCode], line, new Date(), new Set(['r1']));
+    expect(best?.rule.id).toBe('r1');
+    expect(best?.amount).toBe(20_000);
+  });
+
+  it('بدون کد، همان قاعدهٔ عمومی می‌ماند', () => {
+    expect(bestDiscount([open, publicCode], line)?.rule.id).toBe('r2');
+  });
+
+  it('کد خالی مثل بدون کد است', () => {
+    // ستون در دیتابیس می‌تواند رشتهٔ خالی باشد؛ اگر «کددار» حساب شود،
+    // قاعده هرگز اعمال نمی‌شود و کسی نمی‌فهمد چرا.
+    expect(needsUnlock({ ...open, code: '' })).toBe(false);
+    expect(needsUnlock({ ...open, code: '   ' })).toBe(false);
+    expect(bestDiscount([{ ...open, code: '' }], line)?.amount).toBe(5_000);
+  });
+
+  it('requiresCode صریح، حتی بدون رشتهٔ کد، قفل می‌کند', () => {
+    expect(needsUnlock(personal)).toBe(true);
   });
 });

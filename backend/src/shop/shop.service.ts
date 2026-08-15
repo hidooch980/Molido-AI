@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
 import { DatabaseService } from '../database/database.service';
+import { ShopSettingsDto } from './dto/shop.dto';
 
 /**
  * فروشگاه اینترنتی.
@@ -90,7 +91,7 @@ export class ShopService {
     );
   }
 
-  async saveSettings(companyId: string, dto: Record<string, unknown>) {
+  async saveSettings(companyId: string, dto: ShopSettingsDto) {
     const rows = await this.db.query<Row>(
       `INSERT INTO "ShopSetting"
          ("companyId", "shopName", "shopDescription", "isOpen", "shippingFee",

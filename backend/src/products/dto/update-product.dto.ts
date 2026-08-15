@@ -81,4 +81,29 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0)
   rationPrice?: number;
+
+  /**
+   * نشانی تصویر کالا.
+   *
+   * فقط مسیر نسبیِ داخل `/uploads` پذیرفته می‌شود: پذیرفتن نشانی دلخواه
+   * یعنی فروشگاه اینترنتی تصویری از سرور ناشناس بارگذاری کند، و نشانیِ
+   * `javascript:` هم بی‌سروصدا در `src` می‌نشیند.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\/uploads\/[A-Za-z0-9._-]+$/, {
+    message: 'نشانی تصویر معتبر نیست',
+  })
+  imageUrl?: string;
+
+  /** در فروشگاه اینترنتی نمایش داده شود. */
+  @IsOptional()
+  @IsBoolean()
+  isOnline?: boolean;
+
+  /** قیمت آنلاین؛ نبودنش یعنی همان قیمت فروش حضوری. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  onlinePrice?: number;
 }

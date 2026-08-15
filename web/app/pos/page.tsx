@@ -8,6 +8,7 @@ import BarcodeScanner, {
   isScannerSupported,
 } from '../../components/BarcodeScanner';
 import { api } from '../../lib/api';
+import { isSpeechSupported, listenOnce, parseVoiceCommand } from '../../lib/speech';
 import { printReceipt } from '../../lib/receipt';
 import {
   isAgentAvailable,
@@ -15,6 +16,7 @@ import {
   printViaAgent,
   receiptToText,
 } from '../../lib/print-agent';
+import { companyName, loadCompany } from '../../lib/company';
 import { amountOnly, currentCurrency, loadCurrency, money } from '../../lib/money';
 
 type Warehouse = { id: string; name: string };
@@ -54,6 +56,16 @@ type CartLine = {
   isWeighed: boolean;
   price: number;
   quantity: number;
+  /** تخفیف دستی همین قلم — «این یکی ضربه دیده». */
+  manualDiscount?: number;
+};
+
+type Parked = {
+  id: string;
+  label: string | null;
+  lineCount: number;
+  customerName: string | null;
+  createdAt: string;
 };
 
 type RationAccount = {
@@ -69,6 +81,33 @@ type Eligibility = {
   excludedProductIds: string[];
 };
 
+type QuoteLine = {
+  productId: string;
+  qty: number;
+  unitPrice: number;
+  gross: number;
+  discount: number;
+  discountName: string | null;
+  total: number;
+};
+
+type Identified = {
+  checkinId: string;
+  customerId: string;
+  name: string | null;
+  phone: string | null;
+  availableCodes: Array<{ code: string; ruleName: string }>;
+};
+
+type Quote = {
+  lines: QuoteLine[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  codeApplied: boolean | null;
+  codeError: string | null;
+};
+
 type Sale = {
   id: string;
   invoiceNo: string;
@@ -79,8 +118,21 @@ type Sale = {
   createdAt: string;
 };
 
+/** پیشوند QR شناسایی مشتری — تا از بارکد کالا تفکیک شود. */
+const CHECKIN_PREFIX = 'MC1:';
+
 /** فقط عدد — برای جدول سبد که ستون‌هایش تنگ است. */
 const fa = (value: unknown) => amountOnly(value);
+
+/** سطر انتخاب کالا — روی تبلت صندوق با انگشت زده می‌شود. */
+const TOUCH_ROW: React.CSSProperties = {
+  minHeight: 48,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '10px 14px',
+  textAlign: 'right',
+};
 
 /** مقدار وزنی تا سه رقم اعشار نمایش داده می‌شود، تعداد بدون اعشار. */
 const qty = (line: CartLine) =>
@@ -94,6 +146,44 @@ const qty = (line: CartLine) =>
  * است.  برچسب ترازو، بارکد کالا و SKU همگی از همین یک مسیر می‌آیند و تفکیک را
  * بک‌اند انجام می‌دهد.
  */
+type QuickKey = {
+  id: string;
+  productId: string;
+  label: string | null;
+  color: string | null;
+  defaultQty: string | number;
+  productName: string;
+  salePrice: string | number;
+  sku?: string | null;
+  unit: string | null;
+};
+
+type QuickGroup = {
+  id: string;
+  name: string;
+  color: string | null;
+  keys: QuickKey[];
+};
+
+/**
+ * روشن یا تیره کردن یک رنگ هگز.
+ *
+ * عمقِ دکمه از تفاوت سه رنگ می‌آید: بالای روشن‌تر، پایینِ خودِ رنگ، و
+ * لبهٔ تیره.  اگر کاربر فقط یک رنگ بدهد و همان را همه‌جا بگذاریم،
+ * دکمه دوباره تخت می‌شود.
+ */
+function shade(hex: string, amount: number): string {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return hex;
+
+  const channels = [0, 2, 4].map((i) => {
+    const value = parseInt(clean.slice(i, i + 2), 16);
+    return Math.max(0, Math.min(255, value + amount));
+  });
+
+  return `#${channels.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
 export default function PosPage() {
   const { t } = useI18n();
   const [shift, setShift] = useState<Shift | null>(null);
@@ -106,6 +196,27 @@ export default function PosPage() {
   // پشتیبانی دوربین فقط در مرورگر معلوم می‌شود؛ خواندنش هنگام رندر باعث
   // اختلاف رندر سرور و کلاینت می‌شود.
   const [cameraReady, setCameraReady] = useState(false);
+  // تشخیص گفتار هم مثل دوربین فقط در مرورگر معلوم می‌شود.
+  const [micReady, setMicReady] = useState(false);
+  const [listening, setListening] = useState(false);
+  /**
+   * مقداری که گفته شده ولی هنوز قلمش وارد سبد نشده.
+   *
+   * `addByCode` غیرهمگام است و کلیدِ سطر را برنمی‌گرداند؛ مقدار پس از
+   * دیده شدن قلم در سبد اعمال می‌شود.
+   */
+  const [pendingQty, setPendingQty] = useState<{ productId: string; qty: number } | null>(null);
+  /**
+   * وقتی گفته‌شده به بیش از یک کالا می‌خورد.
+   *
+   * خودکار اولی برداشته **نمی‌شود**: موتور گفتار گاهی اشتباه می‌شنود، و
+   * قلمِ اشتباه در فاکتور، پولِ واقعیِ مشتری است.
+   */
+  const [heard, setHeard] = useState<{
+    term: string;
+    qty: number | null;
+    options: Array<{ id: string; name: string; sku: string }>;
+  } | null>(null);
   // عامل چاپ روی دستگاه صندوق نصب می‌شود؛ اگر نباشد، چاپ معمولی مرورگر
   // استفاده می‌شود و هیچ‌چیز نمی‌شکند.
   const [agentReady, setAgentReady] = useState(false);
@@ -115,6 +226,16 @@ export default function PosPage() {
   const [discount, setDiscount] = useState(0);
   const [cashAmount, setCashAmount] = useState('');
   const [cardAmount, setCardAmount] = useState('');
+
+  // قیمت‌دهی سرور: سطح قیمت مشتری و تخفیف خودکار اینجا اعمال می‌شوند.
+  const [quote, setQuote] = useState<Quote | null>(null);
+
+  // مشتری شناسایی‌شده با QR اپلیکیشن.
+  const [identified, setIdentified] = useState<Identified | null>(null);
+  // سبدهای کنارگذاشته‌شده — مشترک بین همهٔ صندوق‌های فروشگاه.
+  const [parked, setParked] = useState<Parked[]>([]);
+  const [showParked, setShowParked] = useState(false);
+  const [discountCode, setDiscountCode] = useState('');
 
   const [ration, setRation] = useState<RationAccount | null>(null);
   const [rationCode, setRationCode] = useState('');
@@ -141,6 +262,7 @@ export default function PosPage() {
 
   useEffect(() => {
     void loadCurrency();
+    void loadCompany();
     void loadShift();
 
     void (async () => {
@@ -166,12 +288,21 @@ export default function PosPage() {
 
   // ---------- سبد ----------
 
+  // جمع سبد از قیمت‌دهی سرور می‌آید؛ تا رسیدن پاسخ، قیمت اسکن نمایش داده
+  // می‌شود تا صندوق‌دار عدد خالی نبیند.  عددی که واقعاً فاکتور را می‌سازد
+  // در هر حال سمت سرور دوباره حساب می‌شود.
   const total = useMemo(
-    () => cart.reduce((sum, line) => sum + line.price * line.quantity, 0),
-    [cart],
+    () =>
+      quote
+        ? quote.subtotal
+        : cart.reduce((sum, line) => sum + line.price * line.quantity, 0),
+    [quote, cart],
   );
 
-  const payable = Math.max(0, total - discount);
+  /** تخفیف قواعد خودکار — جدا از تخفیف دستی صندوق‌دار. */
+  const autoDiscount = quote?.discount ?? 0;
+
+  const payable = Math.max(0, total - autoDiscount - discount);
 
   // کالابرگ محدود است به: سقف اقلام مشمول، مانده اعتبار، و مبلغ فاکتور
   const rationShare = ration && eligibility
@@ -181,6 +312,53 @@ export default function PosPage() {
   const dueAfterRation = Math.max(0, payable - rationShare);
   const paid = Number(cashAmount || 0) + Number(cardAmount || 0);
   const change = paid - dueAfterRation;
+
+  // ---------- کلید سریع ----------
+  //
+  // کالای فله (میوه، نان، سبزی) بارکد ندارد و کالای پرفروش با یک لمس
+  // سریع‌تر از اسکن است.  چیدمان را مدیر در تنظیمات می‌سازد؛ اینجا فقط
+  // خوانده و نشان داده می‌شود.
+  const [quickGroups, setQuickGroups] = useState<QuickGroup[]>([]);
+  const [quickTab, setQuickTab] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    api<QuickGroup[]>('/retail/quick-keys')
+      .then((groups) => {
+        if (!alive) return;
+        setQuickGroups(groups);
+        if (groups[0]) setQuickTab(groups[0].id);
+      })
+      // نبودِ کلید سریع خطا نیست؛ فروشگاهی که چیدمان نساخته، فقط اسکن
+      // دارد و صندوق باید مثل قبل کار کند.
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** لمس یک کلید — همان مسیر اسکن را می‌رود تا قیمت و موجودی یکی باشد. */
+  async function pressQuickKey(key: QuickKey) {
+    try {
+      const result = await api<ScanResult>(
+        `/retail/scan?code=${encodeURIComponent(key.productId)}`,
+      );
+      addLine({ ...result, quantity: Number(key.defaultQty) || 1 });
+    } catch {
+      // شناسهٔ داخلی را `/retail/scan` نمی‌شناسد؛ با SKU دوباره
+      // امتحان می‌شود.  همان دامی که در فرم فاکتور هم خورده بود.
+      try {
+        const result = await api<ScanResult>(
+          `/retail/scan?code=${encodeURIComponent(key.sku ?? '')}`,
+        );
+        addLine({ ...result, quantity: Number(key.defaultQty) || 1 });
+      } catch {
+        setError(`افزودن «${key.label ?? key.productName}» ناموفق بود`);
+      }
+    }
+    refocus();
+  }
 
   function addLine(result: ScanResult) {
     setCart((prev) => {
@@ -213,8 +391,23 @@ export default function PosPage() {
 
   useEffect(() => {
     setCameraReady(isScannerSupported());
+    setMicReady(isSpeechSupported());
     void isAgentAvailable().then(setAgentReady);
   }, []);
+
+  /**
+   * اعمال مقدارِ گفته‌شده وقتی قلم وارد سبد شد.
+   *
+   * «سه تا نان» دو کار است: پیدا کردن نان، و گذاشتن مقدار سه.  دومی
+   * باید صبر کند تا اولی تمام شود.
+   */
+  useEffect(() => {
+    if (!pendingQty) return;
+    const line = cart.find((item) => item.productId === pendingQty.productId);
+    if (!line) return;
+    setQty(line.key, pendingQty.qty);
+    setPendingQty(null);
+  }, [cart, pendingQty]);
 
   /**
    * چاپ رسید: اول عامل محلی، بعد مرورگر.
@@ -224,6 +417,9 @@ export default function PosPage() {
    */
   async function print(sale: Sale, lines: CartLine[]) {
     const text = receiptToText({
+      // نام فروشگاه بالای رسید.  `print-agent` از اول پشتیبانی‌اش می‌کرد
+      // ولی هیچ‌کس پرش نمی‌کرد، پس رسیدها بی‌نام چاپ می‌شدند.
+      shopName: companyName(),
       invoiceNo: sale.invoiceNo,
       createdAt: sale.createdAt,
       // اقلام از سبدِ همان فروش می‌آید: پاسخ ثبت فاکتور فقط سربرگ
@@ -261,6 +457,29 @@ export default function PosPage() {
 
       setError('');
 
+      // QR شناسایی مشتری از همان ورودی اسکنر می‌آید.  صندوق‌دار نباید
+      // پیش از اسکن تصمیم بگیرد این بارکد کالاست یا مشتری — پیشوند
+      // خودش می‌گوید.
+      if (value.startsWith(CHECKIN_PREFIX)) {
+        try {
+          const who = await api<Identified>('/loyalty/checkin/resolve', {
+            method: 'POST',
+            body: { token: value },
+          });
+
+          setIdentified(who);
+
+          // کد فعال مشتری خودکار برداشته می‌شود؛ پرسیدن «کد تخفیفی
+          // داری؟» از صندوق‌دار، همان جایی است که تخفیف فراموش می‌شود.
+          if (who.availableCodes[0]) setDiscountCode(who.availableCodes[0].code);
+
+          setMessage(t('customerIdentified').replace('{0}', who.name ?? '—'));
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t('checkinFailed'));
+        }
+        return;
+      }
+
       try {
         const params = new URLSearchParams({ code: value });
         if (shift.warehouseId) params.set('warehouseId', shift.warehouseId);
@@ -283,6 +502,75 @@ export default function PosPage() {
     [shift, t, fa, addLine],
   );
 
+  /**
+   * افزودن کالا از روی گفتار.
+   *
+   * چرا از مسیر `addByCode` رد می‌شود و سبد را مستقیم دست نمی‌زند:
+   * بارکدخوان، دوربین و صدا باید یک رفتار داشته باشند.  مسیر جدا،
+   * دیر یا زود با بقیه واگرا می‌شود.
+   *
+   * موتور گفتار **نام** می‌دهد نه بارکد، پس اول جست‌وجو لازم است — و
+   * نتیجهٔ چندتایی به صندوق‌دار نشان داده می‌شود، نه اینکه اولی
+   * خودکار برداشته شود.
+   */
+  const addBySpeech = useCallback(
+    async (transcript: string) => {
+      const { qty, term } = parseVoiceCommand(transcript);
+      if (!term) return;
+
+      setError('');
+
+      // اگر آنچه شنیده شد فقط رقم است، همان بارکد است.
+      if (/^[0-9]{4,}$/.test(term)) {
+        await addByCode(term);
+        return;
+      }
+
+      try {
+        const found = await api<Array<{ id: string; name: string; sku: string }>>(
+          `/retail/search?q=${encodeURIComponent(term)}&limit=8`,
+        );
+
+        if (!found.length) {
+          setError(`«${term}» پیدا نشد`);
+          return;
+        }
+
+        if (found.length === 1) {
+          await addByCode(found[0].sku);
+          if (qty && qty > 1) setPendingQty({ productId: found[0].id, qty });
+          return;
+        }
+
+        setHeard({ term, qty, options: found });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'جست‌وجو ناموفق بود');
+      }
+    },
+    [addByCode],
+  );
+
+  const startListening = useCallback(() => {
+    if (listening) return;
+    setError('');
+    setHeard(null);
+    setListening(true);
+
+    const handle = listenOnce(
+      (text) => {
+        setListening(false);
+        void addBySpeech(text);
+      },
+      (message) => {
+        setListening(false);
+        setError(message);
+      },
+    );
+
+    // اگر موتور اصلاً شروع نشد، دکمه نباید تا ابد «در حال شنیدن» بماند.
+    if (!handle) setListening(false);
+  }, [listening, addBySpeech]);
+
   async function onScan(event: React.FormEvent) {
     event.preventDefault();
 
@@ -291,6 +579,128 @@ export default function PosPage() {
 
     await addByCode(input);
     refocus();
+  }
+
+  const loadParked = useCallback(async () => {
+    try {
+      setParked(await api<Parked[]>('/retail/parked'));
+    } catch {
+      // فهرست معلق‌ها نباید صندوق را بشکند؛ خالی ماندنش بی‌خطر است.
+      setParked([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadParked();
+  }, [loadParked]);
+
+  /**
+   * کنار گذاشتن سبد.
+   *
+   * مشتری وسط حساب یادش می‌افتد چیزی برنداشته؛ صندوق‌دار سبد را کنار
+   * می‌گذارد و نفر بعد را حساب می‌کند.  بدون این، یا صف می‌ایستد یا سبد
+   * دور ریخته می‌شود.
+   */
+  async function parkCart() {
+    if (!cart.length) return;
+
+    try {
+      await api('/retail/parked', {
+        method: 'POST',
+        body: {
+          lines: cart.map((line) => ({
+            productId: line.productId,
+            quantity: line.quantity,
+            name: line.name,
+            price: line.price,
+          })),
+          customerId: identified?.customerId,
+          shiftId: shift?.id,
+        },
+      });
+
+      resetSale();
+      await loadParked();
+      setMessage(t('cartParked'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saleError'));
+    }
+  }
+
+  /** بازیابی سبد؛ قیمت‌ها دوباره از سرور می‌آیند. */
+  async function resumeCart(id: string) {
+    try {
+      const result = await api<{
+        lines: Array<{
+          productId: string;
+          quantity: number;
+          name: string;
+          unit: string;
+          price: number;
+          isWeighed: boolean;
+          unavailable: boolean;
+        }>;
+      }>(`/retail/parked/${id}/resume`, { method: 'POST' });
+
+      // کالای ناموجود کنار گذاشته می‌شود ولی بی‌سروصدا نه — صندوق‌دار
+      // باید بداند چه چیزی از سبد افتاد.
+      const gone = result.lines.filter((line) => line.unavailable);
+      const usable = result.lines.filter((line) => !line.unavailable);
+
+      setCart(
+        usable.map((line, index) => ({
+          key: `${line.productId}-${index}-${Date.now()}`,
+          productId: line.productId,
+          name: line.name,
+          unit: line.unit,
+          isWeighed: line.isWeighed,
+          price: line.price,
+          quantity: line.quantity,
+        })),
+      );
+
+      setShowParked(false);
+      await loadParked();
+
+      if (gone.length) {
+        setError(
+          t('parkedItemsGone').replace('{0}', gone.map((l) => l.name).join('، ')),
+        );
+      }
+
+      refocus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saleError'));
+    }
+  }
+
+  async function dropParked(id: string) {
+    try {
+      await api(`/retail/parked/${id}`, { method: 'DELETE' });
+      await loadParked();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saleError'));
+    }
+  }
+
+  /** تایپ مستقیم مقدار — برای ۲۴ عدد، ۲۴ بار زدن «+» کار نیست. */
+  function setQty(key: string, value: number) {
+    if (!Number.isFinite(value) || value <= 0) return;
+
+    setCart((prev) =>
+      prev.map((line) => (line.key === key ? { ...line, quantity: value } : line)),
+    );
+  }
+
+  /** تخفیف دستی یک قلم؛ سقفش را سرور تعیین می‌کند. */
+  function setLineDiscount(key: string, value: number) {
+    setCart((prev) =>
+      prev.map((line) =>
+        line.key === key
+          ? { ...line, manualDiscount: Math.max(0, value || 0) }
+          : line,
+      ),
+    );
   }
 
   function changeQty(key: string, delta: number) {
@@ -319,6 +729,10 @@ export default function PosPage() {
     setRation(null);
     setRationCode('');
     setEligibility(null);
+    // مشتری شناسایی‌شده هم پاک می‌شود: توکن یک‌بارمصرف است و ماندنش یعنی
+    // فاکتور بعدی به حساب همان نفر می‌رود.
+    setIdentified(null);
+    setDiscountCode('');
     refocus();
   }
 
@@ -349,6 +763,52 @@ export default function PosPage() {
     setEligibility(null);
     refocus();
   }
+
+  /**
+   * قیمت‌دهی سبد.
+   *
+   * قیمت پلکانی («۱۰ تا به بالا ارزان‌تر») و تخفیف خودکار فقط سرور را
+   * دارند، پس هر بار که سبد عوض می‌شود دوباره پرسیده می‌شود.
+   *
+   * تأخیر کوتاه لازم است: صندوق‌دار ده قلم را پشت سر هم اسکن می‌کند و
+   * بدون آن، ده درخواست پشت هم می‌رود که نهمی‌اش هم بی‌فایده است.
+   */
+  useEffect(() => {
+    if (!cart.length) {
+      setQuote(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await api<Quote>('/pricing/quote', {
+            method: 'POST',
+            body: {
+              customerId: identified?.customerId,
+              code: discountCode || undefined,
+              lines: cart.map((line) => ({
+                productId: line.productId,
+                qty: line.quantity,
+              })),
+            },
+          });
+          if (!cancelled) setQuote(result);
+        } catch {
+          // شکست قیمت‌دهی نباید صندوق را بخواباند: قیمت پایه نمایش داده
+          // می‌شود و مبلغ نهایی را در هر حال سرور هنگام ثبت تعیین می‌کند.
+          if (!cancelled) setQuote(null);
+        }
+      })();
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [cart, identified, discountCode]);
 
   // سهم مشمول از سرور می‌آید: قیمت مصوب نباید سمت کلاینت تعیین شود.
   useEffect(() => {
@@ -470,12 +930,18 @@ export default function PosPage() {
         body: {
           warehouseId: shift.warehouseId,
           discount,
+          ...(identified
+            ? { customerId: identified.customerId, checkinId: identified.checkinId }
+            : {}),
+          ...(discountCode ? { discountCode } : {}),
           ...(rationShare > 0 && ration ? { rationAccountId: ration.id } : {}),
           payments,
+          // قیمت عمداً فرستاده نمی‌شود: سرور آن را تعیین می‌کند و
+          // فرستادنش از اینجا فقط این توهم را می‌ساخت که قابل تغییر است.
           items: cart.map((line) => ({
             productId: line.productId,
             quantity: line.quantity,
-            price: line.price,
+            ...(line.manualDiscount ? { manualDiscount: line.manualDiscount } : {}),
           })),
         },
       });
@@ -555,6 +1021,106 @@ export default function PosPage() {
       {error ? <div className="error">{error}</div> : null}
       {message ? <div className="error success">{message}</div> : null}
 
+      {/* کلید سریع — پیش از اسکنر، چون کالای فله بارکد ندارد و
+          صندوق‌دار اول سراغ دکمه می‌رود. */}
+      {quickGroups.length > 0 && (
+        <div className="card" style={{ padding: 12 }}>
+          {quickGroups.length > 1 && (
+            <div className="lang-pills" style={{ marginBottom: 10 }}>
+              {quickGroups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={`lang-pill${quickTab === g.id ? ' active' : ''}`}
+                  onClick={() => setQuickTab(g.id)}
+                  style={g.color ? { borderColor: g.color } : undefined}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: 'grid',
+              // دکمهٔ ۱۱۰ پیکسلی روی تبلت صندوق سه‌تا در ردیف جا می‌شود
+              // و با انگشت قابل لمس است — کوچک‌تر یعنی خطای لمس.
+              gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+              gap: 8,
+            }}
+          >
+            {(quickGroups.find((g) => g.id === quickTab)?.keys ?? []).map((key) => (
+              <button
+                key={key.id}
+                type="button"
+                className="quick-key"
+                onClick={() => void pressQuickKey(key)}
+                style={
+                  key.color
+                    ? ({
+                        '--qk-top': shade(key.color, 14),
+                        '--qk-bottom': key.color,
+                        '--qk-edge': shade(key.color, -32),
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              >
+                <span className="qk-name">{key.label ?? key.productName}</span>
+                <span className="qk-price">
+                  {fa(key.salePrice)}
+                  {Number(key.defaultQty) !== 1 ? ` × ${fa(key.defaultQty)}` : ''}
+                </span>
+              </button>
+            ))}
+
+            {(quickGroups.find((g) => g.id === quickTab)?.keys ?? []).length === 0 && (
+              <p className="muted" style={{ gridColumn: '1 / -1', margin: 0, fontSize: 13 }}>
+                این گروه هنوز کلیدی ندارد.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* آنچه شنیده شد به چند کالا می‌خورد — انتخاب با صندوق‌دار است */}
+      {heard ? (
+        <div className="card" style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong>
+              «{heard.term}» {heard.qty ? `— ${fa(heard.qty)} عدد` : ''}
+            </strong>
+            <button type="button" className="ghost" onClick={() => setHeard(null)}>
+              {t('cancel')}
+            </button>
+          </div>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            چند کالا با این نام هست — کدام؟
+          </p>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {heard.options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                style={{ ...TOUCH_ROW }}
+                onClick={async () => {
+                  const chosen = heard;
+                  setHeard(null);
+                  await addByCode(option.sku);
+                  if (chosen.qty && chosen.qty > 1) {
+                    setPendingQty({ productId: option.id, qty: chosen.qty });
+                  }
+                  refocus();
+                }}
+              >
+                {option.name}
+                <span className="muted" style={{ fontSize: 12 }}>{option.sku}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {/* اسکنر */}
       <form className="card scanner" onSubmit={onScan}>
         <input
@@ -568,6 +1134,24 @@ export default function PosPage() {
           inputMode="none"
         />
         <button type="submit">{t('add')}</button>
+
+        {/* میکروفن هم مثل دوربین: فقط جایی که مرورگر دارد. */}
+        {micReady ? (
+          <button
+            type="button"
+            className="ghost"
+            onClick={startListening}
+            aria-label={listening ? 'در حال شنیدن' : 'افزودن با صدا'}
+            title="نام کالا را بگویید — «سه تا نان»"
+            style={{
+              minWidth: 48,
+              background: listening ? '#b91c1c' : undefined,
+              color: listening ? '#fff' : undefined,
+            }}
+          >
+            <Icon name={listening ? 'clock' : 'user'} size={20} />
+          </button>
+        ) : null}
 
         {/* دکمهٔ دوربین فقط جایی دیده می‌شود که مرورگر پشتیبانی کند؛
             نمایشِ دکمه‌ای که کار نمی‌کند بدتر از نبودنش است. */}
@@ -622,23 +1206,66 @@ export default function PosPage() {
               </tr>
             </thead>
             <tbody>
-              {cart.map((line) => (
+              {cart.map((line, index) => (
                 <tr key={line.key}>
                   <td>
                     {line.name}
                     <div className="muted small">{line.unit}</div>
+
+                    {/* تخفیف همین قلم — «این یکی ضربه دیده، کمتر حساب کن».
+                        سقفش را سرور تعیین می‌کند؛ اگر شرکت اجازه نداده
+                        باشد، ثبت فاکتور با پیام روشن رد می‌شود. */}
+                    <label className="line-discount">
+                      {t('lineDiscount')}
+                      <input
+                        type="number"
+                        min={0}
+                        value={line.manualDiscount || ''}
+                        onChange={(event) =>
+                          setLineDiscount(line.key, Number(event.target.value))
+                        }
+                        placeholder="۰"
+                      />
+                    </label>
                   </td>
                   <td className="qty">
                     <button type="button" onClick={() => changeQty(line.key, line.isWeighed ? -0.1 : -1)}>
                       −
                     </button>
-                    <span>{qty(line)}</span>
+                    {/* تایپ مستقیم: برای ۲۴ عدد، ۲۴ بار زدن «+» کار نیست. */}
+                    <input
+                      className="qty-input"
+                      type="number"
+                      inputMode="decimal"
+                      min={line.isWeighed ? 0.001 : 1}
+                      step={line.isWeighed ? 0.001 : 1}
+                      value={line.quantity}
+                      onChange={(event) =>
+                        setQty(line.key, Number(event.target.value))
+                      }
+                      onFocus={(event) => event.target.select()}
+                      aria-label={t('quantity')}
+                    />
                     <button type="button" onClick={() => changeQty(line.key, line.isWeighed ? 0.1 : 1)}>
                       +
                     </button>
                   </td>
-                  <td>{fa(line.price)}</td>
-                  <td>{fa(line.price * line.quantity)}</td>
+                  <td>
+                    {fa(quote?.lines[index]?.unitPrice ?? line.price)}
+                    {/* قیمت پلکانی: وقتی تعداد از پله رد می‌کند، قیمت
+                        واحد پایین می‌آید و صندوق‌دار باید همان را ببیند
+                        که مشتری می‌پردازد. */}
+                    {quote?.lines[index]?.discountName ? (
+                      <div className="muted small">
+                        {quote.lines[index].discountName}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {fa(
+                      quote?.lines[index]?.total ?? line.price * line.quantity,
+                    )}
+                  </td>
                   <td>
                     <button type="button" className="ghost" onClick={() => removeLine(line.key)}>
                       ✕
@@ -652,6 +1279,54 @@ export default function PosPage() {
       </div>
 
       {/* تسویه */}
+      {/* سبدهای کنارگذاشته‌شده.
+          همیشه دیده می‌شود نه فقط وقتی سبد خالی است: مشتریِ سبد معلق
+          ممکن است وسط حسابِ نفر بعد برگردد. */}
+      {parked.length > 0 ? (
+        <div className="card parked-bar">
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setShowParked((open) => !open)}
+          >
+            <Icon name="clipboard" size={17} /> {t('parkedCarts')} ({fa(parked.length)})
+          </button>
+
+          {showParked ? (
+            <div className="parked-list">
+              {parked.map((item) => (
+                <div key={item.id} className="parked-item">
+                  <div>
+                    <strong>{item.label ?? '—'}</strong>
+                    <div className="muted small">
+                      {fa(item.lineCount)} {t('itemWord')}
+                      {item.customerName ? ` — ${item.customerName}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      onClick={() => void resumeCart(item.id)}
+                    >
+                      {t('resumeCart')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sm ghost"
+                      onClick={() => void dropParked(item.id)}
+                      aria-label={t('remove')}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {cart.length > 0 ? (
         <div className="card">
           <h3 style={{ marginBottom: 12 }}>{t('checkout')}</h3>
@@ -661,12 +1336,59 @@ export default function PosPage() {
             <strong>{fa(total)}</strong>
           </div>
 
+          {/* مشتری شناسایی‌شده با QR اپلیکیشن.  اینجا نشان داده می‌شود
+              نه در بالای صفحه: صندوق‌دار در لحظهٔ تسویه باید ببیند
+              فاکتور به حساب چه کسی می‌رود. */}
+          {identified ? (
+            <div className="row-between">
+              <span>
+                {t('identifiedCustomer')}: <strong>{identified.name ?? '—'}</strong>
+              </span>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setIdentified(null);
+                  setDiscountCode('');
+                }}
+              >
+                {t('removeCustomer')}
+              </button>
+            </div>
+          ) : null}
+
+          <label>
+            {t('discountCode')}
+            <input
+              value={discountCode}
+              onChange={(event) =>
+                setDiscountCode(event.target.value.toUpperCase())
+              }
+              placeholder="ABCD2345"
+              style={{ letterSpacing: 2, textTransform: 'uppercase' }}
+            />
+          </label>
+
+          {/* کدی که وارد شده ولی اثری نداشته، باید همان‌جا گفته شود؛
+              وگرنه صندوق‌دار به مشتری می‌گوید «اعمال شد» و فاکتور
+              چیز دیگری نشان می‌دهد. */}
+          {discountCode && quote && quote.codeApplied === false ? (
+            <div className="error">{quote.codeError ?? t('codeInvalid')}</div>
+          ) : null}
+
+          {autoDiscount > 0 ? (
+            <div className="row-between">
+              <span>{t('autoDiscount')}</span>
+              <strong>−{fa(autoDiscount)}</strong>
+            </div>
+          ) : null}
+
           <label>
             {t('discount')}
             <input
               type="number"
               min={0}
-              max={total}
+              max={Math.max(0, total - autoDiscount)}
               value={discount || ''}
               onChange={(event) => setDiscount(Number(event.target.value || 0))}
             />
@@ -770,9 +1492,17 @@ export default function PosPage() {
             </div>
           ) : null}
 
-          <button type="button" onClick={checkout} disabled={busy || paid < dueAfterRation}>
-            {busy ? t('recording') : t('recordSale')}
-          </button>
+          <div className="checkout-actions">
+            <button type="button" onClick={checkout} disabled={busy || paid < dueAfterRation}>
+              {busy ? t('recording') : t('recordSale')}
+            </button>
+
+            {/* کنار گذاشتن سبد، نه پاک کردنش.  صندوق‌دار در فروشگاه شلوغ
+                این را بیشتر از هر دکمهٔ دیگری می‌زند. */}
+            <button type="button" className="ghost" onClick={() => void parkCart()}>
+              <Icon name="clipboard" size={17} /> {t('parkCart')}
+            </button>
+          </div>
         </div>
       ) : null}
 

@@ -108,9 +108,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="muted" style={{ marginTop: 18, fontSize: 12.5 }}>
-            {t('demoHint', lang)}
-          </p>
+          {/*
+            رمز مدیر روی صفحهٔ ورود چاپ نمی‌شود.
+            نصبی که در اینترنت باز است، با این خط هم نام کاربری مدیر را
+            لو می‌داد هم رمزش را — و پس از عوض شدن رمز، همان خط فقط
+            کاربر را گمراه می‌کرد.  فقط نصب نمایشی آن را روشن می‌کند.
+          */}
+          {process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === '1' ? (
+            <p className="muted" style={{ marginTop: 18, fontSize: 12.5 }}>
+              {t('demoHint', lang)}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

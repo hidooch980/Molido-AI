@@ -30,6 +30,12 @@ const WRITABLE = [
   'scaleCode',
   'isRationEligible',
   'rationPrice',
+  // میدان‌های فروشگاه اینترنتی.  تا امروز در این فهرست نبودند، پس PATCH
+  // موفق برمی‌گشت ولی هیچ‌چیز ذخیره نمی‌شد — بدترین شکل شکست، چون شبیه
+  // موفقیت است.
+  'isOnline',
+  'onlinePrice',
+  'imageUrl',
 ] as const;
 
 const MAX_PAGE_SIZE = 200;

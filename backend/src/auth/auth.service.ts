@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { DatabaseService } from '../database/database.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 type UserRow = {
   id: string;
@@ -97,6 +103,36 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
     const { companyName, ...safeUser } = user;
     return { ...safeUser, company: user.companyId ? { id: user.companyId, name: companyName } : null };
+  }
+
+  /**
+   * تغییر رمز خودِ کاربر.
+   *
+   * جدا از `PATCH /users/:id` که کار مدیر است: آنجا رمز فعلی پرسیده
+   * نمی‌شود (مدیر رمز کارمند را نمی‌داند) و صندوق‌دار هم اصلاً دسترسی
+   * ندارد.  بدون این مسیر، رمز پیش‌فرض `admin123` عملاً غیرقابل تغییر
+   * می‌ماند — هشداری که هیچ راه رفعی ندارد.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.findUser('id', userId);
+    if (!user) throw new UnauthorizedException('کاربر یافت نشد');
+
+    if (!(await bcrypt.compare(dto.currentPassword, user.password))) {
+      // پیام عمداً مبهم نیست: کاربر وارد شده و می‌داند کیست؛ ابهام اینجا
+      // فقط او را سردرگم می‌کند بی‌آنکه چیزی را امن‌تر کند.
+      throw new UnauthorizedException('رمز فعلی درست نیست');
+    }
+
+    if (await bcrypt.compare(dto.newPassword, user.password)) {
+      throw new BadRequestException('رمز تازه با رمز فعلی یکی است');
+    }
+
+    await this.db.query('UPDATE "User" SET password = $1, "updatedAt" = now() WHERE id = $2', [
+      await bcrypt.hash(dto.newPassword, 10),
+      userId,
+    ]);
+
+    return { changed: true };
   }
 
   private async findUser(field: 'id' | 'email', value: string): Promise<UserRow | undefined> {

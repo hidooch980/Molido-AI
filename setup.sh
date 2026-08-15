@@ -203,7 +203,9 @@ docker compose "${compose_files[@]}" exec -T backend node dist/database/seed.js
 
 printf '\n  ✓ آماده است\n\n'
 printf '    داشبورد و صندوق   http://%s:%s\n' "$host_ip" "$web_port"
-printf '    API و Swagger     http://%s:%s/api\n' "$host_ip" "$backend_port"
+# مسیر واقعی /api-docs است.  «/api» صفحهٔ ۴۰۴ می‌دهد — و همان اولین
+# چیزی است که نصب‌کننده امتحان می‌کند.
+printf '    API و Swagger     http://%s:%s/api-docs\n' "$host_ip" "$backend_port"
 printf '    اتوماسیون n8n     http://%s:%s\n\n' "$host_ip" "$n8n_port"
 printf '    ورود:  admin@molido.ai  /  admin123\n'
 printf '    ⚠️ رمز مدیر را پس از اولین ورود عوض کنید.\n\n'

@@ -140,15 +140,15 @@ export default function PurchasesPage() {
       {error ? <div className="error">{error}</div> : null}
 
       <div className="stats-grid">
-        <StatCard icon="🏭" label={t('statSuppliers')} value={fa(stats.suppliers)} />
-        <StatCard icon="📥" label={t('statPurchases')} value={fa(stats.purchases)} />
+        <StatCard icon="building" label={t('statSuppliers')} value={fa(stats.suppliers)} />
+        <StatCard icon="inbox" label={t('statPurchases')} value={fa(stats.purchases)} />
         <StatCard
-          icon="💰"
+          icon="money"
           label={t('statPurchaseValue')}
           value={fa(stats.purchaseValue)}
         />
         <StatCard
-          icon="💸"
+          icon="money"
           label={t('statExpenses')}
           value={fa(stats.expenses)}
           accent="var(--warning)"

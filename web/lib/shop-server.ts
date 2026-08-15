@@ -17,6 +17,18 @@ const INTERNAL_API =
   process.env.NEXT_PUBLIC_API_URL ??
   'http://localhost:3000';
 
+/**
+ * مهلت پاسخ.
+ *
+ * `catch` خطا را می‌گیرد ولی **معلق ماندن** را نه: اگر بک‌اند وصل نشود و
+ * اتصال باز بماند، رندر صفحه همان‌جا می‌ایستد.  این در ساخت پروژه، کل
+ * build را می‌شکند و در تولید، صفحه را برای کاربر سفید نگه می‌دارد.
+ *
+ * پنج ثانیه برای یک API روی همان شبکه سخاوتمندانه است؛ بیشتر از آن یعنی
+ * چیزی خراب است و بازگشت به مقدار پیش‌فرض بهتر از انتظار است.
+ */
+const TIMEOUT_MS = 5000;
+
 export async function shopFetch<T>(
   path: string,
   fallback: T,
@@ -28,6 +40,7 @@ export async function shopFetch<T>(
       // کاتالوگ هر دقیقه تازه می‌شود: قیمت و موجودی آن‌قدر سریع عوض
       // نمی‌شوند که ارزش رندر دوبارهٔ هر درخواست را داشته باشند.
       next: { revalidate },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
     if (!response.ok) return fallback;

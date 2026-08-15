@@ -81,11 +81,17 @@ export class PricingController {
   quote(
     @CurrentUser() user: AuthUser,
     @Body()
-    dto: { lines: QuoteLine[]; customerId?: string; priceLevelId?: string },
+    dto: {
+      lines: QuoteLine[];
+      customerId?: string;
+      priceLevelId?: string;
+      code?: string;
+    },
   ) {
     return this.service.quote(user.companyId!, dto?.lines ?? [], {
       customerId: dto?.customerId,
       priceLevelId: dto?.priceLevelId,
+      code: dto?.code,
     });
   }
 }

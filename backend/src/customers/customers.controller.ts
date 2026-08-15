@@ -36,6 +36,12 @@ export class CustomersController {
     return this.customersService.findOne(user.companyId as string, id);
   }
 
+  /** مانده بدهی — پیش از فروش نسیه لازم است، نه بعدش. */
+  @Get(':id/balance')
+  balance(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.customersService.balance(user.companyId as string, id);
+  }
+
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SALES', 'CASHIER')
   create(

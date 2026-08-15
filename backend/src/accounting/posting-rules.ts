@@ -51,6 +51,9 @@ export function accountForMethod(method: string): string {
       return ACCOUNTS.bank;
     case 'CHEQUE':
       return ACCOUNTS.chequeReceivable;
+    case 'CREDIT':
+      // نسیه: طلب از مشتری، نه وجه دریافتی.
+      return ACCOUNTS.receivable;
     default:
       // روش ناشناخته مثل نسیه رفتار می‌کند تا مبلغ گم نشود
       return ACCOUNTS.receivable;
@@ -81,6 +84,10 @@ export function saleEntry(input: {
   total: number;
   tenders: SaleTender[];
   rationAmount?: number;
+  /** کرایهٔ حمل و بسته‌بندی که به خریدار بسته شده */
+  additions?: number;
+  /** کسر توافقی و گرد کردن مبلغ */
+  deductions?: number;
 }): PostingLine[] {
   const lines: PostingLine[] = [];
 
@@ -125,6 +132,23 @@ export function saleEntry(input: {
     accountCode: ACCOUNTS.outputVat,
     credit: Number(input.tax),
     description: 'مالیات بر ارزش افزوده',
+  });
+
+  // اضافات درآمدِ حمل است، نه فروش کالا.  اگر به حساب فروش بنشیند، هم
+  // سود ناخالص را بالا نشان می‌دهد (چون بهای تمام‌شده‌اش آنجا نیست) و
+  // هم مبلغ فروشِ گزارش با صورتحساب مالیاتی نمی‌خواند.
+  push(lines, {
+    accountCode: ACCOUNTS.freightRevenue,
+    credit: Number(input.additions ?? 0),
+    description: 'اضافات فاکتور',
+  });
+
+  // کسورات کاهش مبلغ است ولی تخفیف فروش نیست؛ حساب جدا نگه داشته
+  // می‌شود تا گزارش تخفیف با گرد کردن مبلغ آلوده نشود.
+  push(lines, {
+    accountCode: ACCOUNTS.otherExpense,
+    debit: Number(input.deductions ?? 0),
+    description: 'کسورات فاکتور',
   });
 
   return lines;
@@ -218,6 +242,37 @@ export function expenseEntry(input: {
  *   بدهکار: صندوق یا بانک
  *   بستانکار: سایر درآمدها
  */
+/**
+ * وصول طلب از مشتری — قسط یا تسویهٔ نسیه.
+ *
+ * با `receiptEntry` فرق دارد و این تفاوت مهم است: آن یکی درآمد ثبت
+ * می‌کند، این یکی **طلبِ قبلاً ثبت‌شده** را تسویه می‌کند.  اگر وصول
+ * قسط به درآمد بنشیند، همان فروش دو بار درآمد حساب می‌شود — یک بار
+ * موقع صدور فاکتور و یک بار موقع وصول.
+ */
+export function collectionEntry(input: {
+  amount: number;
+  method: string;
+  description?: string;
+}): PostingLine[] {
+  const amount = Number(input.amount);
+  if (Math.abs(amount) < 0.005) return [];
+
+  return [
+    {
+      accountCode: accountForMethod(input.method),
+      debit: amount,
+      description: input.description ?? 'وصول از مشتری',
+    },
+    {
+      // طلب کم می‌شود، نه اینکه درآمد اضافه شود.
+      accountCode: ACCOUNTS.receivable,
+      credit: amount,
+      description: input.description ?? 'تسویهٔ مطالبات',
+    },
+  ];
+}
+
 export function receiptEntry(input: {
   amount: number;
   toCashBox: boolean;

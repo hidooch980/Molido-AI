@@ -9,6 +9,7 @@
  */
 
 import type React from 'react';
+import { Icon, type IconName } from './icons';
 
 /** دکمه و ورودی روی تبلت لمس می‌شوند؛ کمتر از ۴۴ پیکسل قابل اتکا نیست. */
 export const TOUCH: React.CSSProperties = {
@@ -58,13 +59,19 @@ export function statusColor(status: string): string {
   }
 }
 
+/**
+ * کارت آمار.
+ *
+ * آیکون از مجموعهٔ SVG می‌آید نه ایموجی: ایموجی روی هر سیستم‌عامل شکل
+ * دیگری دارد، رنگ خودش را تحمیل می‌کند، و با تم تیره جور درنمی‌آید.
+ */
 export function StatCard({
   icon,
   label,
   value,
   accent,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   value: React.ReactNode;
   accent?: string;
@@ -74,7 +81,9 @@ export function StatCard({
       className="stat-card"
       style={accent ? { borderTop: `3px solid ${accent}` } : undefined}
     >
-      <div className="stat-icon">{icon}</div>
+      <div className="stat-icon" style={accent ? { color: accent } : undefined}>
+        <Icon name={icon} size={22} />
+      </div>
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
     </div>

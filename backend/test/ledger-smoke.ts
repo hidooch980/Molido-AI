@@ -300,6 +300,7 @@ async function main(): Promise<void> {
 
   const { SalesService } = await import('../src/sales/sales.service');
   const { PurchasesService } = await import('../src/purchases/purchases.service');
+  const { PricingService } = await import('../src/pricing/pricing.service');
   const { CashierShiftService } = await import('../src/retail/cashier-shift.service');
   const { RationService } = await import('../src/ration/ration.service');
   const { AuditTrailService } = await import('../src/audit-log/audit-trail.service');
@@ -308,7 +309,7 @@ async function main(): Promise<void> {
   const audit = new AuditTrailService(db);
   const shifts = new CashierShiftService(db, audit);
   const rationSvc = new RationService(db, audit);
-  const sales = new SalesService(db, noop, shifts, rationSvc, posting);
+  const sales = new SalesService(db, noop, shifts, rationSvc, posting, new PricingService(db), null);
   const purchases = new PurchasesService(db, posting);
 
   const autoCo = randomUUID();

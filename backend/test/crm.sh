@@ -5,10 +5,18 @@
 #    را درست ذخیره می‌کند؛ برای آزمودنش JSON را در فایل UTF-8 بنویسید و با
 #    `curl --data-binary @file` بفرستید.
 cd "D:/aziz/molido-ai/Molido-AI-main" || exit 1
-A=http://localhost:3000
-T=$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"admin@molido.ai","password":"admin123"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
+A=${MOLIDO_API:-http://localhost:3000}
+PW=${MOLIDO_ADMIN_PASSWORD:-admin123}
+C=${MOLIDO_COMPOSE:-"docker compose -f docker-compose.yml -f docker-compose.store.yml"}
+# توکن مشترک: اگر `run-tests.sh` یک بار وارد شده باشد، دوباره وارد
+# نمی‌شویم.  سقف ورود عمداً سخت است (جلوی حدس رمز را می‌گیرد)، و ورودِ
+# جداگانه در هر مجموعه همان سقف را می‌خورد، توکن خالی برمی‌گردد، و
+# مجموعه با شکست‌هایی می‌افتد که هیچ ربطی به کد ندارند.
+T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json'   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}'   | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))")}
+if [ -z "$T" ]; then
+  echo "  ✗ ورود ناموفق — سقف ورود خورده یا سرویس بالا نیست"
+  exit 1
+fi
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
 P() { python3 -c "import sys,json,io;sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
 
@@ -18,7 +26,7 @@ chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; el
 # آزمون باید از هر وضعیتی اجرا شود.  بدون پاک‌سازی، اجرای دوم روی
 # «شمارهٔ تلفن تکراری» می‌شکند و شکست‌های زنجیره‌ای می‌سازد که هیچ‌کدام
 # باگ واقعی نیستند.
-docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres   psql -U postgres -d molido_ai -q -c "
+$C exec -T postgres   psql -U postgres -d molido_ai -q -c "
   DELETE FROM \"Interaction\";
   DELETE FROM \"Opportunity\";
   DELETE FROM \"Lead\";
@@ -83,7 +91,7 @@ chk "double convert rejected" "$(curl -s -X POST "$A/crm/leads/$LID/convert" -H 
 echo '--- 15) تعامل به مشتری منتقل شد ---'
 CID=$(echo "$CV" | P "d.get('customerId')")
 chk "interaction linked to customer" \
-  "$(docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres psql -U postgres -d molido_ai -t -c "SELECT count(*) FROM \"Interaction\" WHERE \"customerId\"='$CID';" | tr -d ' \r\n')" "1"
+  "$($C exec -T postgres psql -U postgres -d molido_ai -t -c "SELECT count(*) FROM \"Interaction\" WHERE \"customerId\"='$CID';" | tr -d ' \r\n')" "1"
 
 echo '--- 16) قیف ---'
 chk "funnel endpoint" "$(curl -s -o /dev/null -w '%{http_code}' "$A/crm/funnel" -H "$AU")" "200"

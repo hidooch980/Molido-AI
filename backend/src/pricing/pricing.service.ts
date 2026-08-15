@@ -208,6 +208,89 @@ export class PricingService {
 
   // ---------------------------------------------------------- قیمت‌دهی
 
+
+  /**
+   * کدی که مشتری می‌دهد را به «قاعده‌های بازشده» تبدیل می‌کند.
+   *
+   * دو منبع دارد: کد شخصیِ صادرشده در جدول کدها، و کد ثابتِ روی خود
+   * قاعده (کد عمومی چاپی).  اولی مقدم است چون محدودتر و قابل‌ردیابی‌تر
+   * است.
+   *
+   * دلیل رد شدن برگردانده می‌شود، نه فقط شکست: «کد شما منقضی شده» و «این
+   * کد برای شما نیست» دو کار کاملاً متفاوت از مشتری می‌خواهند.
+   */
+  async resolveCode(
+    companyId: string,
+    code: string,
+    customerId?: string | null,
+  ): Promise<{
+    unlocked: Set<string>;
+    codeId: string | null;
+    reason: string | null;
+  }> {
+    const trimmed = String(code ?? '').trim();
+    if (!trimmed) return { unlocked: new Set(), codeId: null, reason: null };
+
+    const [issued] = await this.db.query<{
+      id: string;
+      ruleId: string;
+      customerId: string | null;
+      usedCount: string;
+      maxUses: string;
+      expiresAt: Date | null;
+      isActive: boolean;
+    }>(
+      `SELECT d.id, d."ruleId", d."customerId", d."usedCount", d."maxUses",
+              d."expiresAt", r."isActive"
+         FROM "DiscountCode" d
+         JOIN "DiscountRule" r ON r.id = d."ruleId"
+        WHERE d."companyId" = $1 AND upper(d.code) = upper($2)`,
+      [companyId, trimmed],
+    );
+
+    if (issued) {
+      if (!issued.isActive) {
+        return { unlocked: new Set(), codeId: null, reason: 'قاعدهٔ این کد غیرفعال است' };
+      }
+
+      if (issued.expiresAt && new Date(issued.expiresAt).getTime() < Date.now()) {
+        return { unlocked: new Set(), codeId: null, reason: 'این کد منقضی شده است' };
+      }
+
+      if (Number(issued.usedCount) >= Number(issued.maxUses)) {
+        return { unlocked: new Set(), codeId: null, reason: 'این کد قبلاً استفاده شده است' };
+      }
+
+      // کد شخصی به مشتری گره خورده تا در شبکه‌های اجتماعی پخش نشود.
+      if (issued.customerId && issued.customerId !== customerId) {
+        return {
+          unlocked: new Set(),
+          codeId: null,
+          reason: 'این کد به مشتری دیگری تعلق دارد',
+        };
+      }
+
+      return { unlocked: new Set([issued.ruleId]), codeId: issued.id, reason: null };
+    }
+
+    const publicRules = await this.db.query<{ id: string }>(
+      `SELECT id FROM "DiscountRule"
+        WHERE "companyId" = $1 AND "isActive" = true
+          AND code IS NOT NULL AND upper(code) = upper($2)`,
+      [companyId, trimmed],
+    );
+
+    if (!publicRules.length) {
+      return { unlocked: new Set(), codeId: null, reason: 'کد تخفیف نامعتبر است' };
+    }
+
+    return {
+      unlocked: new Set(publicRules.map((rule) => rule.id)),
+      codeId: null,
+      reason: null,
+    };
+  }
+
   /**
    * قیمت‌گذاری یک سبد: قیمت سطح + بهترین تخفیف هر قلم.
    *
@@ -216,7 +299,7 @@ export class PricingService {
   async quote(
     companyId: string,
     lines: QuoteLine[],
-    options: { customerId?: string; priceLevelId?: string } = {},
+    options: { customerId?: string; priceLevelId?: string; code?: string } = {},
   ) {
     if (!lines?.length) {
       return { lines: [], subtotal: 0, discount: 0, total: 0 };
@@ -276,6 +359,12 @@ export class PricingService {
       [companyId],
     )) as unknown as DiscountRule[];
 
+    const resolved = await this.resolveCode(
+      companyId,
+      options.code ?? '',
+      options.customerId,
+    );
+
     const now = new Date();
     let subtotal = 0;
     let discountTotal = 0;
@@ -308,6 +397,7 @@ export class PricingService {
           unitPrice,
         },
         now,
+        resolved.unlocked,
       );
 
       const discount = best?.amount ?? 0;
@@ -323,12 +413,32 @@ export class PricingService {
         gross: Math.round(gross * 100) / 100,
         discount,
         discountName: best?.rule.name ?? null,
+        discountRuleId: best?.rule.id ?? null,
+        discountCode: best?.rule.code ?? null,
         total: Math.round((gross - discount) * 100) / 100,
       };
     });
 
+    // آیا کد واقعاً روی چیزی نشست.
+    //
+    // معیار، **شناسهٔ قاعده** است نه رشتهٔ کد: قاعدهٔ کارزار کد ثابت ندارد
+    // (کدهایش شخصی‌اند)، پس تطبیق با `rule.code` همیشه خالی درمی‌آمد و
+    // تخفیفِ اعمال‌شده «بی‌اثر» گزارش می‌شد.
+    const codeUsed = priced.some(
+      (line) => line.discountRuleId && resolved.unlocked.has(line.discountRuleId),
+    );
+
     return {
       priceLevelId: levelId,
+      code: options.code ?? null,
+      codeId: resolved.codeId,
+      codeApplied: options.code ? codeUsed : null,
+      // دلیل رد شدن کد؛ اگر کد درست بود ولی به هیچ قلمی نخورد، پیام
+      // عمومی‌تری لازم است — «کد معتبر است ولی روی این سبد اثری ندارد».
+      codeError: options.code
+        ? (resolved.reason ??
+           (codeUsed ? null : 'کد روی اقلام این سبد اثری ندارد'))
+        : null,
       lines: priced,
       subtotal: Math.round(subtotal * 100) / 100,
       discount: Math.round(discountTotal * 100) / 100,

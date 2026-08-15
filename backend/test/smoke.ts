@@ -31,6 +31,7 @@ async function main() {
   const { ProductsService } = await import('../src/products/products.service');
   const { SalesService } = await import('../src/sales/sales.service');
   const { PurchasesService } = await import('../src/purchases/purchases.service');
+  const { PricingService } = await import('../src/pricing/pricing.service');
   const { InventoryService } = await import('../src/inventory/inventory.service');
   const { ReportsService } = await import('../src/reports/reports.service');
   const { RestaurantService } = await import('../src/restaurant/restaurant.service');
@@ -67,7 +68,7 @@ async function main() {
   const llm = new LlmService(emptyConfig);
 
   const products = new ProductsService(db);
-  const sales = new SalesService(db, noopN8n, shiftService, ration, posting);
+  const sales = new SalesService(db, noopN8n, shiftService, ration, posting, new PricingService(db), null);
   const purchases = new PurchasesService(db, posting);
   const inventory = new InventoryService(db);
   const reports = new ReportsService(db);
@@ -420,7 +421,7 @@ async function main() {
 
     const shifts = shiftService;
     const scanner = new ScanService(db);
-    const posSales = new SalesService(db, noopN8n, shifts, ration, posting);
+    const posSales = new SalesService(db, noopN8n, shifts, ration, posting, new PricingService(db), null);
 
     // --- کالای شمارشی با بارکد ---
     const barcode = '4006381333931';

@@ -69,15 +69,57 @@ export class PurchasesService {
         purchases[0].warehouseId,
       ]),
       this.db.query<PurchaseItem>(
-        `SELECT i.*, p.name AS "productName", p.sku AS "productSku", p.unit AS "productUnit"
+        `SELECT i.*,
+                p.name AS "productName", p.sku AS "productSku", p.unit AS "productUnit",
+                p."salePrice",
+                p."expiryDate" AS "productExpiry",
+                COALESCE(i."landedUnitCost", i."purchasePrice") AS "unitCost",
+                (p."salePrice" - COALESCE(i."landedUnitCost", i."purchasePrice"))
+                  AS "unitProfit",
+                (p."salePrice" - COALESCE(i."landedUnitCost", i."purchasePrice")) * i.quantity
+                  AS "lineProfit",
+                CASE
+                  WHEN COALESCE(i."landedUnitCost", i."purchasePrice") > 0
+                  THEN ROUND(
+                    (p."salePrice" - COALESCE(i."landedUnitCost", i."purchasePrice"))
+                    / COALESCE(i."landedUnitCost", i."purchasePrice") * 100, 1)
+                  ELSE NULL
+                END AS "marginPercent"
          FROM "PurchaseItem" i JOIN "Product" p ON p.id = i."productId"
          WHERE i."purchaseId" = $1`,
         [id],
       ),
     ]);
 
+    // خلاصهٔ سود کل فاکتور — همان چیزی که خریدار می‌خواهد ببیند پیش از
+    // تأیید: «این خرید چقدر برایم می‌ماند».
+    const profit = items.reduce(
+      (acc, item) => {
+        const line = Number((item as Record<string, unknown>).lineProfit ?? 0);
+        const revenue = Number((item as Record<string, unknown>).salePrice ?? 0) *
+          Number(item.quantity ?? 0);
+        return {
+          totalProfit: acc.totalProfit + line,
+          totalRevenue: acc.totalRevenue + revenue,
+          // قلمی که با قیمت فروش فعلی ضرر می‌دهد — باید همان لحظه
+          // دیده شود، نه در گزارش ماه بعد.
+          loseMoney: acc.loseMoney + (line < 0 ? 1 : 0),
+        };
+      },
+      { totalProfit: 0, totalRevenue: 0, loseMoney: 0 },
+    );
+
     return {
       ...purchases[0],
+      profit: {
+        ...profit,
+        totalProfit: Math.round(profit.totalProfit),
+        totalRevenue: Math.round(profit.totalRevenue),
+        marginPercent:
+          profit.totalRevenue > 0
+            ? Math.round((profit.totalProfit / profit.totalRevenue) * 1000) / 10
+            : null,
+      },
       supplier: suppliers[0] ?? null,
       warehouse: warehouses[0] ?? null,
       items,

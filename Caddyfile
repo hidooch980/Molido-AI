@@ -1,0 +1,80 @@
+# Caddy — تنها دری که از اینترنت باز است.
+#
+# چرا reverse proxy و نه انتشار مستقیم پورت‌ها:
+#   ۱. TLS.  بدون آن، رمز کاربر و توکن روی سیم متن ساده است.
+#   ۲. یک مبدأ.  پنل و API از یک نشانی می‌آیند، پس CORS و کوکی ساده می‌شود.
+#   ۳. دیتابیس، n8n و بک‌اند اصلاً روی اینترنت شنونده نیستند.
+#
+# {$MOLIDO_HOST} از محیط می‌آید:
+#   دامنه  → Caddy خودش گواهی Let's Encrypt می‌گیرد.
+#   آی‌پی   → گواهی خودامضا (`tls internal`)؛ مرورگر یک بار هشدار می‌دهد.
+#            برای فروشگاه واقعی دامنه بگیرید — هشدار مرورگر را کاربر
+#            یاد می‌گیرد نادیده بگیرد، و همان عادت خطرناک است.
+
+{
+	{$MOLIDO_ACME}
+
+	# نشستِ بدون SNI به کدام سایت تعلق دارد.
+	#
+	# استاندارد TLS اجازه نمی‌دهد آی‌پی در SNI بیاید، پس وقتی نصب روی
+	# آی‌پی است، مرورگر هیچ نامی نمی‌فرستد و Caddy نمی‌داند کدام گواهی را
+	# ارائه کند — دست‌دادن با «internal error» می‌شکند و هیچ لاگ روشنی هم
+	# نمی‌دهد.  با دامنه بی‌اثر است.
+	default_sni {$MOLIDO_HOST}
+
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$MOLIDO_HOST} {
+	{$MOLIDO_TLS}
+
+	encode gzip zstd
+
+	# ---------- API ----------
+	# `handle_path` پیشوند /api را حذف می‌کند، چون بک‌اند مسیرهایش را از
+	# ریشه سرو می‌کند (`/products` نه `/api/products`).
+	handle_path /api/* {
+		reverse_proxy backend:3000
+	}
+
+	# ---------- فایل‌های آپلودشده ----------
+	handle /uploads/* {
+		reverse_proxy backend:3000
+	}
+
+	# ---------- مستندات ----------
+	handle /api-docs* {
+		reverse_proxy backend:3000
+	}
+
+	# ---------- پنل و فروشگاه ----------
+	handle {
+		reverse_proxy web:3001
+	}
+
+	# n8n عمداً اینجا نیست.
+	#
+	# رابطش تمام‌اختیار است: هر کسی که واردش شود می‌تواند گردش‌کاری بسازد
+	# که به API فروشگاه دستور بدهد.  از راه تونل SSH بازش کنید:
+	#   ssh -L 5678:localhost:5678 root@SERVER
+	# و بعد در مرورگر خودتان http://localhost:5678
+
+	header {
+		# مرورگر نگذارد صفحه در iframe سایت دیگری باز شود
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		# درخواست‌های موفقِ فایل ثابت نویز است؛ فقط خطاها بمانند.
+		level ERROR
+	}
+}

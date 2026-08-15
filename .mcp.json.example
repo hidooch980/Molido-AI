@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "molido": {
+      "command": "node",
+      "args": ["mcp/server.mjs"],
+      "env": {
+        "MOLIDO_API": "http://localhost:3000",
+        "MOLIDO_EMAIL": "admin@molido.ai",
+        "MOLIDO_PASSWORD": "رمز-خود-را-اینجا-بگذارید"
+      }
+    }
+  }
+}

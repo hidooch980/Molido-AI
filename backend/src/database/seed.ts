@@ -51,6 +51,18 @@ const PRODUCTS = [
  * کدها با آنچه `PostingService` هنگام صدور سند خودکار استفاده می‌کند یکی است؛
  * تغییرشان بدون به‌روزرسانی نگاشت سند، ثبت خودکار را می‌شکند.
  */
+/**
+ * کدینگ حساب یک شرکت تازه.
+ *
+ * ⚠️ هر کدی که `posting-rules.ts` به آن سند می‌زند **باید** اینجا باشد.
+ * مهاجرت‌های ۰۱۵، ۰۱۹ و دارایی ثابت این حساب‌ها را با
+ * `INSERT ... FROM "Company"` اضافه می‌کردند — که روی نصب تازه هیچ اثری
+ * ندارد، چون مهاجرت پیش از ساخته شدن شرکت اجرا می‌شود.  نتیجه‌اش این بود
+ * که کرایهٔ حمل، پورسانت، استهلاک و اضافات فاکتور فقط برای مشتری جدید
+ * با «حساب یافت نشد» می‌شکستند — و روی دیتابیس توسعه هرگز دیده نمی‌شد.
+ *
+ * آزمون `accounts.sh` این تطابق را می‌سنجد.
+ */
 const CHART_OF_ACCOUNTS: Array<{
   code: string;
   name: string;
@@ -69,6 +81,7 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '1106', name: 'مالیات بر ارزش افزودهٔ خرید', type: 'ASSET', parent: '1100' },
   { code: '1200', name: 'دارایی ثابت', type: 'ASSET', parent: '1000', postable: false },
   { code: '1201', name: 'اموال و تجهیزات', type: 'ASSET', parent: '1200' },
+  { code: '1202', name: 'استهلاک انباشته', type: 'ASSET', parent: '1200' },
 
   // ---------- بدهی ----------
   { code: '2000', name: 'بدهی‌ها', type: 'LIABILITY', postable: false },
@@ -77,6 +90,8 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '2103', name: 'مالیات بر ارزش افزوده', type: 'LIABILITY', parent: '2000' },
   { code: '2104', name: 'حقوق پرداختنی', type: 'LIABILITY', parent: '2000' },
   { code: '2105', name: 'بیمه پرداختنی', type: 'LIABILITY', parent: '2000' },
+  { code: '2106', name: 'پورسانت پرداختنی', type: 'LIABILITY', parent: '2000' },
+  { code: '2107', name: 'کرایه حمل پرداختنی', type: 'LIABILITY', parent: '2000' },
 
   // ---------- سرمایه ----------
   { code: '3000', name: 'سرمایه', type: 'EQUITY', postable: false },
@@ -89,6 +104,8 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '4102', name: 'تخفیفات فروش', type: 'REVENUE', parent: '4000' },
   { code: '4103', name: 'درآمد خدمات', type: 'REVENUE', parent: '4000' },
   { code: '4104', name: 'سایر درآمدها', type: 'REVENUE', parent: '4000' },
+  { code: '4105', name: 'سود واگذاری دارایی', type: 'REVENUE', parent: '4000' },
+  { code: '4106', name: 'درآمد حمل و نقل', type: 'REVENUE', parent: '4000' },
 
   // ---------- هزینه ----------
   { code: '5000', name: 'هزینه‌ها', type: 'EXPENSE', postable: false },
@@ -97,6 +114,8 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '5202', name: 'اجاره', type: 'EXPENSE', parent: '5000' },
   { code: '5203', name: 'آب، برق و گاز', type: 'EXPENSE', parent: '5000' },
   { code: '5204', name: 'حمل و نقل', type: 'EXPENSE', parent: '5000' },
+  { code: '5205', name: 'هزینهٔ استهلاک', type: 'EXPENSE', parent: '5000' },
+  { code: '5206', name: 'هزینهٔ پورسانت', type: 'EXPENSE', parent: '5000' },
   { code: '5299', name: 'سایر هزینه‌ها', type: 'EXPENSE', parent: '5000' },
 ];
 
@@ -114,13 +133,25 @@ async function seed(): Promise<void> {
     );
 
     // ----- کاربر مدیر -----
-    const adminPassword = await bcrypt.hash('admin123', 10);
+    // رمز مدیر از محیط، نه ثابت در کد.
+    //
+    // روی شبکهٔ محلی `admin123` قابل تحمل بود؛ روی سروری که به اینترنت
+    // وصل است، یک رمز پیش‌فرضِ شناخته‌شده یعنی سامانه از لحظهٔ نصب باز
+    // است.  اسکریپت استقرار این متغیر را اجباری می‌کند.
+    const envPassword = process.env.ADMIN_PASSWORD?.trim();
+    const passwordFromEnv = Boolean(envPassword);
+    const rawPassword = envPassword || 'admin123';
+    if (rawPassword.length < 8) {
+      throw new Error('ADMIN_PASSWORD باید دست‌کم ۸ نویسه باشد');
+    }
+    const adminPassword = await bcrypt.hash(rawPassword, 10);
     await pool.query(
       `INSERT INTO "User"
          (id, "firstName", "lastName", email, password, role, status, "companyId")
        VALUES ('seed-admin', 'مدیر', 'سیستم', $1, $2, 'ADMIN', 'ACTIVE', $3)
-       ON CONFLICT (email) DO NOTHING`,
-      ['admin@molido.ai', adminPassword, SEED_COMPANY],
+       ON CONFLICT (email) DO UPDATE
+         SET password = CASE WHEN $4 THEN EXCLUDED.password ELSE "User".password END`,
+      ['admin@molido.ai', adminPassword, SEED_COMPANY, passwordFromEnv],
     );
 
     // ----- انبار اصلی -----
@@ -190,6 +221,20 @@ async function seed(): Promise<void> {
     );
 
 
+    // ----- سطح قیمت پیش‌فرض -----
+    //
+    // همان دام حساب‌ها: مهاجرت ۰۲۱ این را با `FROM "Company"` می‌ساخت،
+    // که روی نصب تازه صفر ردیف است چون شرکت هنوز وجود ندارد.  بدون سطح
+    // پیش‌فرض، قیمت‌گذاری هیچ پایه‌ای برای محاسبه ندارد.
+    await pool.query(
+      `INSERT INTO "PriceLevel" (id, "companyId", name, "isDefault")
+       SELECT 'seed-price-level', $1, 'قیمت خرده‌فروشی', true
+       WHERE NOT EXISTS (
+         SELECT 1 FROM "PriceLevel" WHERE "companyId" = $1 AND "isDefault" = true
+       )`,
+      [SEED_COMPANY],
+    );
+
     // ----- کدینگ حساب‌ها -----
     // حساب پدر باید پیش از فرزند ساخته شود، پس ترتیب فهرست حفظ می‌شود.
     for (const account of CHART_OF_ACCOUNTS) {
@@ -232,7 +277,11 @@ async function seed(): Promise<void> {
     ]);
 
     console.log('✅ Seed کامل شد');
-    console.log('👤 کاربر مدیر: admin@molido.ai / admin123');
+    console.log(
+      rawPassword === 'admin123'
+        ? '👤 کاربر مدیر: admin@molido.ai / admin123  ⚠️ رمز پیش‌فرض — عوضش کنید'
+        : '👤 کاربر مدیر: admin@molido.ai  (رمز از ADMIN_PASSWORD خوانده شد)',
+    );
     console.log('🏢 شرکت: فروشگاه نمونه مولیدو');
   } finally {
     await pool.end();

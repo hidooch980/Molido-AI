@@ -8,7 +8,6 @@
 
 ![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
-![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -38,8 +37,12 @@
 | ⚡ اتوماسیون | ۱۴ رویداد به n8n + ورکفلوهای آماده Telegram/Email |
 | 📨 پیامک | اتصال کاوه‌نگار |
 | 📎 فایل | آپلود مدارک و پیوست‌ها |
+| 🎙️ ورودی صوتی | افزودن کالا با صدا در صندوق — «سه تا نان» |
+| 🗣️ پیکرهٔ بلوچی | ساخت دادهٔ آموزش تشخیص گفتار بلوچی از فهرست کالای همین فروشگاه |
+| 🔌 MCP | اتصال دستیار هوشمند به دادهٔ فروشگاه — ده ابزار، فقط خواندنی |
+| 🛒 منشی خرید | مریم: استعلام قیمت از بنکداران، مقایسه، صدور فاکتور خرید |
 
-**۸۹ مدل دیتابیس • ۵۸ ماژول بک‌اند • Swagger کامل**
+**۳۳ migration • ۴۵ صفحهٔ وب • ۹۸۴ آزمون خودکار**
 
 ---
 
@@ -54,7 +57,9 @@ cp .env.example .env
 docker compose up -d
 
 # 3. داده اولیه (فقط بار اول)
-docker compose exec backend npx prisma db seed
+#    migration خودکار با سرویس `migrate` اجرا می‌شود؛ این فقط دادهٔ پایه است.
+#    رمز مدیر از ADMIN_PASSWORD در .env خوانده می‌شود — دست‌کم ۸ نویسه.
+docker compose exec backend npm run seed
 ```
 
 | سرویس | آدرس |
@@ -109,8 +114,8 @@ docker compose exec backend npx prisma db seed
 cd backend
 cp .env.example .env   # DATABASE_URL و JWT_SECRET را تنظیم کنید
 npm install
-npx prisma migrate dev --name init
-npx prisma db seed
+npm run db:migrate     # migrationهای SQL — بدون ORM
+npm run seed
 npm run start:dev      # → http://localhost:3000
 
 # داشبورد وب (ترمینال جدید)
@@ -131,33 +136,72 @@ x-lang: ar                     ← هدر اختصاصی
 Accept-Language: en-US         ← هدر استاندارد
 ```
 
-داشبورد وب هم سوئیچر زبان با تغییر خودکار RTL/LTR دارد.
+داشبورد وب سوئیچر زبان با تغییر خودکار RTL/LTR دارد. چهار زبان: فارسی،
+انگلیسی، عربی و **بلوچی**.
+
+بلوچی عمداً ناقص است و ناقص هم می‌ماند: کلیدی که ترجمه ندارد به فارسی
+برمی‌گردد، نه به انگلیسی و نه به خودِ کلید. `coverage('bal')` درصد پوشش
+را می‌دهد و در تنظیمات نشان داده می‌شود — کاربری که بلوچی را انتخاب
+می‌کند باید بداند بخشی از متن فارسی می‌ماند، نه اینکه فکر کند سامانه
+خراب است.
+
+منبع ترجمه‌ها و شرط انتساب مجوزشان در [`data/balochi/ATTRIBUTION.md`](data/balochi/ATTRIBUTION.md).
 
 ## ⚡ اتوماسیون n8n
 
-رویدادهای سیستم (فروش، چک برگشتی، شکایت ۱۳۷، موجودی کم و...) به صورت خودکار به n8n ارسال می‌شوند. ورکفلوهای آماده در پوشه [`n8n-workflows/`](n8n-workflows/) قرار دارند — کافی است در n8n آن‌ها را Import کنید.
+رویدادهای سیستم (فروش، چک برگشتی، شکایت ۱۳۷، موجودی کم و...) به صورت خودکار به n8n ارسال می‌شوند. ورکفلوهای آماده در پوشه [`n8n-workflows/`](n8n-workflows/) قرار دارند و
+**خودکار وارد می‌شوند** — سرویس `n8n-import` پیش از خود n8n اجرا می‌شود.
+
+پیش از این نوشته بود «کافی است Import کنید»، که روی سرور مشتری هیچ‌وقت
+انجام نمی‌شد و کسی هم متوجه نمی‌شد که نشده.
 
 ## 📁 ساختار پروژه
 
 ```
-├── backend/          # NestJS + Prisma — ۵۸ ماژول، ۸۹ مدل
+├── backend/          # NestJS — SQL خام روی pg، بدون ORM
 │   ├── src/
-│   ├── prisma/
-│   └── API.md        # مستندات کامل API
+│   ├── sql/migrations/   # ۳۳ migration — منبع یگانهٔ شکل دیتابیس
+│   ├── test/             # ۲۸ مجموعهٔ آزمون یکپارچه
+│   └── API.md            # مستندات API — ساخته می‌شود، دستی ویرایش نکنید
 ├── web/              # داشبورد Next.js 15 — چندزبانه + طراحی مدرن
+├── mcp/              # سرور MCP — اتصال دستیار هوشمند به دادهٔ فروشگاه
+├── data/balochi/     # واژه‌نامهٔ بلوچی + انتساب مجوزها
 ├── n8n-workflows/    # ورکفلوهای آماده اتوماسیون
 ├── legacy/           # مستندات و طرح‌های اولیه (مرجع تاریخی)
+├── bundle.sh         # ساخت بستهٔ انتقال به سرور
 └── docker-compose.yml
 ```
 
 ## 🧪 تست و کیفیت کد
 
 ```bash
-cd backend
-npm test        # تست‌های Jest
-npm run lint    # ESLint
-npm run format  # Prettier
+bash run-tests.sh              # رگرسیون کامل — ۹۸۴ آزمون
+bash run-tests.sh voice mcp    # فقط چند مجموعه
 ```
+
+سرویس‌ها باید از قبل بالا باشند. رمز مدیر با `MOLIDO_ADMIN_PASSWORD`
+تنظیم می‌شود؛ نصبی که رمزش عوض شده نباید کل رگرسیون را بشکند.
+
+| لایه | چه می‌سنجد |
+|---|---|
+| ۲۸ مجموعهٔ یکپارچه | مسیرهای واقعی HTTP روی دیتابیس واقعی |
+| Jest | منطق خالص — قیمت، مالیات، قواعد پیکره، املای بلوچی |
+| `mcp/` | تعریف ابزارها + خودِ پروتکل JSON-RPC |
+| `web/scripts/` | تجزیهٔ فرمان صوتی، i18n، QR، محاسبهٔ فاکتور |
+| `backend/test/bundle.sh` | نگهبان بستهٔ استقرار — با خرابی ساختگی آزموده می‌شود |
+| `backend/test/apidocs.sh` | نگهبان کهنه‌شدن مستندات API |
+
+```bash
+cd backend
+npm run lint          # ESLint
+npm run check:schema  # هم‌گامی نقشهٔ ستون‌ها با دیتابیس
+npm run docs:api      # ساخت API.md از برنامهٔ در حال اجرا
+npm run check:api     # آیا API.md کهنه شده؟
+```
+
+`check:schema` لازم است چون نقشهٔ ستون‌ها دستی نگهداری می‌شود: ستونی که
+در migration ساخته شود و در نقشه نیاید، موقع نوشتن **بی‌صدا** دور
+ریخته می‌شود.
 
 ## 📄 لایسنس
 

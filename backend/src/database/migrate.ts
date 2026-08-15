@@ -41,6 +41,40 @@ async function syncAppRolePassword(pool: Pool): Promise<void> {
   console.log(`رمز نقش ${user} همگام شد`);
 }
 
+/**
+ * دیتابیس موتور گردش‌کار (n8n) را می‌سازد اگر نباشد.
+ *
+ * n8n جدول‌های خودش را می‌سازد ولی دیتابیس را نه — و اگر دیتابیس نباشد،
+ * فقط در حلقهٔ «database "n8n" does not exist» می‌ماند و هیچ‌جای دیگری
+ * خطا نمی‌دهد.  سرویس در `docker ps` سالم به نظر می‌رسد و کسی متوجه
+ * نمی‌شود که گردش‌کارها اصلاً اجرا نمی‌شوند.
+ *
+ * اسکریپت‌های `/docker-entrypoint-initdb.d` اینجا کافی نیستند: فقط روی
+ * volume خالی اجرا می‌شوند، پس نصب‌هایی که از قبل بالا آمده‌اند را درست
+ * نمی‌کنند.  مهاجرت هر بار اجرا می‌شود، پس جایش همین‌جاست.
+ */
+async function ensureWorkflowDatabase(pool: Pool): Promise<void> {
+  const name = process.env.N8N_DB_NAME || 'n8n';
+
+  const exists = await pool.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
+  if (exists.rows[0]) return;
+
+  // CREATE DATABASE نه پارامتر می‌پذیرد و نه داخل تراکنش اجرا می‌شود؛
+  // نام با `format` در سمت سرور نقل‌قول می‌شود، نه با الحاق رشته.
+  const statement = await pool.query<{ format: string }>(
+    "SELECT format('CREATE DATABASE %I', $1::text)",
+    [name],
+  );
+
+  try {
+    await pool.query(statement.rows[0].format);
+    console.log(`دیتابیس ${name} برای موتور گردش‌کار ساخته شد`);
+  } catch (error) {
+    // مسابقهٔ همزمانی: اگر نمونهٔ دیگری همین لحظه ساختش، مشکلی نیست.
+    if ((error as { code?: string }).code !== '42P04') throw error;
+  }
+}
+
 async function migrate(): Promise<void> {
   const pool = new Pool(adminDatabaseConfig());
   try {
@@ -77,6 +111,7 @@ async function migrate(): Promise<void> {
     }
 
     await syncAppRolePassword(pool);
+    await ensureWorkflowDatabase(pool);
   } finally {
     await pool.end();
   }

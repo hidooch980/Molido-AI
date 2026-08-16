@@ -11,6 +11,9 @@ cd "$(dirname "$0")" || exit 1
 
 # رستوران در پروفایل store اجرا نمی‌شود؛ ماژول‌هایش بارگذاری نشده‌اند و
 # همهٔ آزمون‌هایش ۴۰۴ می‌گیرند — شکستی که معنایی ندارد.
+#
+# ولی «اینجا اجرا نمی‌شود» نباید یعنی «هیچ‌جا اجرا نمی‌شود».  رگرسیون
+# رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
 SUITES="integration shop pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
         product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice

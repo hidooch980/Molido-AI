@@ -113,20 +113,6 @@ CA تازه بسازد، باید دوباره گرفته شود.
 
 راه بهتر و دائمی: گواهی معتبر (`VPS-DEPLOY.md` گام ۰).
 
-راهی که وسوسه‌کننده است و **نباید** رفت: `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-این اعتبارسنجی TLS را برای کل فرایند خاموش می‌کند، نه فقط برای سرور
-شما.  اگر ناچارید، گواهی سرور را با `NODE_EXTRA_CA_CERTS` به Node
-بدهید تا فقط همان یکی مورد اعتماد شود:
-
-```bash
-# گرفتن گواهی سرور
-openssl s_client -connect SERVER:443 -servername SERVER </dev/null 2>/dev/null \n  | openssl x509 > molido-server.crt
-
-# در .mcp.json
-"NODE_EXTRA_CA_CERTS": "/path/to/molido-server.crt"
-```
-
-
 ## آزمون
 
 ```bash

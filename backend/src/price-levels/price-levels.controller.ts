@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { CreatePriceLevelDto, UpdatePriceLevelDto } from './dto/price-level.dto';
 
 @ApiTags('سطح قیمت')
 @ApiBearerAuth()
@@ -25,8 +26,8 @@ export class PriceLevelsController {
 
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@CurrentUser() user: AuthUser, @Body() dto: any) {
-    return this.service.create(user.companyId!, dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreatePriceLevelDto) {
+    return this.service.create(user.companyId!, dto as unknown as Record<string, unknown>);
   }
 
   @Get(':id')
@@ -36,8 +37,8 @@ export class PriceLevelsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {
-    return this.service.update(user.companyId!, id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdatePriceLevelDto) {
+    return this.service.update(user.companyId!, id, dto as unknown as Record<string, unknown>);
   }
 
   @Delete(':id')

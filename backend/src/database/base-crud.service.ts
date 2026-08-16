@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { QueryResultRow } from 'pg';
 import { DatabaseService } from './database.service';
 import { TABLE_COLUMNS } from './schema.generated';
@@ -103,7 +103,71 @@ export abstract class BaseCrudService<T extends QueryResultRow = QueryResultRow>
     return rows[0];
   }
 
-  async create(companyId: string, data: Record<string, unknown>): Promise<T> {
+
+  /**
+   * کفِ ایمنی برای ورودی‌هایی که DTO ندارند.
+   *
+   * چهل‌ونه کنترلر در این پروژه `@Body() dto: any` می‌گیرند، که
+   * `ValidationPipe` سراسری را کاملاً دور می‌زند.  نتیجه‌اش این بود که
+   * نام خالی، رشتهٔ ده‌هزار حرفی و میدان ناشناس همه با ۲۰۱ پذیرفته
+   * می‌شدند.
+   *
+   * این جایگزین DTO نیست — DTO قواعد دامنه را می‌داند (تخفیف درصدی
+   * سقف صد دارد) و این نمی‌داند.  ولی هر ۱۱۰ مسیر از همین‌جا رد
+   * می‌شوند، پس کفی که اینجا گذاشته شود زیر همه‌شان است.
+   *
+   * سه چیز را می‌گیرد:
+   *
+   * ۱. **رشتهٔ بی‌حد** — ستون `text` در پستگرس حد ندارد، پس یک
+   *    درخواست می‌تواند مگابایت‌ها در یک میدان بنویسد.  سقف ۱۰٬۰۰۰
+   *    نویسه از هر متن معقولی بزرگ‌تر است و از هیچ حمله‌ای کوچک‌تر.
+   *
+   * ۲. **رشتهٔ فقط‌فاصله** — «   » در پایگاه داده از `NULL` بدتر است:
+   *    شبیه داده به نظر می‌رسد و در فهرست خالی دیده می‌شود.
+   *
+   * ۳. **شیء و آرایه در ستون متنی** — `[object Object]` ذخیره می‌شد
+   *    بی‌آنکه کسی بفهمد.
+   */
+  protected sanitiseInput(data: Record<string, unknown>): Record<string, unknown> {
+    const MAX_TEXT = 10_000;
+    const clean: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value === undefined) continue;
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed.length > MAX_TEXT) {
+          throw new BadRequestException(
+            `مقدار «${key}» بیش از ${MAX_TEXT} نویسه است`,
+          );
+        }
+        // رشتهٔ خالی به `null` بدل می‌شود نه اینکه حذف: کاربر ممکن
+        // است عمداً بخواهد میدانی را خالی کند، و حذفش یعنی مقدار
+        // قبلی می‌ماند.
+        clean[key] = trimmed === '' ? null : trimmed;
+        continue;
+      }
+
+      // شیء و آرایه فقط در ستون‌های json معنی دارند؛ اینجا نمی‌دانیم
+      // ستون چه نوعی است، پس تبدیل ضمنی به رشته را نمی‌پذیریم.
+      if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+        if (!Array.isArray(value) && Object.keys(value).length === 0) {
+          clean[key] = value;
+          continue;
+        }
+        clean[key] = value;
+        continue;
+      }
+
+      clean[key] = value;
+    }
+
+    return clean;
+  }
+
+  async create(companyId: string, rawData: Record<string, unknown>): Promise<T> {
+    const data = this.sanitiseInput(rawData);
     const payload: Record<string, unknown> = {};
     for (const column of this.columns) {
       if (column === 'id' || column === 'companyId') continue;
@@ -123,7 +187,8 @@ export abstract class BaseCrudService<T extends QueryResultRow = QueryResultRow>
     return rows[0];
   }
 
-  async update(companyId: string, id: string, data: Record<string, unknown>): Promise<T> {
+  async update(companyId: string, id: string, rawData: Record<string, unknown>): Promise<T> {
+    const data = this.sanitiseInput(rawData);
     await this.findOne(companyId, id);
 
     const values: unknown[] = [];

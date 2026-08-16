@@ -101,9 +101,11 @@ export class PayrollService {
       note?: string;
     },
   ) {
+    // محدود به شرکت — مثل قرارداد.  بدون آن، شمارهٔ پرسنلی یک شرکت
+    // برای بقیه هم بسته می‌شد.
     const existing = await this.db.query<{ id: string }>(
-      'SELECT id FROM "Employee" WHERE "employeeNo" = $1',
-      [data.employeeNo],
+      'SELECT id FROM "Employee" WHERE "employeeNo" = $1 AND "companyId" = $2',
+      [data.employeeNo, companyId],
     );
     if (existing[0]) throw new BadRequestException('شماره پرسنلی تکراری است');
 

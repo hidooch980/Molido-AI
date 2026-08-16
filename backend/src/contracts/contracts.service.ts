@@ -107,9 +107,15 @@ export class ContractsService {
       description?: string;
     },
   ) {
+    // ⚠️ حتماً محدود به شرکت.
+    //
+    // نسخهٔ اول `companyId` نداشت: شرکتی که قرارداد «۱۰۰۱» می‌ساخت،
+    // همان شماره را برای همهٔ شرکت‌های دیگر می‌بست — و پیام «شماره
+    // قرارداد تکراری است» دربارهٔ رکوردی بود که کاربر حق دیدنش را
+    // نداشت، یعنی خودش نشت اطلاعات بود.
     const existing = await this.db.query<{ id: string }>(
-      'SELECT id FROM "Contract" WHERE "contractNo" = $1',
-      [data.contractNo],
+      'SELECT id FROM "Contract" WHERE "contractNo" = $1 AND "companyId" = $2',
+      [data.contractNo, companyId],
     );
     if (existing[0]) throw new BadRequestException('شماره قرارداد تکراری است');
 

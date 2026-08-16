@@ -141,6 +141,27 @@ chk "فاکتور لغوشده از صف ارسال بیرون است" "$QUEUED"
 chk "رکورد صف حذف نشد" \
   "$(psqlv "SELECT count(*) FROM \"TaxInvoice\" WHERE id = 'audit-tax-1'")" "1"
 
+echo '--- قیدهای یکتا در محدودهٔ شرکت ---'
+# چهل جدولِ چندمستأجری قید یکتای تک‌ستونی داشتند: شرکتی که قرارداد
+# «۱۰۰۱» می‌ساخت، همان شماره را برای همهٔ شرکت‌های دیگر می‌بست.  بدتر
+# اینکه پیام خطا («شماره قرارداد تکراری است») دربارهٔ رکوردی بود که
+# کاربر حق دیدنش را نداشت — یعنی خودش نشت اطلاعات بود.
+#
+# این سنجه نه فهرست جدول‌ها که خودِ شرط را می‌سنجد، پس جدول تازه‌ای که
+# فردا با همین اشتباه اضافه شود هم گرفته می‌شود.
+chk "هیچ قید یکتای سراسری روی جدول چندمستأجری نمانده"   "$(psqlv "SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+            WHERE c.contype='u'
+              AND pg_get_constraintdef(c.oid) NOT LIKE '%companyId%'
+              AND EXISTS (SELECT 1 FROM information_schema.columns col
+                          WHERE col.table_name=t.relname AND col.column_name='companyId')")" "0"
+
+# و قید درست سرِ جایش هست — «صفر قید سراسری» به‌تنهایی با حذف کردن همهٔ
+# قیدها هم برآورده می‌شود.
+chk "قرارداد قید (companyId, contractNo) دارد"   "$(psqlv "SELECT count(*) FROM pg_constraint
+            WHERE conname = 'Contract_companyId_contractNo_key'")" "1"
+chk "کارمند قید (companyId, employeeNo) دارد"   "$(psqlv "SELECT count(*) FROM pg_constraint
+            WHERE conname = 'Employee_companyId_employeeNo_key'")" "1"
+
 # پاک‌سازی
 psql "DELETE FROM \"TaxInvoice\" WHERE id = 'audit-tax-1';
       DELETE FROM \"Product\" WHERE sku = 'AUDIT-P';"

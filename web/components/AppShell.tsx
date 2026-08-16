@@ -36,6 +36,8 @@ export const NAV: NavItem[] = [
   { href: '/pos', label: 'menuCashier', icon: 'pos', primary: true, feature: 'retail' as FeatureKey },
   { href: '/quick-keys', label: 'menuQuickKeys', icon: 'tag', feature: 'retail' as FeatureKey },
   { href: '/restaurant', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/kitchen', label: 'menuKitchen', icon: 'restaurant', feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/menu', label: 'menuMenuAdmin', icon: 'clipboard', feature: 'restaurant' as FeatureKey },
   { href: '/products', label: 'menuProducts', icon: 'package', primary: true },
   { href: '/inventory', label: 'menuInventory', icon: 'warehouse', primary: true },
   { href: '/stock-count', label: 'menuStockCount', icon: 'clipboard' },

@@ -16,13 +16,32 @@ C=${MOLIDO_COMPOSE:-"docker compose -f docker-compose.yml -f docker-compose.stor
 # نمی‌شویم.  سقف ورود عمداً سخت است (جلوی حدس رمز را می‌گیرد)، و ورودِ
 # جداگانه در هر مجموعه همان سقف را می‌خورد، توکن خالی برمی‌گردد، و
 # مجموعه با شکست‌هایی می‌افتد که هیچ ربطی به کد ندارند.
-T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json'   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}'   | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))")}
+T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json'   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}'   | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)}
 if [ -z "$T" ]; then
-  echo "  ✗ ورود ناموفق — سقف ورود خورده یا سرویس بالا نیست"
+  # پیام قبلی همیشه «سقف ورود» را متهم می‌کرد — ولی رمزِ غلط، سرویسِ
+  # خاموش و سقفِ ورود سه چیز متفاوت‌اند و سه راه‌حل متفاوت دارند.
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST $A/auth/login     -H 'Content-Type: application/json' -d '{"email":"admin@molido.ai","password":"'"$PW"'"}')
+  case "$code" in
+    000) echo "  ✗ ورود ناموفق — سرویس روی $A پاسخ نمی‌دهد" ;;
+    401) echo "  ✗ ورود ناموفق — رمز نادرست است (MOLIDO_ADMIN_PASSWORD را بده)" ;;
+    429) echo "  ✗ ورود ناموفق — سقف ورود خورده؛ چند دقیقه صبر کن" ;;
+    *)   echo "  ✗ ورود ناموفق — پاسخ $code از $A/auth/login" ;;
+  esac
   exit 1
 fi
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
-P() { python3 -c "import sys,json,io;sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8');sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
+P() { python3 -c "
+import sys,json,io
+sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8')
+sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8')
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+except ValueError:
+    # پاسخ JSON نبود: خالی، ۴۲۹ بی‌بدنه، یا اتصال قطع‌شده.  بدون این
+    # برچسب، خروجیِ خالی در گزارش شبیه اشکال منطقی به نظر می‌رسید.
+    print('<<پاسخ-JSON-نبود:%r>>' % raw[:60]); sys.exit(0)
+print($1)"; }
 Q() { $C exec -T postgres psql -U postgres -d molido_ai -t -c "$1" | tr -d ' \r\n'; }
 
 pass=0; fail=0

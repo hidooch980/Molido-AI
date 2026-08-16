@@ -30,9 +30,19 @@ services:
       MOLIDO_PRODUCT: resto
 
   web:
+    # ⚠️ `NEXT_PUBLIC_*` در Next.js هنگام **build** داخل باندل جاسازی
+    #    می‌شود، نه هنگام اجرا.  دادنش فقط در `environment` هیچ اثری
+    #    ندارد: باندلِ ساخته‌شده همچنان به `localhost:3000` (بک‌اندِ
+    #    فروشگاه) وصل می‌شود و همهٔ مسیرهای رستوران ۴۰۴ می‌گیرند —
+    #    بدون هیچ خطای آشکاری، فقط صفحهٔ خالی.
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:${RESTO_BACKEND_PORT:-3200}"
+        NEXT_PUBLIC_MOLIDO_PRODUCT: resto
     environment:
       # مرورگر به بک‌اندِ رستوران وصل شود نه فروشگاه.
       NEXT_PUBLIC_API_URL: "http://localhost:${RESTO_BACKEND_PORT:-3200}"
+      NEXT_PUBLIC_MOLIDO_PRODUCT: resto
     ports: !override
       - "${RESTO_WEB_PORT:-3202}:3001"
 

@@ -44,10 +44,45 @@ if [ -z "$MOLIDO_TOKEN" ]; then
 fi
 
 if [ -z "$MOLIDO_TOKEN" ]; then
-  echo "  ✗ ورود ناموفق — سرویس بالا نیست یا رمز عوض شده"
+  # سه علت متفاوت، سه راه‌حل متفاوت — حدس زدن فقط وقت هدر می‌دهد.
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST "${MOLIDO_API:-http://localhost:3000}/auth/login"     -H 'Content-Type: application/json' -d "{\"email\":\"admin@molido.ai\",\"password\":\"$MOLIDO_ADMIN_PASSWORD\"}")
+  case "$code" in
+    000) echo "  ✗ ورود ناموفق — سرویس روی ${MOLIDO_API:-http://localhost:3000} پاسخ نمی‌دهد" ;;
+    401) echo "  ✗ ورود ناموفق — رمز نادرست است (MOLIDO_ADMIN_PASSWORD را بده)" ;;
+    429) echo "  ✗ ورود ناموفق — سقف ورود خورده؛ چند دقیقه صبر کن" ;;
+    *)   echo "  ✗ ورود ناموفق — پاسخ $code از /auth/login" ;;
+  esac
   exit 1
 fi
 export MOLIDO_TOKEN
+
+# ⚠️ پیش از هر مجموعه صبر می‌کنیم تا سطلِ محدودیت نرخ خالی شود.
+#
+# سقف سراسری ۱۲۰۰ درخواست در دقیقه است و اجرای پشت‌سرهمِ همهٔ مجموعه‌ها
+# از آن رد می‌شود.  نتیجه‌اش ۴۲۹ با بدنهٔ خالی بود که در آزمون‌ها به شکل
+# «got= want=1200000» ظاهر می‌شد — یعنی دقیقاً شبیه یک اشکال منطقی.
+#
+# دو مجموعه (`ration` و `untested`) به همین دلیل قرمز می‌شدند در حالی که
+# جداگانه هر دو کاملاً سبزند.  قرمزِ دروغین از قرمزِ راست بدتر است: آدم
+# را به بی‌اعتنایی به قرمز عادت می‌دهد.
+# سرور خودش سهمیهٔ باقی‌مانده را در هدر `X-RateLimit-Remaining-long`
+# می‌دهد، پس حدس نمی‌زنیم: تا وقتی جا برای یک مجموعهٔ کامل نباشد صبر
+# می‌کنیم.  «صبر تا وقتی ۴۲۹ نگیریم» کافی نیست — سطل ممکن است پر ولی
+# هنوز سرریز نکرده باشد و سرریز وسط مجموعه رخ دهد.
+QUOTA_NEEDED=${QUOTA_NEEDED:-250}
+
+wait_for_quota() {
+  local i left
+  for i in $(seq 1 30); do
+    left=$(curl -s -D - -o /dev/null --max-time 5       "${MOLIDO_API:-http://localhost:3000}/health" -H "Authorization: Bearer $MOLIDO_TOKEN"       | grep -i '^X-RateLimit-Remaining-long:' | tr -dc '0-9')
+    # اگر هدر نبود (سرور قدیمی یا خطا) بی‌جهت معطل نمی‌کنیم.
+    [ -z "$left" ] && return 0
+    [ "$left" -ge "$QUOTA_NEEDED" ] && return 0
+    sleep 5
+  done
+  echo "  ⚠️ سهمیهٔ نرخ پس از ۱۵۰ ثانیه هنوز کمتر از $QUOTA_NEEDED است"
+  return 1
+}
 
 for suite in $SUITES; do
   file="backend/test/$suite.sh"
@@ -57,6 +92,7 @@ for suite in $SUITES; do
     continue
   fi
 
+  wait_for_quota
   out=$(bash "$file" 2>&1)
   printf '%s
 ' "$out" > "$LOGDIR/$suite.log"

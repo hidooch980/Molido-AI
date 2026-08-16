@@ -21,7 +21,7 @@ chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; el
 # توکن مشترک — ورودِ اضافی همان سقفی را می‌خورد که قرار است سنجیده شود.
 T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))")}
+  | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)}
 AU="Authorization: Bearer $T"
 
 echo '--- 1) توکن گرفته شد ---'

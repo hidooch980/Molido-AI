@@ -16,13 +16,24 @@ C=${MOLIDO_COMPOSE:-"docker compose -f docker-compose.yml -f docker-compose.stor
 
 T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
   -d "{\"email\":\"admin@molido.ai\",\"password\":\"$PW\"}" \
-  | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))")}
+  | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)}
 if [ -z "$T" ]; then
   echo "  ✗ ورود ناموفق"
   exit 1
 fi
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
-P() { python3 -c "import sys,json,io;sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8');sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
+P() { python3 -c "
+import sys,json,io
+sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8')
+sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8')
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+except ValueError:
+    # پاسخ JSON نبود: خالی، ۴۲۹ بی‌بدنه، یا اتصال قطع‌شده.  بدون این
+    # برچسب، خروجیِ خالی در گزارش شبیه اشکال منطقی به نظر می‌رسید.
+    print('<<پاسخ-JSON-نبود:%r>>' % raw[:60]); sys.exit(0)
+print($1)"; }
 
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }

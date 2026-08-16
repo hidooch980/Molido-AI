@@ -23,7 +23,18 @@ TEMP='Temp-Passw0rd-9x'
 
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
-P() { python3 -c "import sys,json,io;sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8');sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
+P() { python3 -c "
+import sys,json,io
+sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8')
+sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8')
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+except ValueError:
+    # پاسخ JSON نبود: خالی، ۴۲۹ بی‌بدنه، یا اتصال قطع‌شده.  بدون این
+    # برچسب، خروجیِ خالی در گزارش شبیه اشکال منطقی به نظر می‌رسید.
+    print('<<پاسخ-JSON-نبود:%r>>' % raw[:60]); sys.exit(0)
+print($1)"; }
 
 login() {
   curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \

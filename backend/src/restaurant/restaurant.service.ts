@@ -15,6 +15,7 @@ import {
   MenuItemDto,
   OrderItemDto,
   SetRecipeDto,
+  StationDto,
   SettleOrderDto,
 } from './dto/restaurant.dto';
 
@@ -30,6 +31,9 @@ type OrderRow = Row & {
 const OPEN_ORDER_STATUSES = ['OPEN', 'IN_KITCHEN', 'READY', 'SERVED'];
 const CLOSED_ORDER_STATUSES = ['PAID', 'CANCELLED'];
 const ITEM_STATUSES = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
+
+/** ایستگاه‌های آشپزخانه — از StationDto گرفته می‌شود تا دو جا از هم دور نیفتند. */
+const STATIONS: string[] = Object.values(StationDto);
 const ACTIVE_RESERVATION_STATUSES = ['PENDING', 'CONFIRMED', 'SEATED'];
 
 const DEFAULT_RESERVATION_MINUTES = 90;
@@ -522,7 +526,19 @@ export class RestaurantService {
       `NOT (o.status = ANY(${params.next(CLOSED_ORDER_STATUSES)}))`,
       `i.status = ANY(${params.next(['PREPARING', 'READY'])})`,
     ];
-    if (station) conditions.push(`i.station = ${params.next(station)}`);
+    // ایستگاه ناشناس فهرست خالی می‌داد، نه خطا.
+    //
+    // این همان اشتباهی است که در `/retail/search` هم بود: نام پارامتر
+    // یا مقدارش غلط باشد، پاسخ ۲۰۰ با فهرست خالی است و آشپز فکر
+    // می‌کند سفارشی نیست — در حالی که سفارش هست و او نمی‌بیندش.
+    if (station) {
+      if (!STATIONS.includes(station)) {
+        throw new BadRequestException(
+          `ایستگاه «${station}» شناخته نشد. مقادیر مجاز: ${STATIONS.join('، ')}`,
+        );
+      }
+      conditions.push(`i.station = ${params.next(station)}`);
+    }
 
     const items = await this.db.query<Row & { sentAt: string | null }>(
       `SELECT i.*, o."orderNo", o.type AS "orderType", o."openedAt", t."tableNo"

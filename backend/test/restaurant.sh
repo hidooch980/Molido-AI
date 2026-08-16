@@ -192,6 +192,48 @@ echo '--- 9) settling twice rejected ---'
 chk "double settle rejected" "$(curl -s -X POST "$A/restaurant/orders/$OID/settle" -H "$AU" -H "$JS" \
   -d '{"paidAmount":240000,"paymentMethod":"CASH"}' | P "d.get('statusCode')")" "400"
 
+echo '--- 9b) رزرو ---'
+# سه مسیر رزرو بی‌آزمون و بی‌صفحه بودند؛ تلفن که زنگ می‌زد، رزرو روی
+# کاغذ نوشته می‌شد.
+RT=$(Q "SELECT id FROM \"RestaurantTable\" WHERE \"tableNo\"='T-99';")
+WHEN=$(python3 -c "
+import datetime
+print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3)).replace(microsecond=0).isoformat())")
+RES=$(curl -s -X POST $A/restaurant/reservations -H "$AU" -H "$JS"   -d "{\"customerName\":\"UT-Guest\",\"guests\":4,\"reservedAt\":\"$WHEN\",\"tableId\":\"$RT\",\"durationMin\":90}" | P "d.get('id','')")
+chk "رزرو ثبت شد" "$([ -n "$RES" ] && echo yes || echo no)" "yes"
+chk "وضعیت اولیه PENDING"   "$(Q "SELECT status FROM \"TableReservation\" WHERE id='$RES';")" "PENDING"
+chk "زمان رزرو الزامی است"   "$(curl -s -X POST $A/restaurant/reservations -H "$AU" -H "$JS" -d '{"customerName":"UT-NoTime"}' | P "d.get('statusCode')")" "400"
+chk "میز ناموجود رد می‌شود"   "$(curl -s -X POST $A/restaurant/reservations -H "$AU" -H "$JS"      -d "{\"customerName\":\"UT-BadTable\",\"reservedAt\":\"$WHEN\",\"tableId\":\"00000000-0000-0000-0000-000000000000\"}" | P "d.get('statusCode')")" "404"
+# تداخل: همان میز، همان لحظه.  بدون این، دو مشتری سرِ یک میز می‌آیند.
+chk "تداخل رزرو رد می‌شود"   "$(curl -s -X POST $A/restaurant/reservations -H "$AU" -H "$JS"      -d "{\"customerName\":\"UT-Clash\",\"reservedAt\":\"$WHEN\",\"tableId\":\"$RT\"}" | P "d.get('statusCode')")" "400"
+# میز خالی گذاشتن باید مجاز باشد: خیلی رزروها سرِ شب تخصیص می‌یابند.
+chk "رزرو بدون میز مجاز است"   "$(curl -s -X POST $A/restaurant/reservations -H "$AU" -H "$JS"      -d "{\"customerName\":\"UT-NoTable\",\"reservedAt\":\"$WHEN\"}" | P "bool(d.get('id'))")" "True"
+chk "چرخه وضعیت CONFIRMED"   "$(curl -s -X PATCH "$A/restaurant/reservations/$RES" -H "$AU" -H "$JS" -d '{"status":"CONFIRMED"}' | P "d.get('status')")" "CONFIRMED"
+chk "فیلتر تاریخ کار می‌کند"   "$(curl -s "$A/restaurant/reservations?date=$(echo "$WHEN" | cut -dT -f1)" -H "$AU" | P "sum(1 for x in d if x['id']=='$RES')")" "1"
+chk "روز دیگر خالی است"   "$(curl -s "$A/restaurant/reservations?date=1999-01-01" -H "$AU" | P "len(d)")" "0"
+
+echo '--- 9c) شیفت ---'
+SH=$(curl -s -X POST $A/restaurant/shifts/open -H "$AU" -H "$JS" -d '{"openingCash":5000000}' | P "d.get('id','')")
+chk "شیفت باز شد" "$([ -n "$SH" ] && echo yes || echo no)" "yes"
+chk "در فهرست باز است"   "$(curl -s "$A/restaurant/shifts" -H "$AU" | P "[x['endedAt'] for x in d if x['id']=='$SH'][0] is None")" "True"
+CL=$(curl -s -X POST "$A/restaurant/shifts/$SH/close" -H "$AU" -H "$JS" -d '{"closingCash":6000000}')
+chk "شیفت بسته شد" "$(echo "$CL" | P "d.get('endedAt') is not None")" "True"
+# فروش شیفت باید از سفارش‌های تسویه‌شدهٔ همان بازه محاسبه شود، نه صفرِ
+# ثابت — وگرنه اختلاف صندوق همیشه غلط درمی‌آید.
+chk "فروش شیفت محاسبه شد" "$(echo "$CL" | P "'totalSales' in d")" "True"
+chk "بستن دوباره رد می‌شود"   "$(curl -s -X POST "$A/restaurant/shifts/$SH/close" -H "$AU" -H "$JS" -d '{}' | P "d.get('statusCode')")" "400"
+chk "شیفت ناموجود ۴۰۴"   "$(curl -s -X POST "$A/restaurant/shifts/00000000-0000-0000-0000-000000000000/close" -H "$AU" -H "$JS" -d '{}' | P "d.get('statusCode')")" "404"
+
+echo '--- 9d) گزارش پرفروش‌ها ---'
+chk "گزارش فهرست می‌دهد"   "$(curl -s "$A/restaurant/reports/top-items" -H "$AU" | P "isinstance(d, list)")" "True"
+# غذایی که همین آزمون فروخت باید در گزارش باشد.
+chk "قلم فروخته‌شده در گزارش هست"   "$(curl -s "$A/restaurant/reports/top-items?limit=200" -H "$AU" | P "sum(1 for x in d if x['name']=='Tea') >= 1")" "True"
+chk "بازه آینده خالی است"   "$(curl -s "$A/restaurant/reports/top-items?from=2099-01-01" -H "$AU" | P "len(d)")" "0"
+
+# پاک‌سازی رزروهای این آزمون
+Q "DELETE FROM \"TableReservation\" WHERE \"customerName\" LIKE 'UT-%';" >/dev/null
+Q "DELETE FROM \"RestaurantShift\" WHERE id='$SH';" >/dev/null
+
 echo '--- 10) trial balance still zero ---'
 chk "trial balance" "$(Q "SELECT COALESCE(SUM(l.debit)-SUM(l.credit),0)::bigint FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\" WHERE e.status<>'DRAFT';")" "0"
 

@@ -97,7 +97,7 @@ chk "empty leaf deletes" "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$A
 echo '--- 5) duplicate name under same parent rejected ---'
 curl -s -X POST $A/categories -H "$AU" -H "$JS" -d "{\"name\":\"TEST-Dup\",\"parentId\":\"$MID\"}" >/dev/null
 chk "duplicate blocked" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/categories -H "$AU" -H "$JS" \
-  -d "{\"name\":\"TEST-Dup\",\"parentId\":\"$MID\"}")" "500"
+  -d "{\"name\":\"TEST-Dup\",\"parentId\":\"$MID\"}")" "409"
 
 # ================================================================ انبار
 echo '--- 6) warehouse CRUD + stock summary ---'
@@ -111,7 +111,7 @@ chk "empty warehouse value 0" "$(curl -s "$A/warehouses" -H "$AU" \
 
 echo '--- 7) duplicate warehouse code rejected ---'
 chk "dup code blocked" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/warehouses -H "$AU" -H "$JS" \
-  -d '{"name":"TEST-Depot2","code":"TSTD"}')" "500"
+  -d '{"name":"TEST-Depot2","code":"TSTD"}')" "409"
 
 echo '--- 8) warehouse with stock cannot be deleted ---'
 $C exec -T postgres psql -U postgres -d molido_ai -q -c "

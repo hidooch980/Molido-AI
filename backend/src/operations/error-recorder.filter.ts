@@ -29,6 +29,41 @@ import { resolveLang, translateMessage } from '../i18n/messages';
  * می‌شود، نه `await`.  کاربر پاسخش را می‌گیرد، ثبت در پس‌زمینه انجام
  * می‌شود.
  */
+
+/**
+ * قیدهای پایگاه داده به پیام قابل‌فهم بدل می‌شوند.
+ *
+ * تا امروز نقض قید یکتایی به کاربر «خطای داخلی سرور» با کد ۵۰۰ نشان
+ * می‌داد.  ولی این خطای سرور نیست — کاربر کد یا شماره‌ای وارد کرده که
+ * قبلاً استفاده شده، و تنها چیزی که لازم دارد همین جمله است.
+ *
+ * شش سرویس این را جداگانه می‌گرفتند (`ledger`، `stock-count`،
+ * `ration`، `cashier-shift`، `revenue`)؛ ولی هر مسیری که فراموش شده
+ * بود، همچنان ۵۰۰ می‌داد — از جمله ساخت میز رستوران و انبار و دستهٔ
+ * کالا.  اینجا زیر همه‌شان است.
+ *
+ * جزئیات فنی (نام قید، نام ستون) عمداً بیرون نمی‌رود: هم بی‌فایده است
+ * هم ساختار دیتابیس را لو می‌دهد.
+ */
+const PG_CONSTRAINT_MESSAGES: Record<string, { status: number; message: string }> = {
+  // یکتایی: همین مقدار قبلاً ثبت شده
+  '23505': { status: HttpStatus.CONFLICT, message: 'این مقدار قبلاً ثبت شده است' },
+  // کلید خارجی: به رکوردی اشاره شده که وجود ندارد یا هنوز وابسته است
+  '23503': {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'این رکورد به رکورد دیگری وابسته است یا مرجعش یافت نشد',
+  },
+  // CHECK: قاعده‌ای که خودِ دیتابیس نگه می‌دارد نقض شده
+  '23514': { status: HttpStatus.BAD_REQUEST, message: 'مقدار واردشده مجاز نیست' },
+  // NOT NULL
+  '23502': { status: HttpStatus.BAD_REQUEST, message: 'یکی از مقدارهای الزامی خالی است' },
+};
+
+function pgConstraint(exception: unknown): { status: number; message: string } | null {
+  const code = (exception as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? (PG_CONSTRAINT_MESSAGES[code] ?? null) : null;
+}
+
 @Catch()
 export class ErrorRecorderFilter implements ExceptionFilter {
   private readonly logger = new Logger('Error');
@@ -54,9 +89,11 @@ export class ErrorRecorderFilter implements ExceptionFilter {
     }>();
 
     const isHttp = exception instanceof HttpException;
+    // قید دیتابیس خطای سرور نیست؛ خطای ورودی کاربر است.
+    const constraint = isHttp ? null : pgConstraint(exception);
     const status = isHttp
       ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+      : (constraint?.status ?? HttpStatus.INTERNAL_SERVER_ERROR);
 
     const lang = resolveLang(request ?? {});
 
@@ -91,7 +128,7 @@ export class ErrorRecorderFilter implements ExceptionFilter {
       rawMessage = exception instanceof Error ? exception.message : String(exception);
       payload = {
         statusCode: status,
-        message: translateMessage('خطای داخلی سرور', lang),
+        message: translateMessage(constraint?.message ?? 'خطای داخلی سرور', lang),
       };
     }
 

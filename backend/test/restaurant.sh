@@ -234,6 +234,34 @@ chk "بازه آینده خالی است"   "$(curl -s "$A/restaurant/reports/to
 Q "DELETE FROM \"TableReservation\" WHERE \"customerName\" LIKE 'UT-%';" >/dev/null
 Q "DELETE FROM \"RestaurantShift\" WHERE id='$SH';" >/dev/null
 
+echo '--- 9e) چیدمان سالن: نگهبان‌های حذف ---'
+# `areas` تنها حوزه‌ای بود که هیچ صفحه‌ای نداشت — یعنی رستوران تازه
+# اصلاً نمی‌توانست چیدمانش را وارد کند.
+#
+# هر دو کلید خارجی روی SET NULL هستند، پس حذفِ سالنِ پر یا میزِ مشغول
+# **خطا نمی‌داد**: میزها بی‌صدا بی‌سالن می‌شدند و سفارشِ باز بی‌میز.
+# نبودِ خطای دیتابیس یعنی نگهبان باید در سرویس باشد.
+UA=$(curl -s -X POST $A/restaurant/areas -H "$AU" -H "$JS" -d '{"name":"UT-Area","floor":"۱"}' | P "d.get('id','')")
+chk "سالن ساخته شد" "$([ -n "$UA" ] && echo yes || echo no)" "yes"
+UT=$(curl -s -X POST $A/restaurant/tables -H "$AU" -H "$JS"   -d "{\"areaId\":\"$UA\",\"tableNo\":\"UT-T1\",\"capacity\":4}" | P "d.get('id','')")
+chk "میز ساخته شد" "$([ -n "$UT" ] && echo yes || echo no)" "yes"
+# قیدهای دیتابیس حالا ۴۰۹/۴۰۰ با پیام فارسی می‌دهند، نه «خطای داخلی
+# سرور» با ۵۰۰.  کاربری که شمارهٔ تکراری می‌زند باید بداند چرا.
+chk "شماره میز تکراری رد می‌شود"   "$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/restaurant/tables -H "$AU" -H "$JS"      -d "{\"areaId\":\"$UA\",\"tableNo\":\"UT-T1\",\"capacity\":2}")" "409"
+# سالنی که میز دارد نباید حذف شود، وگرنه میزهایش از نقشه ناپدید می‌شوند.
+chk "سالن پر حذف نمی‌شود"   "$(curl -s -X DELETE "$A/restaurant/areas/$UA" -H "$AU" | P "d.get('statusCode')")" "400"
+
+UMI=$(curl -s "$A/restaurant/menu-items?limit=5" -H "$AU" | P "d[0]['id']")
+UOR=$(curl -s -X POST $A/restaurant/orders -H "$AU" -H "$JS"   -d "{\"type\":\"DINE_IN\",\"tableId\":\"$UT\",\"items\":[{\"menuItemId\":\"$UMI\",\"qty\":1}]}" | P "d.get('id','')")
+# میزی که سفارش باز دارد نباید حذف شود، وگرنه گارسون نمی‌داند غذا کجا برود.
+chk "میز با سفارش باز حذف نمی‌شود"   "$(curl -s -X DELETE "$A/restaurant/tables/$UT" -H "$AU" | P "d.get('statusCode')")" "400"
+chk "سفارش هنوز میزش را دارد"   "$(Q "SELECT CASE WHEN \"tableId\"='$UT' THEN 'yes' ELSE 'no' END FROM \"RestaurantOrder\" WHERE id='$UOR';")" "yes"
+
+curl -s -X POST "$A/restaurant/orders/$UOR/cancel" -H "$AU" >/dev/null
+chk "پس از لغو، میز حذف می‌شود"   "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$A/restaurant/tables/$UT" -H "$AU")" "200"
+chk "سالن خالی حذف می‌شود"   "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$A/restaurant/areas/$UA" -H "$AU")" "200"
+chk "حذف دوبارهٔ سالن ۴۰۴"   "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$A/restaurant/areas/$UA" -H "$AU")" "404"
+
 echo '--- 10) trial balance still zero ---'
 chk "trial balance" "$(Q "SELECT COALESCE(SUM(l.debit)-SUM(l.credit),0)::bigint FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\" WHERE e.status<>'DRAFT';")" "0"
 

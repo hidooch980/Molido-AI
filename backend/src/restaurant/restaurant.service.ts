@@ -124,6 +124,20 @@ export class RestaurantService {
 
   async removeArea(companyId: string, id: string) {
     const area = await this.ensure('restaurantArea', companyId, id, 'سالن یافت نشد');
+
+    // مثل حذف میز: کلید خارجی SET NULL است، پس حذف سالنِ پر خطا
+    // نمی‌دهد و میزها بی‌صدا بی‌سالن می‌شوند — روی نقشهٔ سالن ناپدید
+    // می‌شوند بی‌آنکه کسی بفهمد چرا.
+    const tables = await this.db.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM "RestaurantTable" WHERE "areaId" = $1',
+      [id],
+    );
+    if (Number(tables[0]?.count ?? 0) > 0) {
+      throw new BadRequestException(
+        `این سالن ${tables[0].count} میز دارد؛ اول میزها را جابه‌جا یا حذف کنید`,
+      );
+    }
+
     await this.db.execute('DELETE FROM "RestaurantArea" WHERE id = $1', [id]);
     return area;
   }
@@ -161,6 +175,21 @@ export class RestaurantService {
 
   async removeTable(companyId: string, id: string) {
     const table = await this.ensure('restaurantTable', companyId, id, 'میز یافت نشد');
+
+    // ⚠️ کلید خارجی روی SET NULL است، پس حذف خطا نمی‌دهد — سفارشِ باز
+    //    فقط بی‌صدا بی‌میز می‌شود و گارسون دیگر نمی‌داند غذا کجا برود.
+    //    نبودِ خطای دیتابیس یعنی این نگهبان باید اینجا باشد.
+    const open = await this.db.query<{ orderNo: string }>(
+      `SELECT "orderNo" FROM "RestaurantOrder"
+       WHERE "tableId" = $1 AND NOT (status = ANY($2)) LIMIT 1`,
+      [id, CLOSED_ORDER_STATUSES],
+    );
+    if (open[0]) {
+      throw new BadRequestException(
+        `این میز سفارش باز دارد (${open[0].orderNo}); اول آن را تسویه یا لغو کنید`,
+      );
+    }
+
     await this.db.execute('DELETE FROM "RestaurantTable" WHERE id = $1', [id]);
     return table;
   }

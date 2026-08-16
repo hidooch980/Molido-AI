@@ -124,6 +124,16 @@ export default function ReservationsPage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
+  /**
+   * ⚠️ در مسیر موفق خطا را **پاک نمی‌کند**.
+   *
+   * نسخهٔ اول اینجا `setError('')` داشت.  نتیجه‌اش این بود که هر
+   * عملیاتی که خطا می‌داد و بعد فهرست را تازه می‌کرد، پیام خطایش بی‌صدا
+   * محو می‌شد: «سه میز افزوده شد، سه‌تا تکراری بود» کاملاً ناپدید
+   * می‌شد و کاربر فقط می‌دید تعداد میزها آن نیست که خواسته بود.
+   *
+   * پاک کردن خطا کارِ *شروعِ* هر عملیات است، نه کارِ بارگذاری.
+   */
   const load = useCallback(async () => {
     try {
       const [r, t] = await Promise.all([
@@ -132,7 +142,6 @@ export default function ReservationsPage() {
       ]);
       setList(r);
       setTables(t);
-      setError('');
     } catch (caught) {
       setError((caught as Error).message);
     }
@@ -194,6 +203,7 @@ export default function ReservationsPage() {
   };
 
   const setStatus = async (r: Reservation, status: string) => {
+    setError('');
     setBusy(r.id);
     try {
       await api(`/restaurant/reservations/${r.id}`, {

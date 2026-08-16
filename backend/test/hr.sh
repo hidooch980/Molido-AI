@@ -110,7 +110,7 @@ echo '--- 9) leave beyond entitlement rejected (10 left = 7) ---'
 L2=$(curl -s -X POST $A/attendance/leaves -H "$AU" -H "$JS" \
   -d "{\"employeeId\":\"$EID\",\"kind\":\"ANNUAL\",\"startDate\":\"2026-05-01\",\"endDate\":\"2026-05-20\"}")
 L2ID=$(echo "$L2" | P "d.get('id','')")
-chk "over-entitlement rejected" "$(curl -s -X PATCH "$A/attendance/leaves/$L2ID/decide" -H "$AU" -H "$JS" -d '{"approve":true}' | P "d.get('statusCode')")" "500"
+chk "over-entitlement rejected" "$(curl -s -X PATCH "$A/attendance/leaves/$L2ID/decide" -H "$AU" -H "$JS" -d '{"approve":true}' | P "d.get('statusCode')")" "400"
 
 echo '--- 10) payroll slip ---'
 # حقوق پایه و مزایا از رکورد کارمند خوانده می‌شوند؛ بدنه فقط اقلام دوره‌ای

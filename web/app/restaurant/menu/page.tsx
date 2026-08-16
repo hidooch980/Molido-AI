@@ -105,6 +105,16 @@ export default function MenuAdminPage() {
   const [lines, setLines] = useState<RecipeLine[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
 
+  /**
+   * ⚠️ در مسیر موفق خطا را **پاک نمی‌کند**.
+   *
+   * نسخهٔ اول اینجا `setError('')` داشت.  نتیجه‌اش این بود که هر
+   * عملیاتی که خطا می‌داد و بعد فهرست را تازه می‌کرد، پیام خطایش بی‌صدا
+   * محو می‌شد: «سه میز افزوده شد، سه‌تا تکراری بود» کاملاً ناپدید
+   * می‌شد و کاربر فقط می‌دید تعداد میزها آن نیست که خواسته بود.
+   *
+   * پاک کردن خطا کارِ *شروعِ* هر عملیات است، نه کارِ بارگذاری.
+   */
   const load = useCallback(async () => {
     try {
       // هر دو با هم: دستهٔ بدون قلم و قلمِ بدون دسته هر دو باید دیده شوند.
@@ -114,7 +124,6 @@ export default function MenuAdminPage() {
       ]);
       setCats(c);
       setItems(i);
-      setError('');
     } catch (caught) {
       setError((caught as Error).message);
     }
@@ -209,6 +218,7 @@ export default function MenuAdminPage() {
   };
 
   const toggle = async (it: Item) => {
+    setError('');
     setBusy(it.id);
     // خوش‌بینانه: «تمام شد» را وسط سرویس می‌زنند و باید فوری اثر کند.
     setItems((prev) =>
@@ -226,6 +236,7 @@ export default function MenuAdminPage() {
 
   const remove = async (it: Item) => {
     if (!window.confirm(`«${it.name}» حذف شود؟`)) return;
+    setError('');
     setBusy(it.id);
     try {
       await api(`/restaurant/menu-items/${it.id}`, { method: 'DELETE' });
@@ -243,6 +254,7 @@ export default function MenuAdminPage() {
   const addCategory = async () => {
     const name = newCat.trim();
     if (!name) return;
+    setError('');
     setBusy('cat');
     try {
       await api('/restaurant/menu-categories', { method: 'POST', body: { name } });
@@ -266,6 +278,7 @@ export default function MenuAdminPage() {
   const openRecipe = async (it: Item) => {
     setRecipeFor(it);
     setLines([]);
+    setError('');
     setBusy(`recipe-${it.id}`);
     try {
       const [r, p] = await Promise.all([

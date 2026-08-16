@@ -37,7 +37,12 @@ raw=sys.stdin.read()
 try:
     d=json.loads(raw)
 except ValueError:
-    print('<<پاسخ-JSON-نبود:%r>>' % raw[:60]); sys.exit(0)
+    # برچسب باید بی‌گیومه و بی‌بک‌اسلش باشد: این مقدار در عبارتِ
+    # پایتونِ سنجهٔ بعدی جاگذاری می‌شود و اگر گیومه داشته باشد نحو
+    # را می‌شکند — یعنی برچسبِ تشخیصی، خودش شکست تازه می‌سازد.
+    bad = chr(39) + chr(34) + chr(92)
+    safe = ''.join(c for c in raw[:40] if c.isprintable() and c not in bad)
+    print('<<پاسخ-JSON-نبود: %d نویسه: %s>>' % (len(raw), safe)); sys.exit(0)
 print($1)"; }
 
 pass=0; fail=0

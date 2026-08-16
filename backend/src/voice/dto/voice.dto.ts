@@ -128,3 +128,17 @@ export class ReviewSampleDto {
   @MaxLength(200)
   reason?: string;
 }
+
+/**
+ * فهرست عبارت‌ها با پیشرفتِ یک گویندهٔ مشخص.
+ *
+ * جدا از `ScopeQueryDto` است چون فقط حالت ضبط پیوسته لازمش دارد؛
+ * بقیهٔ مسیرها نباید پارامتری بگیرند که استفاده نمی‌کنند.
+ */
+export class PhrasesQueryDto extends ScopeQueryDto {
+  @IsOptional()
+  @trimmed
+  @IsString()
+  @MaxLength(40)
+  speakerTag?: string;
+}

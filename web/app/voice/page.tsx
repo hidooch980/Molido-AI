@@ -18,6 +18,7 @@ import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { TOUCH } from '../../components/ui';
 import { API_URL, api, getToken } from '../../lib/api';
+import Session from './Session';
 
 type Dialect = { code: string; label: string };
 
@@ -63,7 +64,7 @@ type PendingSample = {
 const KIND_LABEL: Record<string, string> = {
   PRODUCT: 'کالا',
   NUMBER: 'عدد',
-  COMMAND: 'فرمان',
+  COMMAND: 'عبارت',
 };
 
 /** حد نصاب هر عبارت — همان عددی که سرور هم اجرا می‌کند. */
@@ -82,6 +83,7 @@ export default function VoicePage() {
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [session, setSession] = useState(false);
 
   /**
    * برچسب گوینده در همین مرورگر می‌ماند.
@@ -197,6 +199,7 @@ export default function VoicePage() {
               }}
               kindFilter={kindFilter}
               onKindFilter={setKindFilter}
+              onSession={() => setSession(true)}
               onBuild={() =>
                 run('فهرست عبارت‌ها ساخته شد', () =>
                   api(`/voice/phrases/build?dialect=${dialect}`, { method: 'POST' }),
@@ -218,6 +221,18 @@ export default function VoicePage() {
 
         {tab === 'import' ? (
           <Import dialect={dialect} onDone={load} onError={setError} />
+        ) : null}
+
+        {session ? (
+          <Session
+            dialect={dialect}
+            speaker={speaker}
+            onClose={() => {
+              setSession(false);
+              void load();
+            }}
+            onSaved={load}
+          />
         ) : null}
       </div>
     </AppShell>
@@ -357,6 +372,7 @@ function Toolbar({
   kindFilter,
   onKindFilter,
   onBuild,
+  onSession,
 }: {
   busy: boolean;
   speaker: string;
@@ -364,6 +380,7 @@ function Toolbar({
   kindFilter: string;
   onKindFilter: (value: 'ALL' | Phrase['kind']) => void;
   onBuild: () => void;
+  onSession: () => void;
 }) {
   return (
     <section
@@ -402,6 +419,22 @@ function Toolbar({
           <option value="PRODUCT">کالا</option>
         </select>
       </div>
+
+      <button
+        type="button"
+        onClick={onSession}
+        style={{
+          ...TOUCH,
+          borderRadius: 10,
+          border: 'none',
+          background: 'var(--accent)',
+          color: '#fff',
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
+      >
+        شروع ضبط پیوسته
+      </button>
 
       <button
         type="button"

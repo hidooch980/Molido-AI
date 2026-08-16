@@ -89,6 +89,9 @@ REQUIRED=(
   web/scripts/verify-i18n.mjs
   mcp/server.mjs
   mcp/tools.mjs
+  backend/sql/migrations/034_product_names_stay_persian.sql
+  backend/src/purchasing/quote-rules.ts
+  web/app/voice/Session.tsx
   data/balochi/fa-bal-gatitos.csv
   data/balochi/ATTRIBUTION.md
   run-tests.sh

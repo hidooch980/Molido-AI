@@ -18,6 +18,7 @@ import {
   AddSampleDto,
   ImportDictionaryDto,
   ReviewSampleDto,
+  PhrasesQueryDto,
   ScopeQueryDto,
   SetTargetDto,
 } from './dto/voice.dto';
@@ -53,8 +54,11 @@ export class VoiceController {
 
   @Get('phrases')
   @Roles(...RECORDER_ROLES)
-  phrases(@CurrentUser() user: AuthUser, @Query() q: ScopeQueryDto) {
-    return this.voice.phrases(scopeOf(user.companyId as string, q.lang, q.dialect));
+  phrases(@CurrentUser() user: AuthUser, @Query() q: PhrasesQueryDto) {
+    return this.voice.phrases(
+      scopeOf(user.companyId as string, q.lang, q.dialect),
+      q.speakerTag,
+    );
   }
 
   /** ساخت فهرست ضبط از کالاهای فروشگاه + اعداد + فرمان‌ها. */

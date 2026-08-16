@@ -1,4 +1,12 @@
-import { groupBySupplier, pickWinners, summarize, type NeedLine, type Quote } from './quote-rules';
+import {
+  brief,
+  groupBySupplier,
+  pickWinners,
+  savingsOf,
+  summarize,
+  type NeedLine,
+  type Quote,
+} from './quote-rules';
 
 function need(over: Partial<NeedLine> = {}): NeedLine {
   return { productId: 'p1', productName: 'برنج', qty: 10, lastPrice: 100_000, ...over };
@@ -197,5 +205,129 @@ describe('گروه‌بندی بر اساس تأمین‌کننده', () => {
   it('قلم بی‌پیشنهاد در هیچ گروهی نمی‌آید', () => {
     const winners = pickWinners([need({ productId: 'p9' })], []);
     expect(groupBySupplier(winners)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------- گزارش به مدیر
+
+describe('savingsOf', () => {
+  const need = (id: string, qty: number) => ({
+    productId: id,
+    productName: id,
+    qty,
+    lastPrice: null,
+  });
+  const q = (product: string, supplier: string, price: number) => ({
+    callId: `c-${supplier}`,
+    supplierId: supplier,
+    supplierName: supplier,
+    productId: product,
+    unitPrice: price,
+    availableQty: null,
+    leadDays: null,
+  });
+
+  it('صرفه‌جویی، تفاوت ارزان‌ترین و گران‌ترین ضربدر مقدار است', () => {
+    const savings = savingsOf([need('p1', 10)], [q('p1', 's1', 100), q('p1', 's2', 130)]);
+    expect(savings).toHaveLength(1);
+    expect(savings[0].best).toBe(100);
+    expect(savings[0].worst).toBe(130);
+    expect(savings[0].saved).toBe(300);
+  });
+
+  it('یک پیشنهاد، صرفه‌جویی ندارد', () => {
+    // با یک قیمت، انتخابی در کار نبوده؛ ادعای صرفه‌جویی دروغ است.
+    expect(savingsOf([need('p1', 10)], [q('p1', 's1', 100)])).toEqual([]);
+  });
+
+  it('پیشنهادهای هم‌قیمت، صرفه‌جویی ندارند', () => {
+    expect(savingsOf([need('p1', 5)], [q('p1', 's1', 100), q('p1', 's2', 100)])).toEqual([]);
+  });
+
+  it('بزرگ‌ترین صرفه‌جویی اول می‌آید', () => {
+    const savings = savingsOf(
+      [need('p1', 1), need('p2', 100)],
+      [q('p1', 's1', 10), q('p1', 's2', 20), q('p2', 's1', 5), q('p2', 's2', 6)],
+    );
+    expect(savings.map((s) => s.productId)).toEqual(['p2', 'p1']);
+  });
+
+  it('قلمی که هیچ قیمتی ندارد، در فهرست نمی‌آید', () => {
+    expect(savingsOf([need('p9', 3)], [])).toEqual([]);
+  });
+});
+
+describe('brief', () => {
+  const need = (id: string, qty: number, last: number | null = null) => ({
+    productId: id,
+    productName: id,
+    qty,
+    lastPrice: last,
+  });
+  const q = (product: string, supplier: string, price: number) => ({
+    callId: `c-${supplier}`,
+    supplierId: supplier,
+    supplierName: supplier,
+    productId: product,
+    unitPrice: price,
+    availableQty: null,
+    leadDays: null,
+  });
+
+  it('قلم بی‌قیمت جدا گزارش می‌شود', () => {
+    // مدیر باید بداند کسی موجودی نداشت — این تصمیم اوست نه مریم.
+    const needs = [need('p1', 1), need('p2', 1)];
+    const quotes = [q('p1', 's1', 100)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.missing.map((m) => m.productId)).toEqual(['p2']);
+    expect(result.message).toContain('۱ قلم بی‌قیمت'.replace('۱', '1'));
+  });
+
+  it('قلم تک‌پیشنهاد جدا گزارش می‌شود', () => {
+    // یک قیمت یعنی مقایسه‌ای نبوده؛ ممکن است گران باشد بی‌آنکه معلوم شود.
+    const needs = [need('p1', 1)];
+    const quotes = [q('p1', 's1', 100)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.singleQuote.map((w) => w.productId)).toEqual(['p1']);
+  });
+
+  it('چند پیشنهاد، تک‌پیشنهاد شمرده نمی‌شود', () => {
+    const needs = [need('p1', 1)];
+    const quotes = [q('p1', 's1', 100), q('p1', 's2', 120)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.singleQuote).toEqual([]);
+    expect(result.totalSaved).toBe(20);
+  });
+
+  it('پیام، مبلغ و صرفه‌جویی را می‌گوید', () => {
+    const needs = [need('p1', 2)];
+    const quotes = [q('p1', 's1', 1000), q('p1', 's2', 1500)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.message).toContain('خرید پیشنهادی');
+    expect(result.message).toContain('صرفه‌جویی');
+  });
+
+  it('بدون صرفه‌جویی، ادعایش را نمی‌کند', () => {
+    const needs = [need('p1', 1)];
+    const quotes = [q('p1', 's1', 100)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.totalSaved).toBe(0);
+    expect(result.message).not.toContain('صرفه‌جویی');
+  });
+
+  it('گرانیِ بیش از آستانه هشدار می‌دهد', () => {
+    const needs = [need('p1', 1, 100)];
+    const quotes = [q('p1', 's1', 150)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.summary.expensive).toHaveLength(1);
+    expect(result.message).toContain('گران شده');
+  });
+
+  it('نوسان کوچک هشدار نمی‌دهد', () => {
+    // زیر آستانه، نوسان عادی بازار است و هشدارش فقط بی‌اعتبار می‌شود.
+    const needs = [need('p1', 1, 100)];
+    const quotes = [q('p1', 's1', 105)];
+    const result = brief(needs, quotes, pickWinners(needs, quotes));
+    expect(result.summary.expensive).toEqual([]);
   });
 });

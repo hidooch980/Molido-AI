@@ -8,6 +8,7 @@ import {
   summarize,
   type NeedLine,
   type Quote,
+  brief,
 } from './quote-rules';
 
 type Row = Record<string, unknown>;
@@ -345,6 +346,9 @@ export class PurchasingService {
       winners,
       summary: summarize(winners),
       bySupplier: groupBySupplier(winners),
+      // تحلیل مدیریتی کنار مقایسه می‌آید نه در مسیر جدا: مدیری که
+      // باید دو صفحه باز کند تا تصمیم بگیرد، تصمیم نمی‌گیرد.
+      brief: brief(needs, quotes, winners),
     };
   }
 

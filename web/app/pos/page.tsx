@@ -205,7 +205,12 @@ export default function PosPage() {
    * `addByCode` غیرهمگام است و کلیدِ سطر را برنمی‌گرداند؛ مقدار پس از
    * دیده شدن قلم در سبد اعمال می‌شود.
    */
-  const [pendingQty, setPendingQty] = useState<{ productId: string; qty: number } | null>(null);
+  const [pendingQty, setPendingQty] = useState<{
+    productId: string;
+    qty: number;
+    /** مقداری که پیش از افزودن در سبد بود. */
+    before: number;
+  } | null>(null);
   /**
    * وقتی گفته‌شده به بیش از یک کالا می‌خورد.
    *
@@ -247,6 +252,14 @@ export default function PosPage() {
   const [lastSale, setLastSale] = useState<Sale | null>(null);
 
   const scanRef = useRef<HTMLInputElement>(null);
+  /**
+   * سبد، همیشه تازه.
+   *
+   * `addBySpeech` غیرهمگام است و بستارش سبدِ لحظهٔ فراخوانی را می‌بیند.
+   * برای دانستن «قبلاً چندتا در سبد بود» باید مقدارِ همان لحظه خوانده
+   * شود، نه مقدارِ رندرِ قبلی.
+   */
+  const cartRef = useRef<CartLine[]>([]);
 
   // ---------- بارگذاری ----------
 
@@ -402,12 +415,29 @@ export default function PosPage() {
    * باید صبر کند تا اولی تمام شود.
    */
   useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
+
+  useEffect(() => {
     if (!pendingQty) return;
     const line = cart.find((item) => item.productId === pendingQty.productId);
     if (!line) return;
-    setQty(line.key, pendingQty.qty);
+
+    // مقدار **اضافه** می‌شود به آنچه بود، جایگزینش نمی‌شود.
+    //
+    // اگر صندوق‌دار پنج نان اسکن کرده باشد و بعد بگوید «سه تا نان»،
+    // انتظارش هشت است نه سه.  نسخهٔ اول مقدار را جایگزین می‌کرد و آن
+    // پنج‌تا بی‌صدا به سه‌تا تبدیل می‌شد — روی فاکتور، پولِ مشتری.
+    setQty(line.key, pendingQty.before + pendingQty.qty);
     setPendingQty(null);
   }, [cart, pendingQty]);
+
+  /** مقدار فعلی یک کالا در سبد — از مرجع، نه از بستارِ کهنه. */
+  const qtyInCart = useCallback((productId: string): number => {
+    return cartRef.current
+      .filter((line) => line.productId === productId)
+      .reduce((sum, line) => sum + line.quantity, 0);
+  }, []);
 
   /**
    * چاپ رسید: اول عامل محلی، بعد مرورگر.
@@ -537,8 +567,11 @@ export default function PosPage() {
         }
 
         if (found.length === 1) {
+          const before = qtyInCart(found[0].id);
           await addByCode(found[0].sku);
-          if (qty && qty > 1) setPendingQty({ productId: found[0].id, qty });
+          if (qty && qty > 1) {
+            setPendingQty({ productId: found[0].id, qty, before });
+          }
           return;
         }
 
@@ -547,7 +580,7 @@ export default function PosPage() {
         setError(err instanceof Error ? err.message : 'جست‌وجو ناموفق بود');
       }
     },
-    [addByCode],
+    [addByCode, qtyInCart],
   );
 
   const startListening = useCallback(() => {
@@ -1105,10 +1138,11 @@ export default function PosPage() {
                 style={{ ...TOUCH_ROW }}
                 onClick={async () => {
                   const chosen = heard;
+                  const before = qtyInCart(option.id);
                   setHeard(null);
                   await addByCode(option.sku);
                   if (chosen.qty && chosen.qty > 1) {
-                    setPendingQty({ productId: option.id, qty: chosen.qty });
+                    setPendingQty({ productId: option.id, qty: chosen.qty, before });
                   }
                   refocus();
                 }}

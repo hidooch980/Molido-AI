@@ -23,7 +23,7 @@ if [ -z "$T" ]; then
   exit 1
 fi
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
-P() { python3 -c "import sys,json,io;sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
+P() { python3 -c "import sys,json,io;sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8');sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8');d=json.load(sys.stdin);print($1)"; }
 
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
@@ -184,6 +184,30 @@ echo '--- 17) بدون توکن بسته است ---'
 chk "بدون توکن" "$(curl -s -o /dev/null -w '%{http_code}' $A/purchasing/suggestions)" "401"
 
 # پاک‌سازی
+echo '--- 18) manager brief ---'
+# مقایسه، بهترین قیمت را می‌دهد.  گزارش، به مدیر می‌گوید مریم چقدر
+# صرفه‌جویی کرد و کجا تصمیمِ خودِ او لازم است.
+CMP=$(curl -s "$A/purchasing/inquiries/$IID/compare" -H "$AU")
+
+chk "brief in comparison" "$(echo "$CMP" | P "'brief' in d")" "True"
+chk "saving computed" "$(echo "$CMP" | P "d['brief']['totalSaved']>0")" "True"
+# صرفه‌جویی = ارزان‌ترین در برابر گران‌ترینِ همین استعلام، نه قیمت قبلی:
+# اگر ارز بالا رفته باشد همهٔ پیشنهادها گران‌ترند و عددِ «صرفه‌جویی
+# منفی» بی‌معنی است.
+chk "best never above worst" \
+  "$(echo "$CMP" | P "all(s['worst']>=s['best'] for s in d['brief']['savings'])")" "True"
+chk "biggest saving first" \
+  "$(echo "$CMP" | P "[s['saved'] for s in d['brief']['savings']]==sorted([s['saved'] for s in d['brief']['savings']],reverse=True)")" "True"
+# قلمی که فقط یک قیمت داشت، مقایسه‌ای نداشته و ممکن است گران باشد
+# بی‌آنکه معلوم شود — مدیر باید جدا ببیندش.
+chk "single-quote items separated" \
+  "$(echo "$CMP" | P "isinstance(d['brief']['singleQuote'],list)")" "True"
+chk "message states the amount" \
+  "$(echo "$CMP" | P "'\u062e\u0631\u06cc\u062f \u067e\u06cc\u0634\u0646\u0647\u0627\u062f\u06cc' in d['brief']['message']")" "True"
+chk "message states the saving" \
+  "$(echo "$CMP" | P "'\u0635\u0631\u0641\u0647\u200c\u062c\u0648\u06cc\u06cc' in d['brief']['message']")" "True"
+
+
 psql "DELETE FROM \"PurchaseItem\" WHERE \"purchaseId\" IN
         (SELECT id FROM \"Purchase\" WHERE note LIKE '%BUY-TEST%' OR note LIKE '%INQ-%');
       DELETE FROM \"Purchase\" WHERE note LIKE '%INQ-%';

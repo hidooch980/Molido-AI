@@ -185,10 +185,24 @@ export class VoiceService {
         textFa: string,
         productId: string | null,
       ): Promise<void> => {
+        // نام کالا **ترجمه نمی‌شود**.
+        //
+        // صندوق‌دار بلوچ هم «شامپو» را «شامپو» می‌گوید؛ نام کالا
+        // وام‌واژه است، نه واژهٔ زبان.  منتظر ماندن برای ترجمه‌ای که
+        // هیچ‌وقت نمی‌آید، شش عبارت را برای همیشه از صف ضبط بیرون
+        // نگه می‌داشت.
+        //
+        // ضبطش هنوز لازم است: مدل باید همان نام فارسی را با لهجهٔ
+        // بلوچی بشناسد، که با تلفظ فارسی‌زبان یکی نیست.
+        //
+        // عدد و فرمان فرق دارند: «سه» در بلوچی «سئی» است و اگر
+        // فارسی‌اش ضبط شود، مدل چیز اشتباهی یاد می‌گیرد.
+        const target = kind === 'PRODUCT' ? textFa : null;
+
         const result = await tx.query(
           `INSERT INTO "VoicePhrase"
-             (id, "companyId", lang, dialect, kind, "productId", "textFa", "sortOrder")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             (id, "companyId", lang, dialect, kind, "productId", "textFa", "textTarget", "sortOrder")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT ("companyId", lang, dialect, "textFa") DO NOTHING`,
           [
             randomUUID(),
@@ -198,6 +212,7 @@ export class VoiceService {
             kind,
             productId,
             textFa,
+            target,
             order,
           ],
         );
@@ -220,18 +235,36 @@ export class VoiceService {
     });
   }
 
-  async phrases(scope: Scope) {
+  /**
+   * فهرست عبارت‌ها.
+   *
+   * `speakerTag` اختیاری است و ستون `mine` را اضافه می‌کند: این گوینده
+   * چند بار همین عبارت را گفته.
+   *
+   * چرا لازم است: حد نصاب «پنج ضبط از سه گوینده» است، پس گوینده‌ای که
+   * یک عبارت را گفته باید برود سراغ عبارت بعدی، نه اینکه دوباره همان
+   * را بگوید.  بدون این ستون، حالت ضبط پیوسته نمی‌داند کجا را رد کند و
+   * گوینده وقتش را روی چیزی می‌گذارد که از قبل دارد.
+   */
+  async phrases(scope: Scope, speakerTag?: string) {
+    const tag = speakerTag?.trim() || null;
+
     return this.db.query<Row>(
       `SELECT p.*,
               COUNT(s.id) FILTER (WHERE s.status = 'APPROVED') AS approved,
               COUNT(s.id) FILTER (WHERE s.status = 'PENDING')  AS pending,
-              COUNT(DISTINCT s."speakerTag") FILTER (WHERE s.status = 'APPROVED') AS speakers
+              COUNT(DISTINCT s."speakerTag") FILTER (WHERE s.status = 'APPROVED') AS speakers,
+              COUNT(s.id) FILTER (
+                WHERE $4::text IS NOT NULL
+                  AND s."speakerTag" = $4
+                  AND s.status <> 'REJECTED'
+              ) AS mine
          FROM "VoicePhrase" p
          LEFT JOIN "VoiceSample" s ON s."phraseId" = p.id
         WHERE p."companyId" = $1 AND p.lang = $2 AND p.dialect = $3
         GROUP BY p.id
         ORDER BY p.kind, p."sortOrder"`,
-      [scope.companyId, scope.lang, scope.dialect],
+      [scope.companyId, scope.lang, scope.dialect, tag],
     );
   }
 
@@ -255,9 +288,12 @@ export class VoiceService {
    */
   async suggestTargets(scope: Scope) {
     const rows = await this.db.query<{ id: string; textFa: string; kind: string }>(
+      // نام کالا کنار گذاشته می‌شود: فارسی می‌ماند و پیشنهادِ
+      // بازنویسی برایش بی‌معنی است.
       `SELECT id, "textFa", kind FROM "VoicePhrase"
         WHERE "companyId" = $1 AND lang = $2 AND dialect = $3
           AND "textTarget" IS NULL
+          AND kind <> 'PRODUCT'
         ORDER BY kind, "sortOrder"
         LIMIT 300`,
       [scope.companyId, scope.lang, scope.dialect],

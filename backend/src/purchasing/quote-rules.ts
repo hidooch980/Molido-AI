@@ -192,3 +192,121 @@ export function groupBySupplier(
     total: rial(group.lines.reduce((sum, w) => sum + w.quote!.unitPrice * w.qty, 0)),
   }));
 }
+
+// ---------------------------------------------------------- گزارش مدیر
+
+export type Saving = {
+  productId: string;
+  productName: string;
+  /** ارزان‌ترین قیمتی که گرفته شد */
+  best: number;
+  /** گران‌ترین قیمتی که گرفته شد */
+  worst: number;
+  /** چند بنکدار برای این قلم قیمت دادند */
+  quoteCount: number;
+  /** مبلغی که با انتخاب ارزان‌ترین صرفه‌جویی شد */
+  saved: number;
+};
+
+export type Brief = {
+  summary: Summary;
+  /** قلم‌هایی که بیش از یک قیمت داشتند و انتخاب، پول نگه داشت */
+  savings: Saving[];
+  /** جمع صرفه‌جویی نسبت به گران‌ترین پیشنهادها */
+  totalSaved: number;
+  /** قلم‌هایی که هیچ‌کس قیمت نداد — تصمیمشان با مدیر است */
+  missing: Winner[];
+  /** قلم‌هایی که فقط یک بنکدار قیمت داد — مقایسه‌ای در کار نبوده */
+  singleQuote: Winner[];
+  /** متن کوتاه برای پیامک یا اعلان */
+  message: string;
+};
+
+/**
+ * صرفه‌جویی واقعی، نه ادعایی.
+ *
+ * ملاک، تفاوت ارزان‌ترین و **گران‌ترین** پیشنهادِ همین استعلام است —
+ * نه تفاوت با قیمت قبلی.  دلیلش این است که قیمت قبلی مال بازارِ
+ * دیگری بود؛ اگر ارز بالا رفته باشد، همهٔ پیشنهادها گران‌ترند و
+ * «صرفه‌جویی منفی» گزارش کردن، عددِ بی‌معنی می‌سازد.
+ *
+ * آنچه مریم واقعاً کنترل می‌کند، انتخاب بین پیشنهادهای امروز است.
+ * همان را گزارش می‌کنیم.
+ */
+export function savingsOf(needs: NeedLine[], quotes: Quote[]): Saving[] {
+  return needs
+    .map((need) => {
+      const forProduct = quotes.filter((q) => q.productId === need.productId);
+      if (forProduct.length < 2) return null;
+
+      const prices = forProduct.map((q) => q.unitPrice);
+      const best = Math.min(...prices);
+      const worst = Math.max(...prices);
+
+      return {
+        productId: need.productId,
+        productName: need.productName,
+        best: rial(best),
+        worst: rial(worst),
+        quoteCount: forProduct.length,
+        saved: rial((worst - best) * need.qty),
+      };
+    })
+    .filter((s): s is Saving => s !== null && s.saved > 0)
+    .sort((a, b) => b.saved - a.saved);
+}
+
+/** جداکنندهٔ هزارگان — عدد بلندِ بی‌جداکننده در پیامک خوانده نمی‌شود. */
+function grouped(value: number): string {
+  return value.toLocaleString('en-US').replace(/,/g, '٬');
+}
+
+/**
+ * گزارش مریم به مدیر.
+ *
+ * مدیر وقت ندارد جدول بخواند.  چیزی که باید بداند سه چیز است: چقدر
+ * پول، چقدر صرفه‌جویی، و کجا تصمیمش لازم است.
+ *
+ * قلم‌هایی که هیچ قیمتی نگرفتند و قلم‌هایی که فقط یک قیمت داشتند
+ * جدا گزارش می‌شوند: اولی یعنی کسی موجودی ندارد، دومی یعنی مقایسه‌ای
+ * در کار نبوده و آن قیمت ممکن است گران باشد بی‌آنکه معلوم شود.
+ */
+export function brief(
+  needs: NeedLine[],
+  quotes: Quote[],
+  winners: Winner[],
+  alertPercent = 15,
+): Brief {
+  const summary = summarize(winners, alertPercent);
+  const savings = savingsOf(needs, quotes);
+  const totalSaved = rial(savings.reduce((sum, s) => sum + s.saved, 0));
+
+  const missing = winners.filter((w) => !w.quote);
+  const singleQuote = winners.filter((w) => w.quote && w.quoteCount === 1);
+
+  const parts: string[] = [
+    `خرید پیشنهادی: ${grouped(summary.total)} ریال از ${summary.supplierCount} بنکدار`,
+  ];
+
+  if (totalSaved > 0) {
+    parts.push(`صرفه‌جویی: ${grouped(totalSaved)} ریال`);
+  }
+  if (missing.length) {
+    parts.push(`${missing.length} قلم بی‌قیمت ماند`);
+  }
+  if (singleQuote.length) {
+    parts.push(`${singleQuote.length} قلم فقط یک قیمت داشت`);
+  }
+  if (summary.expensive.length) {
+    parts.push(`${summary.expensive.length} قلم بیش از ${alertPercent}٪ گران شده`);
+  }
+
+  return {
+    summary,
+    savings,
+    totalSaved,
+    missing,
+    singleQuote,
+    message: parts.join(' · '),
+  };
+}

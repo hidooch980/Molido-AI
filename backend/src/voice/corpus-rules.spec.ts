@@ -143,9 +143,23 @@ describe('BASE_NUMBERS', () => {
 });
 
 describe('BASE_COMMANDS', () => {
-  it('ده فرمان دارد و تکراری نیست', () => {
-    expect(BASE_COMMANDS).toHaveLength(10);
-    expect(new Set(BASE_COMMANDS).size).toBe(10);
+  it('پانزده عبارت دارد و تکراری نیست', () => {
+    // ده عبارتِ تماس با بنکدار + پنج عبارتِ اعلام کسری به مدیر.
+    expect(BASE_COMMANDS).toHaveLength(15);
+    expect(new Set(BASE_COMMANDS).size).toBe(15);
+  });
+
+  it('عبارت‌های صندوق در پیکره نیستند', () => {
+    // پیکره برای مریم است، نه صندوق.  «چاپ» و «لغو» در مکالمهٔ
+    // تلفنی هیچ‌وقت گفته نمی‌شوند و ضبطشان وقتِ گوینده را می‌گرفت.
+    for (const till of ['چاپ', 'لغو', 'پرداخت', 'نقدی', 'کارت']) {
+      expect(BASE_COMMANDS).not.toContain(till);
+    }
+  });
+
+  it('هر دو کارِ مریم پوشش دارند', () => {
+    expect(BASE_COMMANDS).toContain('قیمت چند است');
+    expect(BASE_COMMANDS).toContain('کم است');
   });
 
   it('با واژه‌های عددی تداخل ندارد', () => {

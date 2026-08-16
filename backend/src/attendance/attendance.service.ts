@@ -285,6 +285,29 @@ export class AttendanceService {
       const year = new Date(leave.startDate).getFullYear();
 
       if (leave.kind === 'ANNUAL') {
+        // ⚠️ پیش از نوشتن، مانده سنجیده می‌شود.
+        //
+        // قید دیتابیس (`LeaveBalance_used_chk`) این را می‌گرفت، ولی
+        // پیامش «مقدار واردشده مجاز نیست» بود — مدیری که دکمهٔ تأیید را
+        // می‌زند باید بداند **چرا** نشد و چند روز مانده است.  قید
+        // دیتابیس خط آخر دفاع می‌ماند، نه راهِ اطلاع‌رسانی.
+        const balances = await tx.query<{ entitled: string; used: string; carriedOver: string }>(
+          `SELECT entitled, used, "carriedOver" FROM "LeaveBalance"
+            WHERE "employeeId" = $1 AND year = $2 AND kind = 'ANNUAL'`,
+          [leave.employeeId, year],
+        );
+        const bal = balances.rows[0];
+
+        if (bal) {
+          const remaining =
+            Number(bal.entitled) + Number(bal.carriedOver) - Number(bal.used);
+          if (days > remaining) {
+            throw new BadRequestException(
+              `ماندهٔ مرخصی کافی نیست: ${remaining} روز مانده و درخواست ${days} روز است`,
+            );
+          }
+        }
+
         // سهمیه اگر نبود ساخته می‌شود؛ قید دیتابیس جلوی مصرف بیش از سهمیه
         // را می‌گیرد و تراکنش را برمی‌گرداند.
         await tx.query(

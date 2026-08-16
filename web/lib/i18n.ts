@@ -647,6 +647,7 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   menuReservations: { fa: 'رزرو', en: 'Reservations', ar: 'الحجوزات' },
   menuShift: { fa: 'شیفت و گزارش', en: 'Shift & reports', ar: 'الوردية والتقارير' },
   menuFloorSetup: { fa: 'چیدمان سالن', en: 'Floor setup', ar: 'تخطيط الصالة' },
+  menuStaff: { fa: 'کارکنان', en: 'Staff', ar: 'الموظفون' },
   menuVoice: { fa: 'پیکرهٔ صوتی بلوچی', en: 'Balochi voice corpus', ar: 'المدونة الصوتية البلوشية' },
 
   // ---------- تنظیمات و پوسته ----------

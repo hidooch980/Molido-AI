@@ -111,6 +111,15 @@ L2=$(curl -s -X POST $A/attendance/leaves -H "$AU" -H "$JS" \
   -d "{\"employeeId\":\"$EID\",\"kind\":\"ANNUAL\",\"startDate\":\"2026-05-01\",\"endDate\":\"2026-05-20\"}")
 L2ID=$(echo "$L2" | P "d.get('id','')")
 chk "over-entitlement rejected" "$(curl -s -X PATCH "$A/attendance/leaves/$L2ID/decide" -H "$AU" -H "$JS" -d '{"approve":true}' | P "d.get('statusCode')")" "400"
+# ⚠️ پیام باید بگوید **چرا**، نه فقط «مجاز نیست».
+#
+# پیش از این، قید دیتابیس این را می‌گرفت و کاربر ۵۰۰ «خطای داخلی سرور»
+# می‌دید.  بعد که قیدها به ۴۰۰ نگاشته شدند، پیام «مقدار واردشده مجاز
+# نیست» شد — بهتر، ولی مدیری که دکمهٔ تأیید را می‌زند هنوز نمی‌دانست
+# چند روز مانده.  قید دیتابیس خط آخر دفاع است، نه راهِ اطلاع‌رسانی.
+chk "پیام مانده مرخصی را می‌گوید"   "$(curl -s -X PATCH "$A/attendance/leaves/$L2ID/decide" -H "$AU" -H "$JS" -d '{"approve":true}' | P "'مانده' in str(d.get('message',''))")" "True"
+# رد کردن همان درخواست باید کار کند — نگهبانِ مانده نباید راه رد را ببندد.
+chk "رد کردن درخواست بزرگ ممکن است"   "$(curl -s -X PATCH "$A/attendance/leaves/$L2ID/decide" -H "$AU" -H "$JS" -d '{"approve":false}' | P "d.get('status')")" "REJECTED"
 
 echo '--- 10) payroll slip ---'
 # حقوق پایه و مزایا از رکورد کارمند خوانده می‌شوند؛ بدنه فقط اقلام دوره‌ای

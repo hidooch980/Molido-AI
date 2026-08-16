@@ -99,6 +99,7 @@ export class VoiceController {
     return this.voice.importDictionary(
       scopeOf(user.companyId as string, dto.lang, dto.dialect),
       dto.csv,
+      dto.source,
     );
   }
 

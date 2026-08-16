@@ -7,6 +7,7 @@ import {
   BASE_NUMBERS,
   gapsOf,
   readiness,
+  type PhraseSource,
   type PhraseStat,
 } from './corpus-rules';
 import { parseDictionary } from './dictionary-rules';
@@ -100,7 +101,25 @@ export class VoiceService {
    * یک منبع، دو مصرف: متن بلوچیِ عبارت‌های پیکره پر می‌شود، و همان
    * واژه‌ها برای ترجمهٔ رابط کاربری هم برمی‌گردند.
    */
-  async importDictionary(scope: Scope, csv: string) {
+  /**
+   * ورود واژه‌نامه — با اعلام صریحِ منبع.
+   *
+   * ⚠️ پیش‌فرض `UNVERIFIED` است، نه `GATITOS`.
+   *
+   * بیشتر فایل‌هایی که وارد می‌شوند واژه‌نامهٔ حرفه‌ای **نیستند**:
+   * فهرست دست‌ساز، خروجی ترجمهٔ ماشینی، یا حدسِ کسی که بلوچی بلد
+   * نیست.  اگر پیش‌فرض «تأییدشده» بود، هر فایلی که کسی بالا بگذارد
+   * قفلِ آموزش را باز می‌کرد — یعنی ستون `source` به‌جای محافظت،
+   * دقیقاً همان اطمینانِ کاذبی می‌شد که قرار بود جلویش را بگیرد.
+   *
+   * فقط کسی که می‌داند فایل ترجمهٔ حرفه‌ای است، `GATITOS` را صریح
+   * می‌فرستد.
+   */
+  async importDictionary(
+    scope: Scope,
+    csv: string,
+    source: PhraseSource = 'UNVERIFIED',
+  ) {
     const { entries, skipped } = parseDictionary(csv);
 
     if (!entries.length) {
@@ -127,11 +146,11 @@ export class VoiceService {
         // غلط‌ها را بگیرد — «۳۳ مورد تطبیق شد» چیزی برای گرفتن نمی‌دهد.
         const updated = await tx.query<{ textFa: string; kind: string }>(
           `UPDATE "VoicePhrase"
-              SET "textTarget" = $4
+              SET "textTarget" = $4, source = $6
             WHERE "companyId" = $1 AND lang = $2 AND dialect = $3
               AND "textFa" = $5
             RETURNING "textFa", kind`,
-          [scope.companyId, scope.lang, scope.dialect, entry.target, entry.fa],
+          [scope.companyId, scope.lang, scope.dialect, entry.target, entry.fa, source],
         );
 
         for (const row of updated.rows) {
@@ -268,11 +287,25 @@ export class VoiceService {
     );
   }
 
+  /**
+   * متن بلوچی را یک **آدم** می‌نویسد — پس تأییدشده است.
+   *
+   * این تنها راهی است که `source` به `HUMAN` می‌رسد، و عمداً هیچ
+   * پارامتری برای تعیین مستقیمش وجود ندارد: اگر `source` از API
+   * قابل تنظیم بود، هر کسی می‌توانست حدس را «تأییدشده» علامت بزند و
+   * قفلِ آموزش را دور بزند.  ستونی که هر کسی بتواند دلخواه پرش کند،
+   * محافظت نیست — پوششِ اطمینانِ کاذب است.
+   *
+   * پاک کردن متن، برچسب را هم به `UNVERIFIED` برمی‌گرداند: عبارتی که
+   * متن ندارد تأییدشده نیست.
+   */
   async setTarget(companyId: string, phraseId: string, textTarget: string) {
+    const clean = textTarget.trim() || null;
+
     const rows = await this.db.query<Row>(
-      `UPDATE "VoicePhrase" SET "textTarget" = $3
+      `UPDATE "VoicePhrase" SET "textTarget" = $3, source = $4
         WHERE id = $1 AND "companyId" = $2 RETURNING *`,
-      [phraseId, companyId, textTarget.trim() || null],
+      [phraseId, companyId, clean, clean ? 'HUMAN' : 'UNVERIFIED'],
     );
     if (!rows[0]) throw new NotFoundException('عبارت یافت نشد');
     return rows[0];
@@ -404,6 +437,9 @@ export class VoiceService {
       phraseId: String(r.id),
       textFa: String(r.textFa),
       textTarget: (r.textTarget as string) ?? null,
+      // ستون تازه است؛ نصب‌های قدیمی ممکن است هنوز مقدار نداشته باشند
+      // و پیش‌فرضِ امن «تأییدنشده» است، نه «تأییدشده».
+      source: (r.source as PhraseStat['source']) ?? 'UNVERIFIED',
       kind: r.kind as PhraseStat['kind'],
       approved: Number(r.approved ?? 0),
       speakers: Number(r.speakers ?? 0),

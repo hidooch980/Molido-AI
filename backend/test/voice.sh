@@ -285,6 +285,36 @@ chk "ضبط ردشده دوباره به صف برمی‌گردد" "$(Q SPK-A)" 
 psql "DELETE FROM \"VoiceSample\" WHERE \"speakerTag\" LIKE 'SPK-%';"
 
 
+echo '--- 22b) منبعِ متن، آموزش را قفل می‌کند ---'
+# ستون `source` به پرسشی جواب می‌دهد که تا امروز نمی‌شد پرسید: این متن
+# بلوچی از کجا آمده — ترجمهٔ حرفه‌ای، وام‌واژهٔ عمدی، یا حدسِ ماشین؟
+#
+# هر سه در پایگاه داده یک شکل داشتند، یعنی حدسِ اشتباه دقیقاً مثل
+# ترجمهٔ درست وارد مدل می‌شد و هیچ ردی نمی‌گذاشت.
+
+# ⚠️ `source` عمداً از API قابل تنظیم نیست.  اگر بود، هر کسی می‌توانست
+#    حدس را «تأییدشده» علامت بزند و همین قفل را دور بزند.
+chk "source از API قابل تنظیم نیست" \
+  "$(curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" \
+     -d '{"textTarget":"سوپ","source":"GATITOS"}' | P "d.get('statusCode', 'پذیرفت')")" "400"
+
+# متنی که آدم می‌نویسد تأییدشده است — تنها راه رسیدن به HUMAN.
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":"سوپ"}' >/dev/null
+chk "نوشتنِ آدم → HUMAN" \
+  "$(psqlv "SELECT source FROM \"VoicePhrase\" WHERE id='$PID'")" "HUMAN"
+
+# پاک کردن متن برچسب را پس می‌گیرد: عبارت بی‌متن تأییدشده نیست.
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":""}' >/dev/null
+chk "پاک کردن متن → UNVERIFIED" \
+  "$(psqlv "SELECT source FROM \"VoicePhrase\" WHERE id='$PID'")" "UNVERIFIED"
+
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":"سوپ"}' >/dev/null
+psql "UPDATE \"VoicePhrase\" SET source='UNVERIFIED' WHERE id='$PID'"
+chk "علتِ تأییدنشده گفته می‌شود" \
+  "$(curl -s "$A/voice/status?lang=$L" -H "$AU" | P "any('تأییدنشده' in g['reason'] for g in d['gaps'])")" "True"
+chk "با متن تأییدنشده آموزش قفل است" \
+  "$(curl -s "$A/voice/status?lang=$L" -H "$AU" | P "d['canTrain']")" "False"
+
 echo '--- 23) بدون توکن ---'
 chk "بدون توکن ۴۰۱" "$(curl -s "$A/voice/status" | P "d.get('statusCode')")" "401"
 

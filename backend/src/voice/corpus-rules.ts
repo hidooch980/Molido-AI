@@ -7,10 +7,30 @@
  * کار نمی‌کند و کسی نمی‌فهمد چرا؛ دیر شروع کردن یعنی ماه‌ها ضبط بی‌جهت.
  */
 
+/** از کجا آمدنِ متن بلوچی — ستون `VoicePhrase.source`. */
+export type PhraseSource =
+  /** یک آدم در صفحهٔ بازبینی نوشت — مهم‌ترین منبع. */
+  | 'HUMAN'
+  /** ترجمهٔ حرفه‌ای واژه‌نامهٔ CC-BY-4.0 گوگل. */
+  | 'GATITOS'
+  /** عمداً فارسی مانده؛ واژهٔ سنتی بلوچی ندارد. */
+  | 'LOANWORD'
+  /** از اجزای تأییدشده ساخته شده. */
+  | 'DERIVED'
+  /** حدسِ ماشین — آموزش با این قفل است. */
+  | 'UNVERIFIED';
+
 export type PhraseStat = {
   phraseId: string;
   textFa: string;
   textTarget: string | null;
+  /**
+   * منبعِ متن بلوچی.
+   *
+   * `UNVERIFIED` پیش‌فرض است — بارِ اثبات روی کسی است که ادعا می‌کند
+   * متن درست است، نه روی کسی که شک دارد.
+   */
+  source: PhraseSource;
   kind: 'PRODUCT' | 'NUMBER' | 'COMMAND';
   /** ضبط‌های تأییدشده */
   approved: number;
@@ -47,9 +67,23 @@ export type Gap = PhraseStat & {
  * ناقص شمرده می‌شد و در `gapsOf` نمی‌آمد — یعنی درصد زیر صد بود و
  * هیچ کمبودی برای رفع کردن فهرست نمی‌شد.
  */
+/**
+ * متنی که هیچ آدمی تأیید نکرده، آموزش‌پذیر نیست.
+ *
+ * `UNVERIFIED` یعنی متن را ماشین حدس زده و در هیچ منبعی نیست.  ضبطِ
+ * چنین متنی بی‌ارزش نیست — بدتر است: مدل یاد می‌گیرد صدای «فلان» یعنی
+ * واژه‌ای که اصلاً آن معنی را نمی‌دهد، و چون آمار پر شده کسی دنبال
+ * علت نمی‌گردد.
+ *
+ * نبودِ داده آشکار است؛ دادهٔ غلط پنهان.
+ */
+export function isTrainable(s: PhraseStat): boolean {
+  return Boolean(s.textTarget) && s.source !== 'UNVERIFIED';
+}
+
 export function isComplete(s: PhraseStat): boolean {
   return (
-    Boolean(s.textTarget) && s.approved >= MIN_SAMPLES && s.speakers >= MIN_SPEAKERS
+    isTrainable(s) && s.approved >= MIN_SAMPLES && s.speakers >= MIN_SPEAKERS
   );
 }
 
@@ -62,6 +96,7 @@ export function gapsOf(stats: PhraseStat[]): Gap[] {
 
       const parts: string[] = [];
       if (!s.textTarget) parts.push('متن بلوچی وارد نشده');
+      else if (s.source === 'UNVERIFIED') parts.push('متن تأییدنشده — گویشور باید ببیند');
       if (needSamples > 0) parts.push(`${needSamples} ضبط دیگر`);
       if (needSpeakers > 0) parts.push(`${needSpeakers} گویندهٔ دیگر`);
 

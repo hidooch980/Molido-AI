@@ -13,6 +13,7 @@ function phrase(over: Partial<PhraseStat> = {}): PhraseStat {
     phraseId: 'p1',
     textFa: 'نان',
     textTarget: 'نگن',
+    source: 'GATITOS',
     kind: 'PRODUCT',
     approved: MIN_SAMPLES,
     speakers: MIN_SPEAKERS,
@@ -95,6 +96,27 @@ describe('readiness', () => {
     expect(r.canTrain).toBe(true);
     expect(r.minutes).toBe(45);
     expect(r.advice).toContain('آمادهٔ آموزش');
+  });
+
+  it('متن تأییدنشده آموزش‌پذیر نیست، حتی با ضبط کامل', () => {
+    // این خطرناک‌ترین حالت است: ضبط‌ها کامل‌اند، آمار سبز به نظر
+    // می‌رسد، ولی متنی که ضبط شده حدسِ ماشین است.  مدل یاد می‌گیرد
+    // صدای «فلان» یعنی واژه‌ای که آن معنی را نمی‌دهد — و چون همه‌چیز
+    // پر است، کسی دنبال علت نمی‌گردد.
+    const r = readiness([phrase({ source: 'UNVERIFIED' })], 60 * 60_000);
+    expect(r.ready).toBe(0);
+    expect(r.canTrain).toBe(false);
+  });
+
+  it('وام‌واژه و مشتق آموزش‌پذیرند', () => {
+    // «کارت» که عمداً فارسی مانده حدس نیست؛ تصمیم است.
+    expect(readiness([phrase({ source: 'LOANWORD' })], 60 * 60_000).canTrain).toBe(true);
+    expect(readiness([phrase({ source: 'DERIVED' })], 60 * 60_000).canTrain).toBe(true);
+  });
+
+  it('علتِ تأییدنشده در شکاف‌ها گفته می‌شود', () => {
+    const gaps = gapsOf([phrase({ source: 'UNVERIFIED', approved: 0, speakers: 0 })]);
+    expect(gaps[0].reason).toContain('تأییدنشده');
   });
 
   it('عبارت بدون متن بلوچی، کامل شمرده نمی‌شود', () => {

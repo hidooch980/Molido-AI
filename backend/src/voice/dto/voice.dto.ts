@@ -62,6 +62,22 @@ export class ImportDictionaryDto extends ScopeQueryDto {
   @IsNotEmpty({ message: 'فایل واژه‌نامه خالی است' })
   @MaxLength(2_000_000, { message: 'فایل واژه‌نامه بیش از حد بزرگ است' })
   csv!: string;
+
+  /**
+   * منبعِ این فایل.
+   *
+   * پیش‌فرض `UNVERIFIED` است و عمدی: بیشتر فایل‌هایی که وارد می‌شوند
+   * ترجمهٔ حرفه‌ای نیستند.  فقط کسی که می‌داند فایل واژه‌نامهٔ رسمی
+   * است، `GATITOS` را صریح می‌فرستد.
+   *
+   * `HUMAN` اینجا پذیرفته نمی‌شود: تأیید انسانی یعنی کسی متن را در
+   * صفحهٔ بازبینی *دیده و نوشته*، نه اینکه فایلی را بالا گذاشته.
+   */
+  @IsOptional()
+  @IsIn(['GATITOS', 'LOANWORD', 'DERIVED', 'UNVERIFIED'], {
+    message: 'منبع واژه‌نامه نامعتبر است',
+  })
+  source?: 'GATITOS' | 'LOANWORD' | 'DERIVED' | 'UNVERIFIED';
 }
 
 export class SetTargetDto {

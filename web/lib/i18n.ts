@@ -650,6 +650,16 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   menuStaff: { fa: 'کارکنان', en: 'Staff', ar: 'الموظفون' },
   menuContracts: { fa: 'قراردادها', en: 'Contracts', ar: 'العقود' },
   menuPosTerminals: { fa: 'کارت‌خوان‌ها', en: 'Card readers', ar: 'أجهزة نقاط البيع' },
+  menuTickets: { fa: 'تیکت مشتریان', en: 'Customer tickets', ar: 'تذاكر العملاء' },
+  menuBudget: { fa: 'بودجه', en: 'Budget', ar: 'الميزانية' },
+  menuLoans: { fa: 'وام‌ها', en: 'Loans', ar: 'القروض' },
+  menuInvestments: { fa: 'سرمایه‌گذاری', en: 'Investments', ar: 'الاستثمارات' },
+  menuTraining: { fa: 'دوره‌های آموزشی', en: 'Training', ar: 'الدورات التدريبية' },
+  menuPerformance: { fa: 'ارزیابی عملکرد', en: 'Performance', ar: 'تقييم الأداء' },
+  menuTenders: { fa: 'مناقصه‌ها', en: 'Tenders', ar: 'المناقصات' },
+  menuSurveys: { fa: 'نظرسنجی‌ها', en: 'Surveys', ar: 'الاستبيانات' },
+  menuNews: { fa: 'اطلاعیه‌ها', en: 'Announcements', ar: 'الإعلانات' },
+  menuEmailCampaigns: { fa: 'کمپین ایمیلی', en: 'Email campaigns', ar: 'حملات البريد' },
   menuVoice: { fa: 'پیکرهٔ صوتی بلوچی', en: 'Balochi voice corpus', ar: 'المدونة الصوتية البلوشية' },
 
   // ---------- تنظیمات و پوسته ----------

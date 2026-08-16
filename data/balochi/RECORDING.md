@@ -11,6 +11,33 @@
 
 ## پیش از جلسه
 
+**۰. واژه‌نامهٔ حرفه‌ای را با برچسب درست وارد کنید.**
+
+روی نصب تازه، عبارت‌ها برچسب `UNVERIFIED` دارند و آموزش با آن‌ها قفل
+است.  `fa-bal-pos-core.csv` همان ۳۳ واژهٔ پایهٔ صندوق است که عیناً از
+واژه‌نامهٔ حرفه‌ای CC-BY-4.0 گوگل آمده‌اند:
+
+```bash
+python3 - <<'EOF'
+import io, json, urllib.request, os
+csv = io.open('data/balochi/fa-bal-pos-core.csv', encoding='utf-8').read()
+body = json.dumps({'csv': csv, 'source': 'GATITOS', 'dialect': 'SARHADDI'}).encode()
+req = urllib.request.Request(
+    os.environ['MOLIDO_API'] + '/voice/dictionary', data=body,
+    headers={'Authorization': 'Bearer ' + os.environ['TOKEN'],
+             'Content-Type': 'application/json'}, method='POST')
+print(json.load(urllib.request.urlopen(req, timeout=60)))
+EOF
+```
+
+⚠️ فایل کامل واژه‌نامه (`fa-bal-gatitos.csv`، ۳۲۸۲ سطر) را نفرستید —
+از سقف بدنهٔ درخواست بزرگ‌تر است و ۴۱۳ می‌گیرد.  `pos-core` فقط
+واژه‌هایی را دارد که پیکرهٔ صندوق لازم دارد.
+
+⚠️ و `source: GATITOS` را فقط برای همین فایل بفرستید.  برای هر فایل
+دیگری پیش‌فرض `UNVERIFIED` درست است — بارِ اثبات روی کسی است که ادعا
+می‌کند متن درست است.
+
 **۱. برگه را چاپ کنید.**
 
 ```bash

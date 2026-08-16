@@ -12,7 +12,7 @@
  * روی تبلت صندوق، بدون آموزش، انجام شود.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
@@ -145,8 +145,28 @@ export default function VoicePage() {
     }
   };
 
-  const visible =
-    kindFilter === 'ALL' ? phrases : phrases.filter((p) => p.kind === kindFilter);
+  /**
+   * عبارت‌های آمادهٔ ضبط اول می‌آیند.
+   *
+   * عبارتی که متن بلوچی ندارد ضبط‌شدنی نیست — دکمه‌اش هم درست غیرفعال
+   * است — ولی در ترتیب پیش‌فرض **اولِ فهرست** می‌نشست.  یعنی گوینده‌ای
+   * که پانزده دقیقه وقت گذاشته، اول از روی هفت ردیفِ مرده رد می‌شد.
+   *
+   * ترتیب ثانویه هم عمدی است: عبارتی که ضبط کمتری دارد جلوتر می‌آید،
+   * تا جلسه به‌جای پر کردنِ بیشترِ چیزی که پر است، شکاف‌ها را ببندد.
+   */
+  const visible = useMemo(() => {
+    const rows =
+      kindFilter === 'ALL' ? phrases : phrases.filter((p) => p.kind === kindFilter);
+
+    return [...rows].sort((a, b) => {
+      const aReady = a.textTarget ? 0 : 1;
+      const bReady = b.textTarget ? 0 : 1;
+      if (aReady !== bReady) return aReady - bReady;
+      // `approved` از پستگرس رشتهٔ numeric می‌آید («2»)، نه عدد.
+      return num(a.approved) - num(b.approved);
+    });
+  }, [phrases, kindFilter]);
 
   return (
     <AppShell title="پیکرهٔ صوتی بلوچی">

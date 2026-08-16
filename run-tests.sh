@@ -152,5 +152,8 @@ node --experimental-strip-types web/scripts/verify-i18n.mjs 2>&1 | tail -2
 echo '--- invoice calc ---'
 node --experimental-strip-types web/scripts/verify-invoice.mjs 2>&1 | tail -2
 
+echo '--- corpus order ---'
+node --experimental-strip-types web/scripts/verify-corpus-order.mjs 2>&1 | tail -2
+
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

@@ -50,6 +50,8 @@ export const NAV: NavItem[] = [
   { href: '/sms', label: 'menuSms', icon: 'inbox' },
   { href: '/online-orders', label: 'menuOnlineOrders', icon: 'inbox' },
   { href: '/staff', label: 'menuStaff', icon: 'users', feature: 'hr' as FeatureKey },
+  { href: '/contracts', label: 'menuContracts', icon: 'clipboard' },
+  { href: '/pos-terminals', label: 'menuPosTerminals', icon: 'bank' },
   { href: '/customers', label: 'menuCustomers', icon: 'users' },
   { href: '/sales', label: 'menuSales', icon: 'receipt' },
   { href: '/sales-chain', label: 'menuChain', icon: 'link' },

@@ -69,7 +69,12 @@ export class ContractsService {
     if (!contracts.length) return contracts;
 
     const payments = await this.db.query<ContractPayment & { contractId: string }>(
-      'SELECT id, "contractId", status, amount FROM "ContractPayment" WHERE "contractId" = ANY($1)',
+      // `dueDate` هم لازم است: بدون آن، فهرست نمی‌تواند «کدام قسط عقب
+      // افتاده» را بگوید — و همین تنها چیزی است که در فهرست قراردادها
+      // باید قرمز باشد.  نبودش خطا نمی‌داد، فقط هیچ قسطی هرگز
+      // عقب‌افتاده تشخیص داده نمی‌شد.
+      `SELECT id, "contractId", status, amount, "dueDate", "paidAt"
+         FROM "ContractPayment" WHERE "contractId" = ANY($1)`,
       [contracts.map((contract) => contract.id)],
     );
     return contracts.map((contract) => ({

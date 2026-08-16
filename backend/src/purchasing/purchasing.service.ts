@@ -210,12 +210,19 @@ export class PurchasingService {
       const hasQuotes = Boolean(dto.quotes?.length);
       const status = dto.status ?? (hasQuotes ? 'QUOTED' : 'ANSWERED');
 
+      // ⚠️ `ON CONFLICT` باید دقیقاً ستون‌های قید را نام ببرد.
+      //
+      // مهاجرت ۰۳۵ قید را از `(inquiryId, supplierId)` به
+      // `(companyId, inquiryId, supplierId)` برد.  پستگرس برای شکل
+      // قدیمی «no unique or exclusion constraint matching the ON
+      // CONFLICT specification» می‌دهد و **کل تراکنش** برمی‌گردد — یعنی
+      // ثبت تماس با بنکدار بی‌صدا شکست می‌خورد.
       const call = await tx.query<{ id: string }>(
         `INSERT INTO "SupplierCall"
            (id, "companyId", "inquiryId", "supplierId", status, channel, phone,
             transcript, "durationSec", note, "calledAt")
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
-         ON CONFLICT ("inquiryId", "supplierId") DO UPDATE
+         ON CONFLICT ("companyId", "inquiryId", "supplierId") DO UPDATE
            SET status = EXCLUDED.status,
                channel = EXCLUDED.channel,
                transcript = COALESCE(EXCLUDED.transcript, "SupplierCall".transcript),
@@ -259,7 +266,7 @@ export class PurchasingService {
           `INSERT INTO "SupplierQuote"
              (id, "companyId", "callId", "productId", "unitPrice", "availableQty", "leadDays", note)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           ON CONFLICT ("callId", "productId") DO UPDATE
+           ON CONFLICT ("companyId", "callId", "productId") DO UPDATE
              SET "unitPrice" = EXCLUDED."unitPrice",
                  "availableQty" = EXCLUDED."availableQty",
                  "leadDays" = EXCLUDED."leadDays",

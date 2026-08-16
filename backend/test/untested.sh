@@ -44,7 +44,8 @@ psql() { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null
 # اجرا نشوند و آزمون بار دوم با «۲ رکورد به‌جای ۱» بشکند.
 cleanup_rows() {
   psql "DELETE FROM \"PosTerminal\" WHERE \"terminalNo\" LIKE 'UT-%'"
-  psql "DELETE FROM \"Contract\" WHERE title LIKE 'UT-%'"
+  psql "DELETE FROM \"ContractPayment\" WHERE \"contractId\" IN (SELECT id FROM \"Contract\" WHERE \"contractNo\" LIKE 'UT-%')"
+  psql "DELETE FROM \"Contract\" WHERE title LIKE 'UT-%' OR \"contractNo\" LIKE 'UT-%'"
   psql "DELETE FROM \"PriceLevel\" WHERE name LIKE 'UT-%'"
   psql "DELETE FROM \"DiscountRule\" WHERE name LIKE 'UT-%'"
   psql "DELETE FROM \"Budget\" WHERE title LIKE 'UT-%' OR title IS NULL"
@@ -95,6 +96,30 @@ echo '--- 4) contracts ---'
 chk "missing contractNo rejected" \
   "$(curl -s -X POST $A/contracts -H "$AU" -H "$JS" -d '{"title":"UT-C"}' | P "d.get('statusCode')")" "400"
 chk "list works" "$(curl -s -o /dev/null -w '%{http_code}' "$A/contracts" -H "$AU")" "200"
+
+# چرخهٔ کامل قرارداد و اقساطش — تا امروز هیچ صفحه‌ای این هشت مسیر را
+# صدا نمی‌زد و هیچ سنجه‌ای فراتر از «۲۰۰ برمی‌گرداند» نمی‌رفت.
+CN=$(curl -s -X POST $A/contracts -H "$AU" -H "$JS"   -d '{"contractNo":"UT-C-9001","title":"UT-Rent","type":"RENT","partyName":"UT-Party","amount":600000000}' | P "d.get('id','')")
+chk "قرارداد ساخته شد" "$([ -n "$CN" ] && echo yes || echo no)" "yes"
+chk "شماره تکراری رد می‌شود"   "$(curl -s -X POST $A/contracts -H "$AU" -H "$JS"      -d '{"contractNo":"UT-C-9001","title":"UT-Dup","partyName":"x"}' | P "d.get('statusCode')")" "400"
+chk "نوع نامعتبر رد می‌شود"   "$(curl -s -X POST $A/contracts -H "$AU" -H "$JS"      -d '{"contractNo":"UT-C-9002","title":"UT-Bad","partyName":"x","type":"NONSENSE"}' | P "d.get('statusCode')")" "400"
+chk "وضعیت نامعتبر رد می‌شود"   "$(curl -s -X PATCH "$A/contracts/$CN/status" -H "$AU" -H "$JS" -d '{"status":"NOPE"}' | P "d.get('statusCode')")" "400"
+chk "فعال‌سازی"   "$(curl -s -X PATCH "$A/contracts/$CN/status" -H "$AU" -H "$JS" -d '{"status":"ACTIVE"}' | P "d.get('status')")" "ACTIVE"
+
+PAY=$(curl -s -X POST "$A/contracts/$CN/payments" -H "$AU" -H "$JS"   -d '{"amount":50000000,"dueDate":"2026-01-15"}' | P "d.get('id','')")
+chk "قسط افزوده شد" "$([ -n "$PAY" ] && echo yes || echo no)" "yes"
+
+# ⚠️ فهرست قراردادها باید `dueDate` هر قسط را بدهد.
+#
+# نسخهٔ اول فقط id/status/amount را برمی‌گرداند.  خطایی نمی‌داد — ولی
+# صفحه نمی‌توانست بگوید کدام قسط عقب افتاده، و «قسط سررسیدگذشته»
+# هرگز قرمز نمی‌شد.  تنها چیزی که در فهرست قراردادها واقعاً فوری است،
+# بی‌صدا ناپدید شده بود.
+chk "فهرست dueDate قسط را می‌دهد"   "$(curl -s "$A/contracts" -H "$AU" | P "all('dueDate' in p for c in d if c['id']=='$CN' for p in c.get('payments',[]))")" "True"
+chk "جزئیات قسط‌ها را مرتب می‌دهد"   "$(curl -s "$A/contracts/$CN" -H "$AU" | P "len(d.get('payments',[]))")" "1"
+chk "پرداخت قسط"   "$(curl -s -X PATCH "$A/contracts/payments/$PAY/pay" -H "$AU" | P "d.get('status')")" "PAID"
+chk "قسط ناموجود ۴۰۴"   "$(curl -s -X PATCH "$A/contracts/payments/00000000-0000-0000-0000-000000000000/pay" -H "$AU" | P "d.get('statusCode')")" "404"
+chk "قرارداد شرکت دیگر دیده نمی‌شود"   "$(curl -s "$A/contracts/00000000-0000-0000-0000-000000000000" -H "$AU" | P "d.get('statusCode')")" "404"
 
 echo '--- 5) نگهبان عمومی روی حوزه‌های بی‌DTO ---'
 # ۴۹ کنترلر `@Body() dto: any` دارند و ValidationPipe را دور می‌زنند.

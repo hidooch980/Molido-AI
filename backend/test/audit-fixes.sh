@@ -149,11 +149,24 @@ echo '--- قیدهای یکتا در محدودهٔ شرکت ---'
 #
 # این سنجه نه فهرست جدول‌ها که خودِ شرط را می‌سنجد، پس جدول تازه‌ای که
 # فردا با همین اشتباه اضافه شود هم گرفته می‌شود.
-chk "هیچ قید یکتای سراسری روی جدول چندمستأجری نمانده"   "$(psqlv "SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+# سه قید هویتی عمداً سراسری‌اند و باید بمانند: ورود با ایمیل، بازیابی
+# با تلفن و احراز با کلید API، هر سه **پیش از دانستن شرکت** جست‌وجو
+# می‌شوند.  مهاجرت ۰۳۵ اشتباهاً آن‌ها را هم محدود کرد و ۰۳۶ برگرداند.
+chk "هیچ قید یکتای سراسریِ ناخواسته نمانده"   "$(psqlv "SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
             WHERE c.contype='u'
               AND pg_get_constraintdef(c.oid) NOT LIKE '%companyId%'
               AND EXISTS (SELECT 1 FROM information_schema.columns col
-                          WHERE col.table_name=t.relname AND col.column_name='companyId')")" "0"
+                          WHERE col.table_name=t.relname AND col.column_name='companyId')
+              AND NOT (t.relname='User' AND pg_get_constraintdef(c.oid) IN
+                         ('UNIQUE (email)','UNIQUE (phone)'))
+              AND NOT (t.relname='ApiKey' AND pg_get_constraintdef(c.oid)='UNIQUE (\"keyHash\")')")" "0"
+
+# و استثناها واقعاً سرِ جایشان‌اند — «صفر قید ناخواسته» با محدود کردنِ
+# هویت هم برآورده می‌شود، که دقیقاً همان اشتباه ۰۳۵ بود.
+chk "ورود با ایمیل سراسری یکتا مانده"   "$(psqlv "SELECT count(*) FROM pg_constraint
+            WHERE conname='User_email_key' AND pg_get_constraintdef(oid)='UNIQUE (email)'")" "1"
+chk "کلید API سراسری یکتا مانده"   "$(psqlv "SELECT count(*) FROM pg_constraint
+            WHERE conname='ApiKey_keyHash_key'")" "1"
 
 # و قید درست سرِ جایش هست — «صفر قید سراسری» به‌تنهایی با حذف کردن همهٔ
 # قیدها هم برآورده می‌شود.

@@ -68,6 +68,9 @@ cd mcp && npm install
 
 **۳. روی stdio کار می‌کند، نه شبکه.**
 
+هیچ پورتی باز نمی‌شود و از بیرون در دسترس نیست — همان چیزی که برای
+دسترسی به دادهٔ مالی درست است.
+
 ## اتصال به سرور راه‌دور
 
 `MOLIDO_API` را به `https://SERVER/api` عوض کنید.
@@ -89,14 +92,12 @@ cd mcp && npm install
 
 ```bash
 # گرفتن گواهی سرور
-openssl s_client -connect SERVER:443 -servername SERVER </dev/null 2>/dev/null   | openssl x509 > molido-server.crt
+openssl s_client -connect SERVER:443 -servername SERVER </dev/null 2>/dev/null \n  | openssl x509 > molido-server.crt
 
 # در .mcp.json
 "NODE_EXTRA_CA_CERTS": "/path/to/molido-server.crt"
 ```
 
-هیچ پورتی باز نمی‌شود و از بیرون در دسترس نیست — همان چیزی که برای
-دسترسی به دادهٔ مالی درست است.
 
 ## آزمون
 

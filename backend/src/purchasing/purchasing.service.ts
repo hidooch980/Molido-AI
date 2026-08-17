@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service';
+import { TelephonyService } from '../telephony/telephony.service';
 import {
   groupBySupplier,
   pickWinners,
@@ -27,7 +28,10 @@ type Row = Record<string, unknown>;
  */
 @Injectable()
 export class PurchasingService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly telephony: TelephonyService,
+  ) {}
 
   // ------------------------------------------------------- ساخت استعلام
 
@@ -172,6 +176,55 @@ export class PurchasingService {
    * فقط `channel` است.  یکی کردنشان عمدی است — دو مسیر جدا یعنی دو
    * جای متفاوت برای اشتباه، و قیمتی که در یکی ثبت می‌شود و در دیگری نه.
    */
+  /**
+   * شماره‌گیری با بنکدار از راه مرکز تلفن.
+   *
+   * ⚠️ شماره از **پایگاه داده** خوانده می‌شود، نه از درخواست.
+   *
+   *    ورودی `supplierId` است نه شمارهٔ تلفن.  اگر شماره را از بدنه
+   *    می‌گرفتیم، هر کاربرِ واردشده می‌توانست سامانه را به یک
+   *    شماره‌گیرِ انبوه بدل کند و تماس‌ها از خطِ خودِ فروشگاه بیرون
+   *    برود.  محدود کردن به تأمین‌کنندگانِ ثبت‌شده این را از ریشه
+   *    می‌بندد.
+   *
+   * تماس **ثبت نمی‌شود**: ثبت کارِ `recordCall` است و پس از مکالمه
+   * انجام می‌شود.  شماره‌گیری فقط زنگ می‌زند.  اگر همین‌جا ثبت می‌شد،
+   * هر بار که بنکدار برنمی‌داشت یک «تماس» در آمار می‌نشست.
+   */
+  async dialSupplier(
+    companyId: string,
+    inquiryId: string,
+    supplierId: string,
+    operatorExtension: string,
+  ) {
+    const rows = await this.db.query<{
+      name: string;
+      phone: string | null;
+      inquiryNo: string;
+    }>(
+      `SELECT s.name, s.phone, i."inquiryNo"
+         FROM "Supplier" s
+         JOIN "PurchaseInquiry" i ON i.id = $2 AND i."companyId" = $1
+        WHERE s.id = $3 AND s."companyId" = $1`,
+      [companyId, inquiryId, supplierId],
+    );
+
+    const supplier = rows[0];
+    if (!supplier) throw new NotFoundException('تأمین‌کننده یا استعلام یافت نشد');
+    if (!supplier.phone) {
+      throw new BadRequestException(`شمارهٔ «${supplier.name}» ثبت نشده است`);
+    }
+
+    const { channelId } = await this.telephony.originate({
+      phone: supplier.phone,
+      operatorExtension,
+      supplierName: supplier.name,
+      inquiryNo: supplier.inquiryNo,
+    });
+
+    return { channelId, supplierName: supplier.name, phone: supplier.phone };
+  }
+
   async recordCall(
     companyId: string,
     inquiryId: string,

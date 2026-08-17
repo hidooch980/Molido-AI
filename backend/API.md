@@ -6,7 +6,7 @@
 >
 > نسخهٔ زندهٔ تعاملی: `http://localhost:3000/api-docs`
 
-**460 عملیات در 67 گروه**
+**462 عملیات در 68 گروه**
 
 همهٔ مسیرها جز `/auth/login` و `/shop/*` توکن می‌خواهند:
 `Authorization: Bearer <token>`
@@ -248,6 +248,7 @@
 | GET | `/purchasing/inquiries/{id}/call-list` | `callList` |
 | POST | `/purchasing/inquiries/{id}/calls` | `recordCall` |
 | GET | `/purchasing/inquiries/{id}/compare` | `compare` |
+| POST | `/purchasing/inquiries/{id}/dial` | `dial` |
 | POST | `/purchasing/inquiries/{id}/order` | `order` |
 | GET | `/purchasing/price-history/{productId}` | `priceHistory` |
 | GET | `/purchasing/scorecard` | `scorecard` |
@@ -348,6 +349,12 @@
 | DELETE | `/suppliers/{id}` | `remove` |
 | GET | `/suppliers/{id}` | `findOne` |
 | PATCH | `/suppliers/{id}` | `update` |
+
+## Telephony
+
+| متد | مسیر | شرح |
+|---|---|---|
+| GET | `/telephony/status` | `status` |
 
 ## Treasury
 

@@ -250,6 +250,24 @@ chk "بازهٔ پیش‌فرض ۱۸۰ روز" "$(echo "$SC" | P "d[0]['days']")
 chk "بازهٔ دلخواه اثر می‌کند"   "$(curl -s "$A/purchasing/scorecard?days=30" -H "$AU" | P "d[0]['days'] if d else 30")" "30"
 chk "بازهٔ نامعتبر به پیش‌فرض برمی‌گردد"   "$(curl -s "$A/purchasing/scorecard?days=abc" -H "$AU" | P "d[0]['days'] if d else 180")" "180"
 
+echo '--- 20) شماره‌گیری: شماره از پایگاه داده می‌آید نه از درخواست ---'
+# ⚠️ خطرناک‌ترین بخش این قابلیت.
+#
+#    نقطهٔ پایانی `supplierId` می‌گیرد نه شمارهٔ تلفن.  اگر شماره را از
+#    بدنه می‌گرفت، هر کاربرِ واردشده می‌توانست سامانه را به یک
+#    شماره‌گیرِ انبوه بدل کند و تماس‌ها از خطِ خودِ فروشگاه بیرون برود.
+chk "وضعیت مرکز خوانده می‌شود"   "$(curl -s "$A/telephony/status" -H "$AU" | P "'configured' in d")" "True"
+# رمز مرکز نباید در پاسخ باشد.
+chk "رمز مرکز لو نمی‌رود"   "$(curl -s "$A/telephony/status" -H "$AU" | P "any('password' in k.lower() for k in d)")" "False"
+
+chk "بدون پیکربندی، پیام روشن"   "$(curl -s -X POST "$A/purchasing/inquiries/$IID/dial" -H "$AU" -H "$JS"      -d "{\"supplierId\":\"$S1\",\"extension\":\"201\"}" | P "d.get('statusCode')")" "400"
+# میدان شماره اصلاً پذیرفته نمی‌شود: whitelist نه blacklist.
+chk "شمارهٔ دلخواه در بدنه رد می‌شود"   "$(curl -s -X POST "$A/purchasing/inquiries/$IID/dial" -H "$AU" -H "$JS"      -d "{\"supplierId\":\"$S1\",\"extension\":\"201\",\"phone\":\"09120000000\"}" | P "d.get('statusCode')")" "400"
+chk "بدون داخلی رد می‌شود"   "$(curl -s -X POST "$A/purchasing/inquiries/$IID/dial" -H "$AU" -H "$JS"      -d "{\"supplierId\":\"$S1\"}" | P "d.get('statusCode')")" "400"
+chk "تأمین‌کننده ناموجود ۴۰۴"   "$(curl -s -X POST "$A/purchasing/inquiries/$IID/dial" -H "$AU" -H "$JS"      -d "{\"supplierId\":\"00000000-0000-0000-0000-000000000000\",\"extension\":\"201\"}" | P "d.get('statusCode')")" "404"
+chk "بدون توکن بسته است"   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/purchasing/inquiries/$IID/dial" -H "$JS"      -d "{\"supplierId\":\"$S1\",\"extension\":\"201\"}")" "401"
+
+
 
 
 psql "DELETE FROM \"PurchaseItem\" WHERE \"purchaseId\" IN

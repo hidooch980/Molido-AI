@@ -13,7 +13,7 @@
  * نشدنی است.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
@@ -24,6 +24,16 @@ import { suggestQuotes, type QuoteSuggestion } from '../../lib/price-speech';
 import { amountOnly } from '../../lib/money';
 
 const fa = (value: unknown) => amountOnly(value);
+
+type PricePoint = {
+  unitPrice: string;
+  availableQty: string | null;
+  leadDays: number | null;
+  isSelected: boolean;
+  createdAt: string;
+  supplierName: string;
+  inquiryNo: string;
+};
 
 type Score = {
   supplierId: string;
@@ -146,23 +156,42 @@ export default function PurchasingPage() {
   const [scorecard, setScorecard] = useState<Score[]>([]);
   const [showScores, setShowScores] = useState(false);
 
+  // مرکز تلفن — دکمهٔ تماس فقط وقتی نشان داده می‌شود که پیکربندی شده
+  // باشد.  دکمه‌ای که کار نمی‌کند بدتر از نبودنش است.
+  // تاریخچهٔ قیمت یک کالا — باز می‌شود وقتی روی «روند» زده شود.
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
+  const [history, setHistory] = useState<PricePoint[]>([]);
+
+  const [pbx, setPbx] = useState<{ configured: boolean } | null>(null);
+  const [extension, setExtension] = useState('');
+  const [dialing, setDialing] = useState(false);
+
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [heard, setHeard] = useState<QuoteSuggestion[]>([]);
 
   const load = useCallback(async () => {
     try {
-      const [sug, list, scores] = await Promise.all([
+      const [sug, list, scores, tel] = await Promise.all([
         api<Suggestion[]>('/purchasing/suggestions'),
         api<Inquiry[]>('/purchasing/inquiries'),
         api<Score[]>('/purchasing/scorecard'),
+        api<{ configured: boolean }>('/telephony/status'),
       ]);
       setSuggestions(sug);
       setInquiries(list);
       setScorecard(scores);
+      setPbx(tel);
     } catch {
       setError('بارگذاری اطلاعات خرید ناموفق بود');
     }
+  }, []);
+
+  useEffect(() => {
+    // داخلیِ اپراتور از حافظهٔ مرورگر: هر بار تایپش کاری است که
+    // یادش می‌رود.
+    const saved = window.localStorage.getItem('molido_extension');
+    if (saved) setExtension(saved);
   }, []);
 
   useEffect(() => {
@@ -231,6 +260,66 @@ export default function PurchasingPage() {
    *    اپراتور ببیند و در صورت لزوم عوضش کند — و هشدارهایش کنارش
    *    نوشته می‌شود.
    */
+  /**
+   * زنگ زدن به بنکدار.
+   *
+   * مرکز اول به داخلیِ خودِ اپراتور زنگ می‌زند و وقتی برداشت، شمارهٔ
+   * بنکدار را می‌گیرد.  برعکسش یعنی بنکدار گوشی را برمی‌دارد و کسی
+   * آن‌طرف نیست.
+   *
+   * داخلی در حافظهٔ مرورگر می‌ماند: اپراتور هر بار پشت یک میز می‌نشیند
+   * و تایپ دوبارهٔ آن در هر تماس، کاری است که یادش می‌رود.
+   */
+  /**
+   * روند قیمت یک کالا در طول زمان.
+   *
+   * `compare` می‌گوید امروز چه کسی ارزان‌تر است.  این می‌گوید قیمت
+   * خودش دارد بالا می‌رود یا نه — که تصمیمِ «حالا بخرم یا صبر کنم» را
+   * روشن می‌کند.
+   */
+  async function openHistory(productId: string) {
+    if (historyOf === productId) {
+      setHistoryOf(null);
+      setHistory([]);
+      return;
+    }
+
+    setError('');
+    setHistoryOf(productId);
+    try {
+      setHistory(await api<PricePoint[]>(`/purchasing/price-history/${productId}`));
+    } catch (caught) {
+      setError((caught as Error).message);
+      setHistoryOf(null);
+    }
+  }
+
+  async function dial() {
+    if (!callSupplier) {
+      setError('بنکدار را انتخاب کنید');
+      return;
+    }
+    if (!extension.trim()) {
+      setError('داخلی خودتان را بنویسید');
+      return;
+    }
+
+    setError('');
+    setDialing(true);
+    try {
+      const r = await api<{ supplierName: string; phone: string }>(
+        `/purchasing/inquiries/${active}/dial`,
+        { method: 'POST', body: { supplierId: callSupplier, extension: extension.trim() } },
+      );
+      window.localStorage.setItem('molido_extension', extension.trim());
+      setFlash(`در حال زنگ زدن به ${r.supplierName} — ${r.phone}`);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setDialing(false);
+    }
+  }
+
   function listenForQuotes() {
     if (!items.length) {
       setError('اول استعلامی را باز کنید');
@@ -650,6 +739,40 @@ const field: React.CSSProperties = {
               </select>
             </div>
 
+            {/* ─── زنگ زدن ───
+                فقط وقتی مرکز پیکربندی شده.  بدون مرکز، اپراتور خودش
+                شماره می‌گیرد و همین فرم را پر می‌کند — که کار می‌کند و
+                دکمهٔ مرده لازم ندارد. */}
+            {callSupplier && pbx?.configured && (
+              <div
+                style={{
+                  marginTop: 12,
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'flex-end',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <label htmlFor="ext">داخلی شما</label>
+                  <input
+                    id="ext"
+                    style={{ ...field, maxWidth: 120 }}
+                    value={extension}
+                    onChange={(e) => setExtension(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="۲۰۱"
+                  />
+                </div>
+                <button type="button" onClick={() => void dial()} disabled={dialing}>
+                  {dialing ? '…' : '📞 زنگ بزن'}
+                </button>
+                <span className="muted" style={{ fontSize: 13 }}>
+                  اول به داخلی شما زنگ می‌خورد، بعد به بنکدار
+                </span>
+              </div>
+            )}
+
             {/* ─── شنیدن قیمت از مکالمه ───
                 دکمه فقط وقتی نشان داده می‌شود که مرورگر تشخیص گفتار
                 داشته باشد: دکمه‌ای که کار نمی‌کند بدتر از نبودنش است. */}
@@ -739,8 +862,22 @@ const field: React.CSSProperties = {
                   </thead>
                   <tbody>
                     {items.map((it) => (
+                      <Fragment key={it.productId}>
                       <tr key={it.productId} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={TD}>{it.productName}</td>
+                        <td style={TD}>
+                          {it.productName}
+                          {/* روند قیمت: «امروز ارزان‌تر است» با «قیمت
+                              دارد بالا می‌رود» یکی نیست، و دومی تصمیمِ
+                              «حالا بخرم یا صبر کنم» را روشن می‌کند. */}
+                          <button
+                            type="button"
+                            className="ghost"
+                            style={{ marginInlineStart: 6, padding: '2px 8px', fontSize: 12 }}
+                            onClick={() => void openHistory(it.productId)}
+                          >
+                            {historyOf === it.productId ? 'بستن' : 'روند'}
+                          </button>
+                        </td>
                         <td style={{ ...TD, fontVariantNumeric: 'tabular-nums' }}>
                           {fa(it.qty)} {it.unit}
                         </td>
@@ -774,6 +911,74 @@ const field: React.CSSProperties = {
                           />
                         </td>
                       </tr>
+                      {historyOf === it.productId && (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '8px 10px', background: 'var(--bg)' }}>
+                            {history.length === 0 ? (
+                              <span className="muted" style={{ fontSize: 13 }}>
+                                هنوز قیمتی برای این کالا ثبت نشده
+                              </span>
+                            ) : (
+                              <div style={{ display: 'grid', gap: 4 }}>
+                                {history.map((h, i) => {
+                                  // درصد تغییر نسبت به قیمتِ **بعدی در
+                                  // فهرست** یعنی قیمتِ قدیمی‌تر: فهرست
+                                  // نزولی است.
+                                  const older = history[i + 1];
+                                  const change =
+                                    older && Number(older.unitPrice) > 0
+                                      ? Math.round(
+                                          ((Number(h.unitPrice) - Number(older.unitPrice)) /
+                                            Number(older.unitPrice)) *
+                                            100,
+                                        )
+                                      : null;
+                                  return (
+                                    <div
+                                      key={`${h.inquiryNo}-${h.supplierName}-${i}`}
+                                      style={{
+                                        display: 'flex',
+                                        gap: 10,
+                                        fontSize: 13,
+                                        alignItems: 'baseline',
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      <span className="muted">
+                                        {new Date(h.createdAt).toLocaleDateString('fa-IR')}
+                                      </span>
+                                      <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                        {fa(h.unitPrice)}
+                                      </strong>
+                                      {change !== null && change !== 0 && (
+                                        <span
+                                          style={{
+                                            color: change > 0 ? '#b91c1c' : '#047857',
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          {change > 0 ? '▲' : '▼'} {fa(Math.abs(change))}٪
+                                        </span>
+                                      )}
+                                      <span>{h.supplierName}</span>
+                                      {h.leadDays !== null && (
+                                        <span className="muted">{fa(h.leadDays)} روز</span>
+                                      )}
+                                      {h.isSelected && (
+                                        <span style={{ color: '#047857' }}>· خریداری شد</span>
+                                      )}
+                                      <span className="muted" style={{ fontSize: 12 }}>
+                                        {h.inquiryNo}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

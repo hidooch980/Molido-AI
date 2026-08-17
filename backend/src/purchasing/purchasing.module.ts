@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { PurchasingController } from './purchasing.controller';
 import { PurchasingService } from './purchasing.service';
+import { TelephonyModule } from '../telephony/telephony.module';
 
 /**
  * منشی خرید: استعلام قیمت از بنکدارها، مقایسه، و صدور فاکتور خرید.
@@ -11,6 +12,8 @@ import { PurchasingService } from './purchasing.service';
  * موجودی را عوض می‌کند هم تماس تلفنی ثبت می‌کند.
  */
 @Module({
+  // مریم برای زنگ زدن به بنکدار به مرکز تلفن نیاز دارد.
+  imports: [TelephonyModule],
   controllers: [PurchasingController],
   providers: [PurchasingService],
   exports: [PurchasingService],

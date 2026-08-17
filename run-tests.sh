@@ -149,6 +149,9 @@ node --experimental-strip-types web/scripts/verify-speech.mjs 2>&1 | tail -2
 echo '--- price speech ---'
 node --experimental-strip-types web/scripts/verify-price-speech.mjs 2>&1 | tail -2
 
+echo '--- phone ---'
+node --experimental-strip-types web/scripts/verify-phone.mjs 2>&1 | tail -2
+
 echo '--- i18n ---'
 node --experimental-strip-types web/scripts/verify-i18n.mjs 2>&1 | tail -2
 

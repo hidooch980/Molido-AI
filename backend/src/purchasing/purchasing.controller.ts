@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
-import { CreateInquiryDto, RecordCallDto } from './dto/purchasing.dto';
+import { CreateInquiryDto, DialSupplierDto, RecordCallDto } from './dto/purchasing.dto';
 
 /** خرید کار انباردار و مدیر است، نه صندوق‌دار. */
 const BUYER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'WAREHOUSE'] as const;
@@ -90,6 +90,31 @@ export class PurchasingController {
     return this.purchasing.supplierScorecard(
       user.companyId as string,
       Number.isFinite(n) && n > 0 ? Math.min(n, 1095) : 180,
+    );
+  }
+
+  /**
+   * زنگ زدن به بنکدار از راه مرکز تلفن.
+   *
+   * ⚠️ ورودی `supplierId` است نه شمارهٔ تلفن — عمدی و مهم.  اگر شماره
+   *    را از بدنه می‌گرفت، این نقطهٔ پایانی یک شماره‌گیرِ انبوه می‌شد
+   *    که از خطِ خودِ فروشگاه زنگ می‌زند.
+   *
+   * `extension` داخلیِ خودِ اپراتور است: مرکز اول به او زنگ می‌زند و
+   * وقتی برداشت، شمارهٔ بنکدار را می‌گیرد.
+   */
+  @Post('inquiries/:id/dial')
+  @Roles(...BUYER_ROLES)
+  dial(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: DialSupplierDto,
+  ) {
+    return this.purchasing.dialSupplier(
+      user.companyId as string,
+      id,
+      body.supplierId,
+      body.extension,
     );
   }
 

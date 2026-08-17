@@ -21,6 +21,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { CustomersModule } from './customers/customers.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchasingModule } from './purchasing/purchasing.module';
+import { TelephonyModule } from './telephony/telephony.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -116,6 +117,7 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
     ProductsModule,
     PurchasesModule,
     PurchasingModule,
+    TelephonyModule,
     SerialNumbersModule,
     SuppliersModule,
     WarehousesModule,

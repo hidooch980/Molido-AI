@@ -18,6 +18,7 @@ import {
   CurrentUser,
 } from '../common/decorators/current-user.decorator';
 import { StockCountService } from './stock-count.service';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @ApiTags('انبارگردانی و کاردکس')
 @ApiBearerAuth()
@@ -74,6 +75,7 @@ export class StockCountController {
   }
 
   @Post(':id/apply')
+  @Permission('inventory:count')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   apply(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.service.apply(user.companyId!, user.userId, id);

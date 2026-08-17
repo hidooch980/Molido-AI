@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { Permission } from '../common/decorators/permission.decorator';
 
 const READ_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT'] as const;
 const WRITE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] as const;
@@ -85,6 +86,7 @@ export class LedgerController {
 
   /** سند دستی. */
   @Post('entries')
+  @Permission('finance:journal')
   @Roles(...WRITE_ROLES)
   post(
     @Body() body: { description: string; lines: PostingLine[]; entryDate?: string },

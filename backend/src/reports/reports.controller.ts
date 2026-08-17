@@ -3,6 +3,7 @@ import { Controller, Get, Header, Query, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
@@ -15,6 +16,7 @@ export class ReportsController {
   }
 
   @Get('sales')
+  @Permission('sales:report')
   salesReport(
     @CurrentUser() user: AuthUser,
     @Query('from') from?: string,

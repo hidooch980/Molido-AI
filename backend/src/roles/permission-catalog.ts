@@ -50,11 +50,6 @@ export const PERMISSION_CATALOG: Array<{
         defaultRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
       },
       {
-        key: 'sales:discount',
-        label: 'تخفیف دستی',
-        defaultRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
-      },
-      {
         key: 'sales:report',
         label: 'دیدن گزارش فروش',
         defaultRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],

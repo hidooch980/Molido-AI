@@ -22,6 +22,7 @@ import {
   CreatePayrollSlipDto,
   UpdateEmployeeDto,
 } from './dto/payroll.dto';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @Controller('payroll')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -92,6 +93,7 @@ export class PayrollController {
   }
 
   @Post('slips')
+  @Permission('finance:payroll')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   createSlip(
     @Body() body: CreatePayrollSlipDto,

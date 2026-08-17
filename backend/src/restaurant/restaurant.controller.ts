@@ -27,6 +27,7 @@ import {
   SetRecipeDto,
   SettleOrderDto,
 } from './dto/restaurant.dto';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @ApiTags('کافه رستوران')
 @ApiBearerAuth()
@@ -142,6 +143,7 @@ export class RestaurantController {
   }
 
   @Post('menu-items')
+  @Permission('restaurant:menu')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   createMenuItem(@CurrentUser() user: AuthUser, @Body() dto: MenuItemDto) {
     return this.service.createMenuItem(user.companyId!, dto);
@@ -232,6 +234,7 @@ export class RestaurantController {
   }
 
   @Post('orders/:id/settle')
+  @Permission('restaurant:settle')
   @ApiOperation({ summary: 'تسویه سفارش و آزادسازی میز' })
   settle(
     @CurrentUser() user: AuthUser,

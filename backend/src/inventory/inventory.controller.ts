@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -52,6 +53,7 @@ export class InventoryController {
   }
 
   @Post('adjust')
+  @Permission('inventory:adjust')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'INVENTORY')
   adjust(
     @Body()

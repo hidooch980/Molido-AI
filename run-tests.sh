@@ -17,7 +17,7 @@ cd "$(dirname "$0")" || exit 1
 SUITES="e2e-cycles integration shop pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
         product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice
-        password ratelimit bundle apidocs untested records"
+        password ratelimit bundle apidocs untested records roles"
 
 [ $# -gt 0 ] && SUITES="$*"
 
@@ -70,6 +70,16 @@ export MOLIDO_TOKEN
 # می‌کنیم.  «صبر تا وقتی ۴۲۹ نگیریم» کافی نیست — سطل ممکن است پر ولی
 # هنوز سرریز نکرده باشد و سرریز وسط مجموعه رخ دهد.
 QUOTA_NEEDED=${QUOTA_NEEDED:-250}
+
+# ⚠️ حین اجرای این مجموعه، کانتینرها را دوباره نسازید.
+#
+#    `docker compose build backend && up -d backend` وسط اجرا، اتصال‌های
+#    باز را قطع می‌کند.  نتیجه‌اش ده‌ها شکستِ دروغین با **پاسخ خالی**
+#    است — که با ۴۲۹ فرق دارد: ۴۲۹ بدنهٔ JSON دارد، قطعِ اتصال هیچ.
+#
+#    دو بار همین اتفاق افتاد و هر بار دقایقی صرف عیب‌یابی چیزی شد که
+#    اصلاً خراب نبود.  برچسب `<<پاسخ-JSON-نبود: ۰ نویسه>>` نشانهٔ همین
+#    است، نه اشکال منطقی.
 
 wait_for_quota() {
   local i left

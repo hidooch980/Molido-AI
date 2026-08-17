@@ -659,6 +659,7 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   menuStaff: { fa: 'کارکنان', en: 'Staff', ar: 'الموظفون' },
   menuContracts: { fa: 'قراردادها', en: 'Contracts', ar: 'العقود' },
   menuPosTerminals: { fa: 'کارت‌خوان‌ها', en: 'Card readers', ar: 'أجهزة نقاط البيع' },
+  menuRoles: { fa: 'اختیارات نقش‌ها', en: 'Role permissions', ar: 'صلاحيات الأدوار' },
   menuTickets: { fa: 'تیکت مشتریان', en: 'Customer tickets', ar: 'تذاكر العملاء' },
   menuBudget: { fa: 'بودجه', en: 'Budget', ar: 'الميزانية' },
   menuLoans: { fa: 'وام‌ها', en: 'Loans', ar: 'القروض' },

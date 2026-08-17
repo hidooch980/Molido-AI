@@ -52,6 +52,7 @@ export const NAV: NavItem[] = [
   { href: '/staff', label: 'menuStaff', icon: 'users', feature: 'hr' as FeatureKey },
   { href: '/contracts', label: 'menuContracts', icon: 'clipboard' },
   { href: '/pos-terminals', label: 'menuPosTerminals', icon: 'bank' },
+  { href: '/roles', label: 'menuRoles', icon: 'settings' },
   { href: '/records/customer-tickets', label: 'menuTickets', icon: 'inbox', feature: 'crm' as FeatureKey },
   { href: '/records/budget', label: 'menuBudget', icon: 'ledger', feature: 'finance' as FeatureKey },
   { href: '/records/loans', label: 'menuLoans', icon: 'bank', feature: 'finance' as FeatureKey },

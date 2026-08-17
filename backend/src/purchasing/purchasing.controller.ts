@@ -6,6 +6,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { CreateInquiryDto, DialSupplierDto, RecordCallDto } from './dto/purchasing.dto';
+import { Permission } from '../common/decorators/permission.decorator';
 
 /** خرید کار انباردار و مدیر است، نه صندوق‌دار. */
 const BUYER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'WAREHOUSE'] as const;
@@ -75,6 +76,7 @@ export class PurchasingController {
 
   /** تبدیل برندگان به فاکتور خرید — یکی به ازای هر تأمین‌کننده. */
   @Post('inquiries/:id/order')
+  @Permission('purchasing:order')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   order(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.purchasing.order(user.companyId as string, user.userId as string, id);
@@ -104,6 +106,7 @@ export class PurchasingController {
    * وقتی برداشت، شمارهٔ بنکدار را می‌گیرد.
    */
   @Post('inquiries/:id/dial')
+  @Permission('purchasing:dial')
   @Roles(...BUYER_ROLES)
   dial(
     @CurrentUser() user: AuthUser,

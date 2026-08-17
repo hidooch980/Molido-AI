@@ -139,9 +139,9 @@ export default function RolesPage() {
             {t('rolCycleHint')}
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
-            <span><Chip state="default" /> پیش‌فرض سامانه</span>
-            <span><Chip state="allow" /> اجازه داده شده</span>
-            <span><Chip state="deny" /> اجازه گرفته شده</span>
+            <span><Chip state="default" /> {t('rolDefault')}</span>
+            <span><Chip state="allow" /> {t('rolGranted')}</span>
+            <span><Chip state="deny" /> {t('rolRevoked')}</span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>{t('rolDefaultVsDenyFull')}</p>
         </div>

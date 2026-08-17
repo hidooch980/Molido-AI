@@ -472,7 +472,7 @@ function Toolbar({
           cursor: busy ? 'wait' : 'pointer',
         }}
       >
-        <Icon name="refresh" /> ساخت فهرست از کالاها
+        <Icon name="refresh" /> {t('vcBuildFromProducts')}
       </button>
     </section>
   );
@@ -817,14 +817,14 @@ function Review({
                   onClick={() => review(sample.id, true)}
                   style={{ ...TOUCH, borderRadius: 10, border: 'none', background: 'var(--success)', color: '#fff', cursor: 'pointer' }}
                 >
-                  <Icon name="check" /> تأیید
+                  <Icon name="check" /> {t('vcApprove')}
                 </button>
                 <button
                   type="button"
                   onClick={() => review(sample.id, false)}
                   style={{ ...TOUCH, borderRadius: 10, border: 'none', background: 'var(--danger)', color: '#fff', cursor: 'pointer' }}
                 >
-                  <Icon name="x" /> رد
+                  <Icon name="x" /> {t('vcReject')}
                 </button>
               </div>
             ))}

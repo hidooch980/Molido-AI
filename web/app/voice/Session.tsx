@@ -233,7 +233,7 @@ export default function Session({
   if (!current) {
     return (
       <Shell onClose={onClose}>
-        <p style={{ fontSize: 22, fontWeight: 700 }}>تمام شد ✅</p>
+        <p style={{ fontSize: 22, fontWeight: 700 }}>{t('vsDone')} ✅</p>
         <p style={{ fontSize: 18 }}>{done} ضبط در این نشست.</p>
       </Shell>
     );
@@ -295,7 +295,7 @@ export default function Session({
       </button>
 
       <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-        یا کلید <kbd>Space</kbd> را نگه دارید
+        {t('vsOrKey')} <kbd>Space</kbd> {t('vsHold')}
       </p>
 
       {error ? (

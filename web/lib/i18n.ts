@@ -1196,6 +1196,32 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   stpCapacity: { fa: 'ظرفیت', en: 'Capacity', ar: 'السعة' },
   stpDeleteTable: { fa: 'حذف میز', en: 'Delete table', ar: 'حذف الطاولة' },
 
+  // ---------- دستهٔ پایانی ----------
+  shftTotalLabel: { fa: 'جمع:', en: 'Total:', ar: 'الإجمالي:' },
+  currencyRial: { fa: 'ریال', en: 'Rial', ar: 'ريال' },
+  payrollNetTotal: { fa: 'جمع خالص پرداختی:', en: 'Net payable total:', ar: 'إجمالي الصافي المستحق:' },
+  salesNewInvoice: { fa: 'فاکتور جدید', en: 'New invoice', ar: 'فاتورة جديدة' },
+  smsHistoryHint: {
+    fa: 'آنچه نرفته هم ثبت می‌شود — وقتی مشتری می‌پرسد «چرا پیام نگرفتم»، پاسخ اینجاست.',
+    en: "What failed is recorded too — when a customer asks «why didn't I get the message», the answer is here.",
+    ar: 'ما لم يُرسل يُسجَّل أيضًا — عندما يسأل العميل «لماذا لم تصلني الرسالة»، الجواب هنا.',
+  },
+  smsOptOutHint: {
+    fa: 'مشتری‌ای که گفته «نفرست» دیگر پیام نمی‌گیرد — حتی اگر شماره‌اش دستی در فهرست ارسال بیاید.',
+    en: 'A customer who said "do not send" gets nothing — even if their number is typed into the send list by hand.',
+    ar: 'العميل الذي قال «لا ترسل» لا يتلقى شيئًا — حتى لو أُدخل رقمه يدويًا في قائمة الإرسال.',
+  },
+  smsTemplateHint: {
+    fa: 'متن را یک بار بنویسید و هر بار همان را بفرستید — اشتباه تایپی نباید مستقیم به هزار مشتری برود.',
+    en: 'Write the text once and send the same each time — a typo should not go straight to a thousand customers.',
+    ar: 'اكتب النص مرة واحدة وأرسل نفسه كل مرة — الخطأ المطبعي يجب ألا يصل مباشرة إلى ألف عميل.',
+  },
+  mnuUsageForLabel: { fa: 'مقدار مصرفی برای', en: 'Consumption for', ar: 'الاستهلاك لـ' },
+  mnuIngredientCostLabel: { fa: 'بهای مواد:', en: 'Ingredient cost:', ar: 'تكلفة المكونات:' },
+  pwaInstallTitle: { fa: 'نصب Molido AI', en: 'Install Molido AI', ar: 'تثبيت Molido AI' },
+  pwaInstall: { fa: 'نصب', en: 'Install', ar: 'تثبيت' },
+  pwaDismiss: { fa: 'بستن', en: 'Close', ar: 'إغلاق' },
+
   // ---------- باقی‌ماندهٔ پنل ----------
   ctrNew: { fa: 'قرارداد تازه', en: 'New contract', ar: 'عقد جديد' },
   ctrNone: { fa: 'قراردادی یافت نشد', en: 'No contract found', ar: 'لم يُعثر على عقد' },

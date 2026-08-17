@@ -265,7 +265,7 @@ export default function SalesPage() {
           {/* راه ورود به فرم فاکتور.  بدون این، صفحهٔ تازه‌ساخته فقط با
               تایپ آدرس پیدا می‌شد — یعنی عملاً وجود نداشت. */}
           <button type="button" className="btn-sm" onClick={() => router.push('/sales/new')}>
-            فاکتور جدید
+            {t('salesNewInvoice')}
           </button>
           <button type="button" className="btn-sm" onClick={() => void load()}>
             {t('refresh')}

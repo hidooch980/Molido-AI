@@ -358,7 +358,7 @@ export default function SmsPage() {
 
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="button" className="ghost" onClick={() => void doPreview()} disabled={busy}>
-              <Icon name="search" size={16} /> پیش‌نمایش
+              <Icon name="search" size={16} /> {t('smsPreview')}
             </button>
             {/* دکمهٔ ارسال تا پیش از پیش‌نمایش وجود ندارد.  کاربر باید
                 ببیند چند نفر و چند قبض، پیش از اینکه بتواند بفرستد. */}
@@ -423,7 +423,7 @@ export default function SmsPage() {
         <div className="card">
           <h3>{t('smsHistory')}</h3>
           <p className="muted">
-            آنچه نرفته هم ثبت می‌شود — وقتی مشتری می‌پرسد «چرا پیام نگرفتم»، پاسخ اینجاست.
+            {t('smsHistoryHint')}
           </p>
 
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -483,8 +483,7 @@ export default function SmsPage() {
         <div className="card">
           <h3>{t('smsOptOut')}</h3>
           <p className="muted">
-            مشتری‌ای که گفته «نفرست» دیگر پیام نمی‌گیرد — حتی اگر شماره‌اش دستی در فهرست
-            ارسال بیاید.
+            {t('smsOptOutHint')}
           </p>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -548,8 +547,7 @@ export default function SmsPage() {
         <div className="card">
           <h3>{t('smsTemplate')}</h3>
           <p className="muted">
-            متن را یک بار بنویسید و هر بار همان را بفرستید — اشتباه تایپی نباید مستقیم به
-            هزار مشتری برود.
+            {t('smsTemplateHint')}
           </p>
 
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>

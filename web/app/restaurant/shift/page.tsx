@@ -320,7 +320,7 @@ export default function ShiftPage() {
               </button>
             ))}
             <span style={{ marginInlineStart: 'auto', fontSize: 14, color: 'var(--muted)' }}>
-              جمع: <strong>{money(totalRevenue)}</strong> ریال
+              {t('shftTotalLabel')} <strong>{money(totalRevenue)}</strong> {t('currencyRial')}
             </span>
           </div>
 

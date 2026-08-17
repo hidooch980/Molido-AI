@@ -389,7 +389,7 @@ export default function MenuAdminPage() {
             </div>
 
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-              مقدار مصرفی برای <strong>{t('mnuOnePortion')}</strong>{t('mnuUsageHint')}</p>
+              {t('mnuUsageForLabel')} <strong>{t('mnuOnePortion')}</strong>{t('mnuUsageHint')}</p>
 
             {lines.length === 0 ? (
               <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>
@@ -488,7 +488,7 @@ export default function MenuAdminPage() {
               {/* بهای محاسبه‌شده کنار قیمت فروش می‌نشیند تا معلوم شود
                   این پرس اصلاً سود می‌دهد یا نه. */}
               <span style={{ fontSize: 14, color: 'var(--muted)' }}>
-                بهای مواد: <strong>{money(Math.round(recipeCost))}</strong> ریال
+                {t('mnuIngredientCostLabel')} <strong>{money(Math.round(recipeCost))}</strong> ریال
                 {Number(recipeFor.price) > 0 && recipeCost > 0 ? (
                   <>
                     {' · '}حاشیه{' '}

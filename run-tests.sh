@@ -211,8 +211,12 @@ node --experimental-strip-types web/scripts/verify-date.mjs 2>&1 | tail -2
 echo '--- auth throttle ---'
 node web/scripts/verify-auth-throttle.mjs 2>&1 | tail -2
 
-# سقف روی رشتهٔ فارسیِ سفت‌شدهٔ پنل.  عدد امروز است؛ با هر رفعی باید
-# پایین بیاید.  کارش جلوگیری از **بدتر شدن** است، نه ادعای کامل بودن.
+# سقف **صفر**: پنل کاملاً سه‌زبانه است و باید بماند.
+# هر رشتهٔ فارسیِ تازه‌ای که کسی مستقیم در JSX بنویسد، همین‌جا گرفته
+# می‌شود — پیش از آنکه به کاربر عرب‌زبان یا انگلیسی‌زبان برسد.
+echo '--- i18n quotes ---'
+node web/scripts/verify-i18n-quotes.mjs 2>&1 | tail -2
+
 echo '--- i18n keys ---'
 node web/scripts/verify-i18n-keys.mjs 2>&1 | tail -2
 
@@ -220,7 +224,7 @@ echo '--- t shadow ---'
 node web/scripts/verify-no-t-shadow.mjs 2>&1 | tail -2
 
 echo '--- hardcoded fa ---'
-node web/scripts/audit-hardcoded-fa.mjs --max 30 2>&1 | tail -2
+node web/scripts/audit-hardcoded-fa.mjs --max 0 2>&1 | tail -2
 
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

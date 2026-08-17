@@ -765,7 +765,7 @@ export default function StaffPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <h2 style={H2}>{t('stfPayslips')}</h2>
                 <span style={{ marginInlineStart: 'auto', fontSize: 14, color: 'var(--muted)' }}>
-                  جمع خالص پرداختی: <strong>{money(payrollTotal)}</strong> ریال
+                  {t('payrollNetTotal')} <strong>{money(payrollTotal)}</strong> {t('currencyRial')}
                 </span>
               </div>
 

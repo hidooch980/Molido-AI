@@ -454,7 +454,7 @@ export default function PosTerminalsPage() {
                     setDraft({ ...EMPTY_DRAFT, bankName: banks[0] ?? '' });
                   }}
                 >
-                  انصراف
+                  {t('cancel')}
                 </button>
               ) : null}
             </div>
@@ -553,7 +553,7 @@ export default function PosTerminalsPage() {
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => startEdit(term)} style={BTN_SM}>
-                    ویرایش
+                    {t('edit')}
                   </button>
                   {(NEXT_STATUS[term.status] ?? []).map((s) => (
                     <button
@@ -572,7 +572,7 @@ export default function PosTerminalsPage() {
                     disabled={busy === term.id}
                     style={{ ...BTN_SM, color: 'var(--danger)', marginInlineStart: 'auto' }}
                   >
-                    حذف
+                    {t('delete')}
                   </button>
                 </div>
               </article>

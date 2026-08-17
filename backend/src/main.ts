@@ -58,9 +58,39 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // سرو فایل‌های آپلودشده
+  /**
+   * سرو فایل‌های آپلودشده.
+   *
+   * ⚠️ لایهٔ **دوم** دفاع.  لایهٔ اول فهرست سفیدِ پسوندهاست در
+   *    `uploads.controller.ts`.
+   *
+   *    چرا دو لایه؟  چون یک بار همین‌جا حفره بود و ثابت شد که
+   *    خطرناک است: فایل `.js` و `.html` آپلود شد، در مرورگر باز شد،
+   *    و اسکریپت در دامنهٔ برنامه **اجرا شد** — یعنی
+   *    `localStorage.molido_token` در دسترسش بود.
+   *
+   *    `helmet` سیاست CSP دارد ولی `script-src 'self'` است، و
+   *    `/uploads/` هم «self» حساب می‌شود.  پس CSP سراسری اینجا
+   *    محافظت نمی‌کرد.
+   *
+   *    اگر روزی فهرست سفید سوراخ شود — پسوند تازه، اشتباه در
+   *    نگهداری، یا نوعی که مرورگرها بعداً اجرایی کنند — این سربرگ‌ها
+   *    همچنان جلویش را می‌گیرند.
+   */
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res: { setHeader: (k: string, v: string) => void }) => {
+      // هیچ‌چیز اجرا نشود: نه اسکریپت، نه قاب، نه شیء.
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; sandbox; frame-ancestors 'none'",
+      );
+      // مرورگر نوع را حدس نزند — فایلی که `.txt` است ولی HTML به نظر
+      // می‌رسد، نباید HTML رندر شود.
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      // در قاب گذاشته نشود (clickjacking روی محتوای کاربر).
+      res.setHeader('X-Frame-Options', 'DENY');
+    },
   });
 
   // مستندات Swagger

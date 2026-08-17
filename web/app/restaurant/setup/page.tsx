@@ -79,12 +79,12 @@ export default function SetupPage() {
    */
   const load = useCallback(async () => {
     try {
-      const [a, t] = await Promise.all([
+      const [a, tbl] = await Promise.all([
         api<Area[]>('/restaurant/areas'),
         api<Table[]>('/restaurant/tables'),
       ]);
       setAreas(a);
-      setTables(t);
+      setTables(tbl);
       // اولین سالن پیش‌فرض می‌شود تا افزودن میز یک انتخاب کمتر داشته
       // باشد؛ ولی انتخاب کاربر بازنویسی نمی‌شود.
       setTableArea((prev) => prev || a[0]?.id || '');
@@ -242,7 +242,7 @@ export default function SetupPage() {
   };
 
   const tablesOf = (areaId: string | null) =>
-    tables.filter((t) => (t.areaId ?? null) === areaId);
+    tables.filter((tbl) => (tbl.areaId ?? null) === areaId);
 
   const orphans = tablesOf(null);
 
@@ -380,8 +380,8 @@ export default function SetupPage() {
               tables={tablesOf(area.id)}
               areas={areas}
               busy={busy}
-              onMove={(t, areaId) => patchTable(t, { areaId: areaId || null })}
-              onCapacity={(t, cap) => patchTable(t, { capacity: cap })}
+              onMove={(tbl, areaId) => patchTable(tbl, { areaId: areaId || null })}
+              onCapacity={(tbl, cap) => patchTable(tbl, { capacity: cap })}
               onRemove={removeTable}
             />
           </section>
@@ -397,8 +397,8 @@ export default function SetupPage() {
               tables={orphans}
               areas={areas}
               busy={busy}
-              onMove={(t, areaId) => patchTable(t, { areaId: areaId || null })}
-              onCapacity={(t, cap) => patchTable(t, { capacity: cap })}
+              onMove={(tbl, areaId) => patchTable(tbl, { areaId: areaId || null })}
+              onCapacity={(tbl, cap) => patchTable(tbl, { capacity: cap })}
               onRemove={removeTable}
             />
           </section>
@@ -438,9 +438,9 @@ function TableGrid({
         gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
       }}
     >
-      {tables.map((t) => (
+      {tables.map((tbl) => (
         <div
-          key={t.id}
+          key={tbl.id}
           style={{
             border: '1px solid var(--border)',
             borderRadius: 10,
@@ -450,41 +450,41 @@ function TableGrid({
           }}
         >
           <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-            <strong style={{ fontSize: 18 }}>میز {t.tableNo}</strong>
+            <strong style={{ fontSize: 18 }}>میز {tbl.tableNo}</strong>
             <span
               style={{
                 marginInlineStart: 'auto',
                 fontSize: 13,
-                color: STATUS_COLOR[t.status] ?? 'var(--muted)',
+                color: STATUS_COLOR[tbl.status] ?? 'var(--muted)',
                 fontWeight: 700,
               }}
             >
-              {TABLE_STATUS_FA[t.status] ?? t.status}
+              {TABLE_STATUS_FA[tbl.status] ?? tbl.status}
             </span>
           </div>
 
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
             <span style={{ color: 'var(--muted)' }}>{tr('stpCapacity')}</span>
             <input
-              defaultValue={String(t.capacity)}
+              defaultValue={String(tbl.capacity)}
               onBlur={(e) => {
                 const v = Number(e.target.value);
                 // فقط وقتی واقعاً عوض شد درخواست می‌رود؛ کلیک بی‌هدف
                 // روی میدان نباید ترافیک بسازد.
-                if (Number.isFinite(v) && v > 0 && v !== t.capacity) onCapacity(t, v);
+                if (Number.isFinite(v) && v > 0 && v !== tbl.capacity) onCapacity(tbl, v);
               }}
               style={{ ...INPUT, minHeight: 32, padding: '4px 8px', width: 60 }}
               inputMode="numeric"
-              aria-label={`ظرفیت میز ${t.tableNo}`}
+              aria-label={`ظرفیت میز ${tbl.tableNo}`}
             />
           </label>
 
           <select
-            value={t.areaId ?? ''}
-            onChange={(e) => onMove(t, e.target.value)}
-            disabled={busy === t.id}
+            value={tbl.areaId ?? ''}
+            onChange={(e) => onMove(tbl, e.target.value)}
+            disabled={busy === tbl.id}
             style={{ ...INPUT, minHeight: 34, padding: '4px 8px', fontSize: 13 }}
-            aria-label={`سالن میز ${t.tableNo}`}
+            aria-label={`سالن میز ${tbl.tableNo}`}
           >
             <option value="">{tr('stpNoHall')}</option>
             {areas.map((a) => (
@@ -496,8 +496,8 @@ function TableGrid({
 
           <button
             type="button"
-            onClick={() => onRemove(t)}
-            disabled={busy === t.id}
+            onClick={() => onRemove(tbl)}
+            disabled={busy === tbl.id}
             style={{ ...BTN_SM, color: 'var(--danger)' }}
           >
             {tr('stpDeleteTable')}

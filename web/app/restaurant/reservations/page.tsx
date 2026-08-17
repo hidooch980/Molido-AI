@@ -114,7 +114,7 @@ const emptyDraft = (): Draft => {
 };
 
 export default function ReservationsPage() {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
 
   const [list, setList] = useState<Reservation[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -136,12 +136,15 @@ export default function ReservationsPage() {
    */
   const load = useCallback(async () => {
     try {
-      const [r, t] = await Promise.all([
+      // ⚠️ نام `t` اینجا نباشد — قلابِ ترجمه را سایه می‌اندازد.
+      //    الان هیچ `t()` ای داخل این تابع نیست، پس `tsc` ساکت است؛
+      //    ولی اولین کسی که پیام خطایی را ترجمه کند، به تله می‌افتد.
+      const [r, tbls] = await Promise.all([
         api<Reservation[]>(`/restaurant/reservations?date=${date}`),
         api<Table[]>('/restaurant/tables'),
       ]);
       setList(r);
-      setTables(t);
+      setTables(tbls);
     } catch (caught) {
       setError((caught as Error).message);
     }
@@ -250,7 +253,7 @@ export default function ReservationsPage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>رزرو تازه</h2>
+          <h2 style={H2}>{t('rsvNew')}</h2>
           <form onSubmit={create} style={FORM}>
             <Field label="نام مشتری">
               <input
@@ -301,10 +304,10 @@ export default function ReservationsPage() {
               >
                 {/* میز اختیاری است: خیلی از رزروها بدون تعیین میز گرفته
                     می‌شوند و سرِ شب تخصیص داده می‌شوند. */}
-                <option value="">— هر میزی —</option>
-                {tables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    میز {t.tableNo} ({t.capacity} نفره)
+                <option value="">{t('rsvAnyTable')}</option>
+                {tables.map((tbl) => (
+                  <option key={tbl.id} value={tbl.id}>
+                    میز {tbl.tableNo} ({tbl.capacity} نفره)
                   </option>
                 ))}
               </select>
@@ -328,7 +331,7 @@ export default function ReservationsPage() {
         <section style={{ display: 'grid', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="button" style={BTN} onClick={() => shiftDay(-1)}>
-              ‹ دیروز
+              {t('rsvYesterday')}
             </button>
             <input
               type="date"
@@ -337,10 +340,10 @@ export default function ReservationsPage() {
               style={INPUT}
             />
             <button type="button" style={BTN} onClick={() => shiftDay(1)}>
-              فردا ›
+              {t('rsvTomorrow')}
             </button>
             <button type="button" style={BTN} onClick={() => setDate(localDate())}>
-              امروز
+              {t('rsvToday')}
             </button>
 
             <span style={{ marginInlineStart: 'auto', fontSize: 14, color: 'var(--muted)' }}>
@@ -351,7 +354,7 @@ export default function ReservationsPage() {
 
           {list.length === 0 ? (
             <p style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-              برای این روز رزروی ثبت نشده
+              {t('rsvNoneToday')}
             </p>
           ) : (
             <div style={{ display: 'grid', gap: 10 }}>
@@ -390,7 +393,7 @@ export default function ReservationsPage() {
                       {r.tableNo ? (
                         <span style={{ color: 'var(--muted)' }}>· میز {r.tableNo}</span>
                       ) : (
-                        <span style={{ color: 'var(--muted)' }}>· میز تعیین نشده</span>
+                        <span style={{ color: 'var(--muted)' }}>{t('rsvNoTable')}</span>
                       )}
                       {r.phone ? (
                         <a href={`tel:${r.phone}`} style={{ color: 'var(--accent)' }}>

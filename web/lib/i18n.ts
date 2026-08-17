@@ -1196,6 +1196,44 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   stpCapacity: { fa: 'ظرفیت', en: 'Capacity', ar: 'السعة' },
   stpDeleteTable: { fa: 'حذف میز', en: 'Delete table', ar: 'حذف الطاولة' },
 
+  // ---------- شیفت رستوران ----------
+  shfShift: { fa: 'شیفت', en: 'Shift', ar: 'الوردية' },
+  shfCalcOnClose: {
+    fa: 'فروش شیفت هنگام بستن محاسبه می‌شود',
+    en: 'Shift sales are calculated when it closes',
+    ar: 'تُحتسب مبيعات الوردية عند إغلاقها',
+  },
+  shfClosed: { fa: 'شیفت‌های بسته‌شده', en: 'Closed shifts', ar: 'الورديات المغلقة' },
+  shfTopItems: { fa: 'پرفروش‌ها', en: 'Top sellers', ar: 'الأكثر مبيعًا' },
+  shfTotal: { fa: 'جمع:', en: 'Total:', ar: 'الإجمالي:' },
+  shfNoSales: { fa: 'در این بازه فروشی ثبت نشده', en: 'No sales recorded in this range', ar: 'لا مبيعات مسجلة في هذه الفترة' },
+  shfRemovedFromMenu: { fa: '(از منو حذف شده)', en: '(removed from menu)', ar: '(أُزيل من القائمة)' },
+
+  // ---------- رزرو میز ----------
+  rsvNew: { fa: 'رزرو تازه', en: 'New reservation', ar: 'حجز جديد' },
+  rsvAnyTable: { fa: '— هر میزی —', en: '— Any table —', ar: '— أي طاولة —' },
+  rsvYesterday: { fa: '‹ دیروز', en: '‹ Yesterday', ar: '‹ أمس' },
+  rsvTomorrow: { fa: 'فردا ›', en: 'Tomorrow ›', ar: 'غدًا ›' },
+  rsvToday: { fa: 'امروز', en: 'Today', ar: 'اليوم' },
+  rsvNoneToday: { fa: 'برای این روز رزروی ثبت نشده', en: 'No reservation for this day', ar: 'لا يوجد حجز لهذا اليوم' },
+  rsvNoTable: { fa: '· میز تعیین نشده', en: '· no table assigned', ar: '· لم تُحدد طاولة' },
+
+  // ---------- اختیارات نقش‌ها ----------
+  rolCycleHint: {
+    fa: 'روی هر خانه بزنید تا بین سه حالت بچرخد:',
+    en: 'Tap a cell to cycle through three states:',
+    ar: 'اضغط على خلية للتنقل بين ثلاث حالات:',
+  },
+  rolDefault: { fa: 'پیش‌فرض سامانه', en: 'System default', ar: 'الوضع الافتراضي' },
+  rolGranted: { fa: 'اجازه داده شده', en: 'Granted', ar: 'مسموح' },
+  rolRevoked: { fa: 'اجازه گرفته شده', en: 'Revoked', ar: 'محظور' },
+  rolDefaultVsDeny: {
+    fa: '«پیش‌فرض» با «ممنوع» فرق دارد: اولی یعنی هرچه سامانه گفت، دومی یعنی نه — حتی اگر سامانه اجازه بدهد.',
+    en: '"Default" differs from "revoked": the first follows the system, the second says no even when the system allows it.',
+    ar: '«الافتراضي» يختلف عن «محظور»: الأول يتبع النظام، والثاني يرفض حتى لو سمح النظام.',
+  },
+  rolAction: { fa: 'کار', en: 'Action', ar: 'الإجراء' },
+
   // ---------- پیامک ----------
   smsRefresh: { fa: 'تازه‌سازی', en: 'Refresh', ar: 'تحديث' },
   smsBulkSend: { fa: 'ارسال گروهی', en: 'Bulk send', ar: 'إرسال جماعي' },

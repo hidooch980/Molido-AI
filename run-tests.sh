@@ -213,8 +213,14 @@ node web/scripts/verify-auth-throttle.mjs 2>&1 | tail -2
 
 # سقف روی رشتهٔ فارسیِ سفت‌شدهٔ پنل.  عدد امروز است؛ با هر رفعی باید
 # پایین بیاید.  کارش جلوگیری از **بدتر شدن** است، نه ادعای کامل بودن.
+echo '--- i18n keys ---'
+node web/scripts/verify-i18n-keys.mjs 2>&1 | tail -2
+
+echo '--- t shadow ---'
+node web/scripts/verify-no-t-shadow.mjs 2>&1 | tail -2
+
 echo '--- hardcoded fa ---'
-node web/scripts/audit-hardcoded-fa.mjs --max 85 2>&1 | tail -2
+node web/scripts/audit-hardcoded-fa.mjs --max 70 2>&1 | tail -2
 
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

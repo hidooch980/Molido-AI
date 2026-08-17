@@ -139,7 +139,8 @@ export default function RestaurantPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, t, o, k, m] = await Promise.all([
+      // ⚠️ `t` نباشد — قلابِ ترجمه را سایه می‌اندازد.
+      const [s, tbl, o, k, m] = await Promise.all([
         api<Stats>('/restaurant/stats'),
         api<Table[]>('/restaurant/tables'),
         api<Order[]>('/restaurant/orders?open=true'),
@@ -148,7 +149,7 @@ export default function RestaurantPage() {
       ]);
 
       setStats(s);
-      setTables(t);
+      setTables(tbl);
       setOrders(o);
       setKitchen(k);
       setMenu(m);

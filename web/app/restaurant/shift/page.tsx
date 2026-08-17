@@ -66,6 +66,7 @@ const RANGES = [
 ];
 
 export default function ShiftPage() {
+  const { t } = useI18n();
   const { locale } = useI18n();
 
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -87,7 +88,7 @@ export default function ShiftPage() {
       from.setDate(from.getDate() - days + 1);
       from.setHours(0, 0, 0, 0);
 
-      const [s, t, st] = await Promise.all([
+      const [s, topItems, st] = await Promise.all([
         api<Shift[]>('/restaurant/shifts'),
         api<TopItem[]>(
           `/restaurant/reports/top-items?from=${localDate(from)}&limit=20`,
@@ -95,7 +96,7 @@ export default function ShiftPage() {
         api<Stats>('/restaurant/stats'),
       ]);
       setShifts(s);
-      setTop(t);
+      setTop(topItems);
       setStats(st);
       setError('');
     } catch (caught) {
@@ -179,7 +180,7 @@ export default function ShiftPage() {
         </section>
 
         <section style={CARD}>
-          <h2 style={H2}>شیفت</h2>
+          <h2 style={H2}>{t('shfShift')}</h2>
           {openShift ? (
             <>
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 15 }}>
@@ -219,7 +220,7 @@ export default function ShiftPage() {
                 {/* فروش شیفت هنگام بستن از روی سفارش‌های تسویه‌شدهٔ همان
                     بازه محاسبه می‌شود؛ اینجا وعده‌اش را نمی‌دهیم. */}
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  فروش شیفت هنگام بستن محاسبه می‌شود
+                  {t('shfCalcOnClose')}
                 </span>
               </div>
             </>
@@ -242,7 +243,7 @@ export default function ShiftPage() {
 
         {shifts.filter((s) => s.endedAt).length > 0 ? (
           <section style={{ display: 'grid', gap: 10 }}>
-            <h2 style={H2}>شیفت‌های بسته‌شده</h2>
+            <h2 style={H2}>{t('shfClosed')}</h2>
             <div style={{ overflowX: 'auto' }}>
               <table style={TABLE}>
                 <thead>
@@ -307,7 +308,7 @@ export default function ShiftPage() {
 
         <section style={{ display: 'grid', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <h2 style={{ ...H2, marginInlineEnd: 8 }}>پرفروش‌ها</h2>
+            <h2 style={{ ...H2, marginInlineEnd: 8 }}>{t('shfTopItems')}</h2>
             {RANGES.map((r) => (
               <button
                 key={r.days}
@@ -325,7 +326,7 @@ export default function ShiftPage() {
 
           {top.length === 0 ? (
             <p style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-              در این بازه فروشی ثبت نشده
+              {t('shfNoSales')}
             </p>
           ) : (
             <div style={{ display: 'grid', gap: 6 }}>
@@ -346,7 +347,7 @@ export default function ShiftPage() {
                           بی‌نشان گذاشتنش گمراه‌کننده است. */}
                       {item.menuItemId === null ? (
                         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
-                          (از منو حذف شده)
+                          {t('shfRemovedFromMenu')}
                         </span>
                       ) : null}
                       <span style={{ marginInlineStart: 'auto', color: 'var(--muted)' }}>

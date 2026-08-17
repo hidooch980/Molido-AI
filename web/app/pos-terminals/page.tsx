@@ -126,14 +126,14 @@ export default function PosTerminalsPage() {
   /** ⚠️ در مسیر موفق خطا را پاک نمی‌کند — آن کارِ شروعِ هر عملیات است. */
   const load = useCallback(async () => {
     try {
-      const [t, b] = await Promise.all([
+      const [term, b] = await Promise.all([
         api<Terminal[]>('/pos-terminals'),
         // فهرست بانک‌ها ثابت است؛ اگر یک بار آمده دوباره نمی‌گیریمش.
         banks.length
           ? Promise.resolve({ banks, psps })
           : api<{ banks: string[]; psps: string[] }>('/pos-terminals/banks'),
       ]);
-      setList(t);
+      setList(term);
       if (!banks.length) {
         const got = b as { banks: string[]; psps: string[] };
         setBanks(got.banks ?? []);
@@ -276,14 +276,14 @@ export default function PosTerminalsPage() {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return list.filter((t) => {
-      if (filter && t.status !== filter) return false;
+    return list.filter((term) => {
+      if (filter && term.status !== filter) return false;
       if (!q) return true;
       return (
-        t.terminalNo.toLowerCase().includes(q) ||
-        t.bankName.toLowerCase().includes(q) ||
-        (t.location ?? '').toLowerCase().includes(q) ||
-        (t.merchantId ?? '').toLowerCase().includes(q)
+        term.terminalNo.toLowerCase().includes(q) ||
+        term.bankName.toLowerCase().includes(q) ||
+        (term.location ?? '').toLowerCase().includes(q) ||
+        (term.merchantId ?? '').toLowerCase().includes(q)
       );
     });
   }, [list, filter, search]);
@@ -291,12 +291,12 @@ export default function PosTerminalsPage() {
   /** خلاصه‌ای که مدیر باید بدون کلیک ببیند. */
   const summary = useMemo(() => {
     const byBank: Record<string, number> = {};
-    for (const t of list) byBank[t.bankName] = (byBank[t.bankName] ?? 0) + 1;
+    for (const term of list) byBank[term.bankName] = (byBank[term.bankName] ?? 0) + 1;
     return {
       total: list.length,
-      active: list.filter((t) => t.status === 'ACTIVE').length,
-      broken: list.filter((t) => t.status === 'UNDER_REPAIR').length,
-      noAccount: list.filter((t) => t.status === 'ACTIVE' && !t.iban && !t.accountNo).length,
+      active: list.filter((term) => term.status === 'ACTIVE').length,
+      broken: list.filter((term) => term.status === 'UNDER_REPAIR').length,
+      noAccount: list.filter((term) => term.status === 'ACTIVE' && !term.iban && !term.accountNo).length,
       banks: Object.entries(byBank).sort((a, b) => b[1] - a[1]),
     };
   }, [list]);
@@ -471,7 +471,7 @@ export default function PosTerminalsPage() {
               onClick={() => setFilter(k)}
               style={filter === k ? CHIP_ON : CHIP}
             >
-              {v} ({list.filter((t) => t.status === k).length})
+              {v} ({list.filter((term) => term.status === k).length})
             </button>
           ))}
           <input
@@ -492,32 +492,32 @@ export default function PosTerminalsPage() {
           <p style={EMPTY}>دستگاهی یافت نشد</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {visible.map((t) => (
+            {visible.map((term) => (
               <article
-                key={t.id}
+                key={term.id}
                 style={{
                   ...CARD,
                   gap: 8,
                   borderInlineStartWidth: 4,
                   borderInlineStartStyle: 'solid',
-                  borderInlineStartColor: STATUS_COLOR[t.status] ?? 'var(--border)',
-                  opacity: t.status === 'RETURNED' ? 0.6 : 1,
+                  borderInlineStartColor: STATUS_COLOR[term.status] ?? 'var(--border)',
+                  opacity: term.status === 'RETURNED' ? 0.6 : 1,
                 }}
               >
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-                  <strong style={{ fontSize: 17 }}>{t.terminalNo}</strong>
-                  <span>{t.bankName}</span>
-                  {t.pspName ? <span style={{ color: 'var(--muted)' }}>· {t.pspName}</span> : null}
-                  <span style={{ color: 'var(--muted)' }}>· {TYPE_FA[t.type] ?? t.type}</span>
-                  {t.location ? <span style={{ color: 'var(--muted)' }}>· {t.location}</span> : null}
+                  <strong style={{ fontSize: 17 }}>{term.terminalNo}</strong>
+                  <span>{term.bankName}</span>
+                  {term.pspName ? <span style={{ color: 'var(--muted)' }}>· {term.pspName}</span> : null}
+                  <span style={{ color: 'var(--muted)' }}>· {TYPE_FA[term.type] ?? term.type}</span>
+                  {term.location ? <span style={{ color: 'var(--muted)' }}>· {term.location}</span> : null}
                   <span
                     style={{
                       marginInlineStart: 'auto',
-                      color: STATUS_COLOR[t.status],
+                      color: STATUS_COLOR[term.status],
                       fontWeight: 700,
                     }}
                   >
-                    {STATUS_FA[t.status] ?? t.status}
+                    {STATUS_FA[term.status] ?? term.status}
                   </span>
                 </div>
 
@@ -530,36 +530,36 @@ export default function PosTerminalsPage() {
                     color: 'var(--muted)',
                   }}
                 >
-                  {t.iban ? (
+                  {term.iban ? (
                     // شبا با فاصله، تا آخر ماه بشود با صورت‌حساب بانک
                     // مقایسه‌اش کرد.
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {groupIban(t.iban)}
+                      {groupIban(term.iban)}
                     </span>
-                  ) : t.accountNo ? (
-                    <span>حساب {t.accountNo}</span>
+                  ) : term.accountNo ? (
+                    <span>حساب {term.accountNo}</span>
                   ) : (
                     <strong style={{ color: 'var(--warning)' }}>بدون حساب</strong>
                   )}
-                  {t.holderName ? <span>{t.holderName}</span> : null}
-                  {t.merchantId ? <span>پذیرنده {t.merchantId}</span> : null}
-                  {t.serialNo ? <span>سریال {t.serialNo}</span> : null}
-                  {t.simNumber ? <span>سیم‌کارت {t.simNumber}</span> : null}
-                  {t.installedAt ? (
-                    <span>نصب {new Date(t.installedAt).toLocaleDateString(locale)}</span>
+                  {term.holderName ? <span>{term.holderName}</span> : null}
+                  {term.merchantId ? <span>پذیرنده {term.merchantId}</span> : null}
+                  {term.serialNo ? <span>سریال {term.serialNo}</span> : null}
+                  {term.simNumber ? <span>سیم‌کارت {term.simNumber}</span> : null}
+                  {term.installedAt ? (
+                    <span>نصب {new Date(term.installedAt).toLocaleDateString(locale)}</span>
                   ) : null}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => startEdit(t)} style={BTN_SM}>
+                  <button type="button" onClick={() => startEdit(term)} style={BTN_SM}>
                     ویرایش
                   </button>
-                  {(NEXT_STATUS[t.status] ?? []).map((s) => (
+                  {(NEXT_STATUS[term.status] ?? []).map((s) => (
                     <button
                       key={s.to}
                       type="button"
-                      onClick={() => setStatus(t, s.to)}
-                      disabled={busy === t.id}
+                      onClick={() => setStatus(term, s.to)}
+                      disabled={busy === term.id}
                       style={s.to === 'RETURNED' ? { ...BTN_SM, color: 'var(--danger)' } : BTN_SM}
                     >
                       {s.label}
@@ -567,8 +567,8 @@ export default function PosTerminalsPage() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => remove(t)}
-                    disabled={busy === t.id}
+                    onClick={() => remove(term)}
+                    disabled={busy === term.id}
                     style={{ ...BTN_SM, color: 'var(--danger)', marginInlineStart: 'auto' }}
                   >
                     حذف

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
 
 type Role = { code: string; label: string };
@@ -47,6 +48,7 @@ function defaultAllows(item: Item, role: string): boolean {
 }
 
 export default function RolesPage() {
+  const { t } = useI18n();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
@@ -134,7 +136,7 @@ export default function RolesPage() {
 
         <div style={{ ...CARD, gap: 8 }}>
           <p style={{ margin: 0, fontSize: 14 }}>
-            روی هر خانه بزنید تا بین سه حالت بچرخد:
+            {t('rolCycleHint')}
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
             <span><Chip state="default" /> پیش‌فرض سامانه</span>
@@ -154,7 +156,7 @@ export default function RolesPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...TH, minWidth: 180 }}>کار</th>
+                    <th style={{ ...TH, minWidth: 180 }}>{t('rolAction')}</th>
                     {catalog.roles.map((r) => (
                       <th key={r.code} style={{ ...TH, textAlign: 'center' }}>
                         {r.label}

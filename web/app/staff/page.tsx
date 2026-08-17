@@ -353,17 +353,17 @@ export default function StaffPage() {
         ) : null}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {TABS.map((t) => (
+          {TABS.map((item) => (
             <button
-              key={t.key}
+              key={item.key}
               type="button"
-              onClick={() => setTab(t.key)}
-              style={tab === t.key ? CHIP_ON : CHIP}
+              onClick={() => setTab(item.key)}
+              style={tab === item.key ? CHIP_ON : CHIP}
             >
-              {t.label}
+              {item.label}
               {/* شمار مرخصی‌های در انتظار روی خودِ زبانه: کاری که منتظر
                   تصمیم است نباید پشت یک کلیک پنهان بماند. */}
-              {t.key === 'leave' && pendingLeaves.length > 0 ? ` (${pendingLeaves.length})` : ''}
+              {item.key === 'leave' && pendingLeaves.length > 0 ? ` (${pendingLeaves.length})` : ''}
             </button>
           ))}
 

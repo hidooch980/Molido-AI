@@ -42,7 +42,15 @@ chk "قرارداد محدود به شرکت" \
   "$(q "SELECT count(*) FROM pg_constraint WHERE conname='Contract_companyId_contractNo_key'")" "1"
 
 echo '--- ۳) داده دست‌نخورده مانده ---'
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "179"
+# ⚠️ این عدد با هر مهاجرتی که جدول می‌سازد باید دستی بالا برود.
+#
+#    ۱۷۹ -> ۱۸۰ با مهاجرت ۰۳۹ (`RolePermission`).
+#
+#    وسوسه‌اش هست که این سنجه برداشته شود چون «هر بار باید دست بخورد».
+#    ولی کارش دقیقاً همین است: جدولی که بی‌خبر پیدا یا گم شود، باید
+#    کسی را متوقف کند.  عددِ ثابت یعنی تغییرِ ساختار عمدی باشد، نه
+#    اتفاقی.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "180"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

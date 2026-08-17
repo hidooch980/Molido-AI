@@ -17,7 +17,7 @@ cd "$(dirname "$0")" || exit 1
 SUITES="e2e-cycles integration shop shop-filter count-app pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
         product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice
-        password ratelimit bundle apidocs untested records roles"
+        password ratelimit bundle apidocs untested records roles restore"
 
 [ $# -gt 0 ] && SUITES="$*"
 

@@ -41,15 +41,28 @@ export interface N8nPayload {
 export class N8nService {
   private readonly logger = new Logger(N8nService.name);
   private readonly webhookUrl: string;
-  private readonly secret: string;
+  private readonly secret: string | null;
 
   constructor(private readonly config: ConfigService) {
     const base =
       this.config.get<string>('N8N_BASE_URL') ?? 'http://localhost:5678';
 
     this.webhookUrl = `${base}/webhook/molido`;
-    this.secret =
-      this.config.get<string>('N8N_WEBHOOK_SECRET') ?? 'molido_n8n_secret';
+
+    // ⚠️ اینجا هم پیش‌فرضِ `'molido_n8n_secret'` بود — همان رمزی که
+    //    در مخزنِ عمومی نوشته شده.
+    //
+    //    سمتِ خروجی خطرش ظریف‌تر است: استقرارِ تازه‌ای که متغیر را جا
+    //    بیندازد، Molido و n8n با رمزی که همه می‌دانند به هم وصل
+    //    می‌شوند و **کار می‌کند** — پس کسی متوجه نمی‌شود.  خرابیِ
+    //    خاموش، از خرابیِ پرسروصدا بدتر است.
+    const raw = this.config.get<string>('N8N_WEBHOOK_SECRET')?.trim();
+    this.secret = raw ? raw : null;
+    if (!this.secret) {
+      this.logger.warn(
+        'N8N_WEBHOOK_SECRET تنظیم نشده — رویدادی به n8n فرستاده نمی‌شود',
+      );
+    }
   }
 
   /**
@@ -62,6 +75,10 @@ export class N8nService {
       companyId,
       data,
     };
+
+    // بدون رمز، ارسال نمی‌کنیم.  فرستادنِ داده با رمزِ عمومی، هم
+    // بی‌فایده است هم داده را جایی می‌گذارد که نباید.
+    if (!this.secret) return;
 
     try {
       const response = await (globalThis as unknown as { fetch: typeof fetch }).fetch(

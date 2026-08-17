@@ -129,7 +129,14 @@ export class ShopService {
   /** کالاهای قابل فروش آنلاین — عمومی، بدون نیاز به ورود. */
   async catalogue(
     companyId: string,
-    options: { search?: string; categoryId?: string; limit?: number } = {},
+    options: {
+      search?: string;
+      categoryId?: string;
+      limit?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      sort?: string;
+    } = {},
   ) {
     const values: unknown[] = [companyId];
     let filter = '';
@@ -143,6 +150,33 @@ export class ShopService {
       filter += ` AND p."categoryId" = $${values.length}`;
     }
 
+    // قیمتِ مؤثر همان چیزی است که مشتری می‌بیند: `onlinePrice` اگر
+    // هست، وگرنه `salePrice`.  صافی باید روی همین بنشیند نه روی
+    // `salePrice` خام، وگرنه کالایی که آنلاین ارزان‌تر است از صافیِ
+    // «تا فلان مبلغ» بیرون می‌افتد در حالی که ارزان‌تر از آن است.
+    //
+    // نام مستعارِ `price` اینجا به کار نمی‌آید: در SQL نام مستعارِ
+    // SELECT در WHERE دیده نمی‌شود.
+    const priceExpr = 'COALESCE(p."onlinePrice", p."salePrice")';
+    if (options.minPrice !== undefined && Number.isFinite(options.minPrice)) {
+      values.push(options.minPrice);
+      filter += ` AND ${priceExpr} >= $${values.length}`;
+    }
+    if (options.maxPrice !== undefined && Number.isFinite(options.maxPrice)) {
+      values.push(options.maxPrice);
+      filter += ` AND ${priceExpr} <= $${values.length}`;
+    }
+
+    // ⚠️ ORDER BY پارامتری نمی‌شود، پس فهرستِ سفید — نه درون‌ریزیِ
+    //    رشته.  هر مقدار ناشناخته به پیش‌فرض برمی‌گردد، نه به خطا:
+    //    نشانیِ دستکاری‌شده نباید فروشگاه را بشکند.
+    const ORDERS: Record<string, string> = {
+      name: 'p.name',
+      'price-asc': `${priceExpr} ASC, p.name`,
+      'price-desc': `${priceExpr} DESC, p.name`,
+    };
+    const order = ORDERS[options.sort ?? ''] ?? ORDERS.name;
+
     values.push(Math.min(options.limit ?? 60, 200));
 
     return this.db.query<Row>(
@@ -155,7 +189,7 @@ export class ShopService {
          FROM "Product" p
          LEFT JOIN "Category" c ON c.id = p."categoryId"
         WHERE p."companyId" = $1 AND p."isOnline" = true${filter}
-        ORDER BY p.name
+        ORDER BY ${order}
         LIMIT $${values.length}`,
       values,
     );

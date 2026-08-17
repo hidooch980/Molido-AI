@@ -713,3 +713,145 @@
     transform: none;
   }
 }
+
+/* ---------- صافی و صفحه‌بندی ---------- */
+
+.shop-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  margin-bottom: var(--s-5);
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: var(--s-text-dim);
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 9px var(--s-3);
+  min-height: 40px;
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.filter-group input {
+  width: 8.5rem;
+  /* فلش‌های بالا/پایینِ number روی مبلغی که میلیون است بی‌فایده‌اند و
+     فقط جا می‌گیرند. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.filter-group input::-webkit-outer-spin-button,
+.filter-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.filter-group input:focus-visible,
+.filter-group select:focus-visible {
+  outline: 2px solid var(--s-brand);
+  outline-offset: 1px;
+}
+
+.filter-unit {
+  font-size: 12px;
+  color: var(--s-text-dim);
+}
+
+/* شمارنده به انتهای نوار می‌رود تا صافی‌ها کنار هم بمانند. */
+.filter-count {
+  margin-inline-start: auto;
+  font-size: 13px;
+}
+
+.shop-filters .btn.sm {
+  min-height: 40px;
+  padding: 0 var(--s-4);
+  font-size: 14px;
+}
+
+.shop-more {
+  margin-top: var(--s-6);
+  text-align: center;
+}
+
+/* ---------- اسکلت بارگذاری ---------- */
+
+/*
+ * جای کالا را پیش از آمدنش نگه می‌دارد.
+ *
+ * بدون این، فاصلهٔ میان کلیک و داده یک صفحهٔ سفید است و بعد محتوا
+ * ناگهان می‌پرد — همان جابه‌جاییِ چیدمان که خواندن را می‌شکند.
+ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--s-surface-2) 25%,
+    var(--s-border) 37%,
+    var(--s-surface-2) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--s-radius-sm);
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-image {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: var(--s-radius);
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-top: var(--s-3);
+}
+
+.skeleton-line.short {
+  width: 55%;
+}
+
+.skeleton-btn {
+  height: 40px;
+  margin-top: var(--s-3);
+  border-radius: var(--s-radius-pill);
+}
+
+/* برای کسی که حرکت را کم کرده، تپش می‌رود و خاکستریِ ثابت می‌ماند —
+   جای صفحه همچنان نگه داشته می‌شود. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--s-surface-2);
+  }
+}

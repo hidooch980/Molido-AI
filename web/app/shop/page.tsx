@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Icon } from '../../components/icons';
 import { shopFetch } from '../../lib/shop-server';
 import AddToCart from './AddToCart';
+import ShopFilters from './ShopFilters';
 
 type Product = {
   id: string;
@@ -28,6 +29,18 @@ const fa = (value: unknown) => Number(value ?? 0).toLocaleString('fa-IR');
 const LOW_STOCK = 5;
 
 /**
+ * چند کالا در هر بار.
+ *
+ * ⚠️ عمداً همه با هم نمی‌آیند.
+ *
+ *    فروشگاهی با سیصد کالا اگر یک‌جا بیاید، روی موبایلِ ارزان کند
+ *    می‌شود — و مشتری پیش از دیدنِ کالای سی‌ام تصمیمش را گرفته.
+ *    این عدد با «نمایش بیشتر» بالا می‌رود و در نشانی می‌ماند، پس با
+ *    دکمهٔ back هم درست کار می‌کند.
+ */
+const PAGE = 24;
+
+/**
  * کاتالوگ — **کامپوننت سرور**.
  *
  * برخلاف صفحه‌های پنل که همه کلاینت‌اند، کاتالوگ باید در HTML اولیه بیاید:
@@ -38,15 +51,31 @@ const LOW_STOCK = 5;
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; categoryId?: string }>;
+  searchParams: Promise<{
+    search?: string;
+    categoryId?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    sort?: string;
+    limit?: string;
+  }>;
 }) {
   const params = await searchParams;
   const search = params.search ?? '';
   const categoryId = params.categoryId ?? '';
 
+  // سقفِ ۲۰۰ همان چیزی است که سرویس هم اعمال می‌کند؛ اینجا تکرارش
+  // می‌کنیم تا دکمهٔ «نمایش بیشتر» فراتر از آن پیشنهاد نشود و کاربر
+  // روی دکمه‌ای که کاری نمی‌کند کلیک نکند.
+  const limit = Math.min(Math.max(Number(params.limit) || PAGE, PAGE), 200);
+
   const query = new URLSearchParams();
   if (search) query.set('search', search);
   if (categoryId) query.set('categoryId', categoryId);
+  if (params.minPrice) query.set('minPrice', params.minPrice);
+  if (params.maxPrice) query.set('maxPrice', params.maxPrice);
+  if (params.sort) query.set('sort', params.sort);
+  query.set('limit', String(limit));
 
   const [products, categories, settings] = await Promise.all([
     shopFetch<Product[]>(`/products?${query}`, []),
@@ -101,6 +130,10 @@ export default async function ShopPage({
             </Link>
           ))}
         </nav>
+      ) : null}
+
+      {products.length > 0 || params.minPrice || params.maxPrice ? (
+        <ShopFilters total={products.length} />
       ) : null}
 
       {search || activeCategory ? (
@@ -186,6 +219,29 @@ export default async function ShopPage({
           })}
         </div>
       )}
+
+      {/* دکمه فقط وقتی که واقعاً چیزی بیشتر هست.
+          `length === limit` یعنی سرویس تا سقف پر کرده، پس احتمالاً
+          بیشتر هم هست.  اگر دقیقاً همان تعداد بود، یک بار دکمهٔ
+          بی‌اثر دیده می‌شود — بهتر از پنهان کردنِ کالایی که هست. */}
+      {products.length === limit && limit < 200 ? (
+        <p className="shop-more">
+          <Link
+            href={`/shop?${new URLSearchParams({
+              ...(search ? { search } : {}),
+              ...(categoryId ? { categoryId } : {}),
+              ...(params.minPrice ? { minPrice: params.minPrice } : {}),
+              ...(params.maxPrice ? { maxPrice: params.maxPrice } : {}),
+              ...(params.sort ? { sort: params.sort } : {}),
+              limit: String(Math.min(limit + PAGE, 200)),
+            })}`}
+            className="btn ghost"
+            scroll={false}
+          >
+            نمایش بیشتر
+          </Link>
+        </p>
+      ) : null}
     </>
   );
 }

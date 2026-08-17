@@ -80,11 +80,24 @@ export class ShopPublicController {
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: string,
     @Query('limit') limit?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('sort') sort?: string,
   ) {
+    // `Number('')` صفر است نه NaN — و صفر برای «حداکثر قیمت» یعنی
+    // هیچ کالایی.  پس رشتهٔ خالی باید undefined بماند.
+    const num = (raw?: string) => {
+      if (!raw) return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    };
     return this.service.catalogue(this.company(req), {
       search,
       categoryId,
-      limit: limit ? Number(limit) : undefined,
+      limit: num(limit),
+      minPrice: num(minPrice),
+      maxPrice: num(maxPrice),
+      sort,
     });
   }
 

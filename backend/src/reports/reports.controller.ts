@@ -2,11 +2,21 @@ import { Controller, Get, Header, Query, UseGuards } from '@nestjs/common';
 
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { Permission } from '../common/decorators/permission.decorator';
 
 @Controller('reports')
-@UseGuards(JwtAuthGuard)
+// ⚠️ `RolesGuard` اینجا نبود — و `@Permission('sales:report')` روی
+//    مسیرِ گزارش فروش کاملاً تزئینی بود.
+//
+//    در آزمون زنده، کاربرِ نقشِ EMPLOYEE گزارش فروش را گرفت.  دکوراتور
+//    نوشته شده بود، در فهرست اختیارات دیده می‌شد، و مدیر باور می‌کرد
+//    محدود است — ولی هیچ نگهبانی آن را نمی‌خواند.
+//
+//    دکوراتورِ بی‌نگهبان بدترین حالت است: هم امنیت نمی‌دهد، هم
+//    خیالِ امنیت می‌دهد.
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

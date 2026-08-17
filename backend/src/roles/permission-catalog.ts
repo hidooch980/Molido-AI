@@ -130,6 +130,29 @@ export function isKnownPermission(key: string): boolean {
   return KNOWN.has(key);
 }
 
+const DEFAULTS = new Map<string, readonly string[]>(
+  PERMISSION_CATALOG.flatMap((g) =>
+    g.items.map((i) => [i.key, i.defaultRoles] as const),
+  ),
+);
+
+/**
+ * نقش‌هایی که این کلید را **پیش‌فرض** دارند — یا `null` اگر کلید
+ * ناشناخته باشد.
+ *
+ * ⚠️ این تابع محافظِ واقعی است، نه فقط دادهٔ نمایشی.
+ *
+ *    پیش از این `defaultRoles` فقط در رابط نشان داده می‌شد و هیچ‌جا
+ *    اعمال نمی‌شد: نگهبان وقتی `@Roles` نبود بی‌درنگ اجازه می‌داد.
+ *
+ *    یعنی مدیر در جدولِ اختیارات می‌دید «کارمند: ممنوع» و باور
+ *    می‌کرد اعمال شده — در حالی که کارمند به گزارش فروش دسترسی
+ *    داشت.  رابطی که دروغ بگوید، از رابطی که چیزی نگوید بدتر است.
+ */
+export function defaultRolesFor(key: string): readonly string[] | null {
+  return DEFAULTS.get(key) ?? null;
+}
+
 /** همهٔ کلیدها — برای آزمون. */
 export function allPermissionKeys(): string[] {
   return [...KNOWN];

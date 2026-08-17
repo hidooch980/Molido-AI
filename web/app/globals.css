@@ -63,7 +63,11 @@
   --border: rgba(255, 255, 255, 0.1);
   --text: #eef2ff;
   --text-dim: #96a2c0;
-  --primary: #6366f1;
+  /* ⚠️ #6366f1 با متن سفید ۴٫۴۷ می‌داد — سه صدم زیر حد.
+     یک پله تیره‌تر ۵٫۰۸ می‌دهد و خودش روی زمینهٔ تیره ۳٫۶۸ می‌ماند،
+     که برای زمینهٔ دکمه (عنصر غیرمتنی، حد ۳) کافی است.
+     `audit-contrast.mjs` همین را می‌سنجد. */
+  --primary: #5a5ce8;
   --primary-2: #8b5cf6;
   --accent: #22d3ee;
   --success: #34d399;
@@ -1662,10 +1666,10 @@ kbd {
   --text-dim: #55716e;
   --primary: #047857;
   --primary-2: #0d8f8a;
-  --accent: #c05621;
+  --accent: #b34e1d;
   --success: #047857;
   --danger: #c62828;
-  --warning: #c05621;
+  --warning: #b34e1d;
   --radius: 14px;
   --shadow: 0 2px 8px rgba(18, 49, 47, 0.07);
 

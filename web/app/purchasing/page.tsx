@@ -18,6 +18,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { StatCard, TOUCH } from '../../components/ui';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
 import { isSpeechSupported, listenOnce } from '../../lib/speech';
 import { suggestQuotes, type QuoteSuggestion } from '../../lib/price-speech';
@@ -130,6 +131,7 @@ const CALL_LABEL: Record<string, string> = {
 };
 
 export default function PurchasingPage() {
+  const { t } = useI18n();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [active, setActive] = useState<string>('');
@@ -466,7 +468,7 @@ const field: React.CSSProperties = {
       subtitle="استعلام قیمت از بنکدارها، مقایسه، و صدور فاکتور خرید"
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
-          تازه‌سازی
+          {t('maryamRefresh')}
         </button>
       }
     >
@@ -487,7 +489,7 @@ const field: React.CSSProperties = {
       {/* ---------------------------------------- ۱) چه چیزی کم داریم */}
       {!active && (
         <div className="card">
-          <h3>مریم می‌گوید این‌ها کم است</h3>
+          <h3>{t('maryamLowTitle')}</h3>
           <p className="muted">
             موجودی زیر حداقل. مقدار پیشنهادی تا دو برابر حداقل پر می‌شود — خریدی که
             دقیقاً به مرز برساند، فردا دوباره کم می‌آید.
@@ -497,18 +499,18 @@ const field: React.CSSProperties = {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={TH}>کالا</th>
-                  <th style={TH}>موجودی</th>
-                  <th style={TH}>حداقل</th>
-                  <th style={TH}>آخرین خرید</th>
-                  <th style={{ ...TH, width: 120 }}>مقدار سفارش</th>
+                  <th style={TH}>{t('maryamColProduct')}</th>
+                  <th style={TH}>{t('maryamColStock')}</th>
+                  <th style={TH}>{t('maryamColMin')}</th>
+                  <th style={TH}>{t('maryamColLastBuy')}</th>
+                  <th style={{ ...TH, width: 120 }}>{t('maryamColOrderQty')}</th>
                 </tr>
               </thead>
               <tbody>
                 {suggestions.length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: 26, textAlign: 'center', color: 'var(--muted)' }}>
-                      هیچ کالایی زیر حداقل موجودی نیست
+                      {t('maryamNoneLow')}
                     </td>
                   </tr>
                 )}
@@ -556,7 +558,7 @@ const field: React.CSSProperties = {
                   )
                 }
               >
-                انتخاب همه با مقدار پیشنهادی
+                {t('maryamSelectAll')}
               </button>
               <button type="button" onClick={() => void createInquiry()} disabled={busy || !totalPicked}>
                 ساخت استعلام برای {fa(totalPicked)} کالا
@@ -570,7 +572,7 @@ const field: React.CSSProperties = {
       {!active && scorecard.length > 0 && (
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0 }}>کارنامهٔ بنکداران</h3>
+            <h3 style={{ margin: 0 }}>{t('maryamScorecard')}</h3>
             <span className="muted" style={{ fontSize: 13 }}>
               {fa(scorecard[0].days)} روز گذشته
             </span>
@@ -670,7 +672,7 @@ const field: React.CSSProperties = {
       {/* ------------------------------------------ فهرست استعلام‌ها */}
       {!active && inquiries.length > 0 && (
         <div className="card">
-          <h3>استعلام‌ها</h3>
+          <h3>{t('maryamInquiries')}</h3>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             {inquiries.slice(0, 20).map((inq) => (
               <button
@@ -705,29 +707,29 @@ const field: React.CSSProperties = {
         <>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <button type="button" className="ghost btn-sm" onClick={() => setActive('')}>
-              بازگشت به فهرست
+              {t('maryamBackToList')}
             </button>
             <button type="button" className="btn-sm" onClick={() => void compare()} disabled={busy}>
-              مقایسهٔ پیشنهادها
+              {t('maryamCompare')}
             </button>
           </div>
 
           <div className="card">
-            <h3>مریم زنگ زد — قیمت‌ها را ثبت کنید</h3>
+            <h3>{t('maryamCalledTitle')}</h3>
             <p className="muted">
               همین فرم برای تماس دستی و ویپ یکی است. بنکداری که جواب داد ولی قیمت نداد،
               با کسی که اصلاً برنداشت فرق دارد — اولی را باید دوباره گرفت.
             </p>
 
             <div style={{ marginTop: 12 }}>
-              <label htmlFor="supplier">بنکدار</label>
+              <label htmlFor="supplier">{t('maryamSupplier')}</label>
               <select
                 id="supplier"
                 style={field}
                 value={callSupplier}
                 onChange={(e) => setCallSupplier(e.target.value)}
               >
-                <option value="">— انتخاب کنید —</option>
+                <option value="">{t('maryamChoose')}</option>
                 {calls.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -754,7 +756,7 @@ const field: React.CSSProperties = {
                 }}
               >
                 <div>
-                  <label htmlFor="ext">داخلی شما</label>
+                  <label htmlFor="ext">{t('maryamYourExt')}</label>
                   <input
                     id="ext"
                     style={{ ...field, maxWidth: 120 }}
@@ -768,7 +770,7 @@ const field: React.CSSProperties = {
                   {dialing ? '…' : '📞 زنگ بزن'}
                 </button>
                 <span className="muted" style={{ fontSize: 13 }}>
-                  اول به داخلی شما زنگ می‌خورد، بعد به بنکدار
+                  {t('maryamDialHint')}
                 </span>
               </div>
             )}
@@ -796,11 +798,11 @@ const field: React.CSSProperties = {
                         setHeard([]);
                       }}
                     >
-                      پاک کردن متن
+                      {t('maryamClearText')}
                     </button>
                   )}
                   <span className="muted" style={{ fontSize: 13 }}>
-                    بلندگو را روشن کنید یا خودتان تکرار کنید
+                    {t('maryamSpeakerHint')}
                   </span>
                 </div>
 
@@ -853,11 +855,11 @@ const field: React.CSSProperties = {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr>
-                      <th style={TH}>کالا</th>
-                      <th style={TH}>مقدار</th>
-                      <th style={TH}>آخرین خرید</th>
-                      <th style={{ ...TH, width: 130 }}>قیمت پیشنهادی</th>
-                      <th style={{ ...TH, width: 110 }}>موجودی او</th>
+                      <th style={TH}>{t('maryamColProduct')}</th>
+                      <th style={TH}>{t('maryamColQty')}</th>
+                      <th style={TH}>{t('maryamColLastBuy')}</th>
+                      <th style={{ ...TH, width: 130 }}>{t('maryamColQuoted')}</th>
+                      <th style={{ ...TH, width: 110 }}>{t('maryamColTheirStock')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -916,7 +918,7 @@ const field: React.CSSProperties = {
                           <td colSpan={5} style={{ padding: '8px 10px', background: 'var(--bg)' }}>
                             {history.length === 0 ? (
                               <span className="muted" style={{ fontSize: 13 }}>
-                                هنوز قیمتی برای این کالا ثبت نشده
+                                {t('maryamNoQuoteYet')}
                               </span>
                             ) : (
                               <div style={{ display: 'grid', gap: 4 }}>
@@ -965,7 +967,7 @@ const field: React.CSSProperties = {
                                         <span className="muted">{fa(h.leadDays)} روز</span>
                                       )}
                                       {h.isSelected && (
-                                        <span style={{ color: 'var(--success)' }}>· خریداری شد</span>
+                                        <span style={{ color: 'var(--success)' }}>{t('maryamPurchased')}</span>
                                       )}
                                       <span className="muted" style={{ fontSize: 12 }}>
                                         {h.inquiryNo}
@@ -985,7 +987,7 @@ const field: React.CSSProperties = {
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => void saveCall()} disabled={busy}>
-                    ثبت قیمت‌ها
+                    {t('maryamSavePrices')}
                   </button>
                   <button
                     type="button"
@@ -993,7 +995,7 @@ const field: React.CSSProperties = {
                     onClick={() => void saveCall('NO_ANSWER')}
                     disabled={busy}
                   >
-                    جواب نداد
+                    {t('maryamNoAnswer')}
                   </button>
                   <button
                     type="button"
@@ -1001,7 +1003,7 @@ const field: React.CSSProperties = {
                     onClick={() => void saveCall('REFUSED')}
                     disabled={busy}
                   >
-                    قیمت نداد
+                    {t('maryamNoPrice')}
                   </button>
                 </div>
               </div>
@@ -1013,7 +1015,7 @@ const field: React.CSSProperties = {
       {/* ------------------------------------------- ۳) از کی بخریم */}
       {comparison && (
         <div className="card">
-          <h3>پیشنهاد مریم</h3>
+          <h3>{t('maryamSuggestion')}</h3>
 
           <div className="stats-grid" style={{ marginTop: 12 }}>
             <StatCard icon="money" label="مبلغ کل خرید" value={fa(comparison.summary.total)} />
@@ -1041,12 +1043,12 @@ const field: React.CSSProperties = {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={TH}>کالا</th>
-                  <th style={TH}>مقدار</th>
-                  <th style={TH}>برنده</th>
-                  <th style={TH}>قیمت</th>
-                  <th style={TH}>تغییر</th>
-                  <th style={TH}>دلیل</th>
+                  <th style={TH}>{t('maryamColProduct')}</th>
+                  <th style={TH}>{t('maryamColQty')}</th>
+                  <th style={TH}>{t('maryamColWinner')}</th>
+                  <th style={TH}>{t('maryamColPrice')}</th>
+                  <th style={TH}>{t('maryamColChange')}</th>
+                  <th style={TH}>{t('maryamColReason')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1058,7 +1060,7 @@ const field: React.CSSProperties = {
                       {w.quote ? (
                         w.quote.supplierName
                       ) : (
-                        <span style={{ color: 'var(--danger)' }}>هیچ‌کس</span>
+                        <span style={{ color: 'var(--danger)' }}>{t('maryamNobody')}</span>
                       )}
                     </td>
                     <td style={{ ...TD, fontVariantNumeric: 'tabular-nums' }}>

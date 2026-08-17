@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { TOUCH } from '../../components/ui';
+import { useI18n } from '../../lib/i18n-context';
 import { API_URL, api, getToken } from '../../lib/api';
 import Session from './Session';
 
@@ -272,6 +273,7 @@ function Header({
   onDialect: (value: string) => void;
   status: Status | null;
 }) {
+  const { t } = useI18n();
   return (
     <section
       style={{
@@ -284,7 +286,7 @@ function Header({
       }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700 }}>گویش:</span>
+        <span style={{ fontWeight: 700 }}>{t('vcDialect')}</span>
         {dialects.map((d) => (
           <button
             key={d.code}
@@ -402,6 +404,7 @@ function Toolbar({
   onBuild: () => void;
   onSession: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <section
       style={{
@@ -413,7 +416,7 @@ function Toolbar({
     >
       <div>
         <label htmlFor="speaker" style={{ display: 'block', fontSize: 12, color: 'var(--muted)' }}>
-          برچسب گوینده
+          {t('vcSpeakerTag')}
         </label>
         <input
           id="speaker"
@@ -425,7 +428,7 @@ function Toolbar({
 
       <div>
         <label htmlFor="kind" style={{ display: 'block', fontSize: 12, color: 'var(--muted)' }}>
-          نوع
+          {t('vcType')}
         </label>
         <select
           id="kind"
@@ -433,10 +436,10 @@ function Toolbar({
           onChange={(event) => onKindFilter(event.target.value as 'ALL')}
           style={{ ...TOUCH, borderRadius: 10, border: '1px solid var(--border)' }}
         >
-          <option value="ALL">همه</option>
-          <option value="COMMAND">فرمان</option>
-          <option value="NUMBER">عدد</option>
-          <option value="PRODUCT">کالا</option>
+          <option value="ALL">{t('vcAll')}</option>
+          <option value="COMMAND">{t('vcCommand')}</option>
+          <option value="NUMBER">{t('vcNumber')}</option>
+          <option value="PRODUCT">{t('vcProduct')}</option>
         </select>
       </div>
 
@@ -453,7 +456,7 @@ function Toolbar({
           cursor: 'pointer',
         }}
       >
-        شروع ضبط پیوسته
+        {t('vcStartRec')}
       </button>
 
       <button
@@ -488,10 +491,11 @@ function PhraseList({
   onRecorded: () => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useI18n();
   if (!phrases.length) {
     return (
       <p style={{ color: 'var(--muted)' }}>
-        هنوز عبارتی ساخته نشده — «ساخت فهرست از کالاها» را بزنید.
+        {t('vcNoPhrases')}
       </p>
     );
   }
@@ -522,6 +526,7 @@ function PhraseRow({
   onRecorded: () => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const approved = num(phrase.approved);
   const speakers = num(phrase.speakers);
   const pending = num(phrase.pending);
@@ -559,7 +564,7 @@ function PhraseRow({
           <div style={{ fontSize: 15, color: 'var(--accent)' }}>{phrase.textTarget}</div>
         ) : (
           // بدون متن بلوچی، گوینده نمی‌داند چه بگوید.
-          <div style={{ fontSize: 13, color: 'var(--warning)' }}>متن بلوچی وارد نشده</div>
+          <div style={{ fontSize: 13, color: 'var(--warning)' }}>{t('vcNoBalochiText')}</div>
         )}
       </div>
 
@@ -733,6 +738,7 @@ function Review({
   onChanged: () => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const [samples, setSamples] = useState<PendingSample[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
@@ -785,7 +791,7 @@ function Review({
           آموزش لازم است، نه بعدش.
         </p>
         {samples.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>چیزی در انتظار نیست.</p>
+          <p style={{ color: 'var(--muted)' }}>{t('vcNothingPending')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {samples.map((sample) => (
@@ -837,7 +843,7 @@ function Review({
           نکنید وارد پیکره نمی‌شود.
         </p>
         {suggestions.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>پیشنهادی نیست.</p>
+          <p style={{ color: 'var(--muted)' }}>{t('vcNoSuggestion')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {suggestions.slice(0, 60).map((item) => (
@@ -866,7 +872,7 @@ function Review({
                   onClick={() => accept(item.phraseId, item.suggestion)}
                   style={{ ...TOUCH, borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
                 >
-                  درست است
+                  {t('vcCorrect')}
                 </button>
               </div>
             ))}
@@ -888,6 +894,7 @@ function Import({
   onDone: () => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const [csv, setCsv] = useState('');
   const [result, setResult] = useState<{
     words: number;
@@ -962,7 +969,7 @@ function Import({
           justifySelf: 'start',
         }}
       >
-        ورود واژه‌نامه
+        {t('vcImportDict')}
       </button>
 
       {result ? (

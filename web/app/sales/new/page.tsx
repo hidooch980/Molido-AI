@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from '../../../components/AppShell';
 import { Icon } from '../../../components/icons';
 import { TOUCH } from '../../../components/ui';
+import { useI18n } from '../../../lib/i18n-context';
 import { api } from '../../../lib/api';
 import { amountOnly } from '../../../lib/money';
 import {
@@ -77,6 +78,7 @@ function todayISO(): string {
 }
 
 export default function NewInvoicePage() {
+  const { t } = useI18n();
   const router = useRouter();
 
   // ---------- سربرگ ----------
@@ -564,7 +566,7 @@ export default function NewInvoicePage() {
           onClick={() => router.push('/sales')}
           style={{ ...field, width: 'auto', padding: '7px 14px', cursor: 'pointer' }}
         >
-          خروج
+          {t('invExit')}
         </button>
       }
     >
@@ -591,7 +593,7 @@ export default function NewInvoicePage() {
           >
             <div>
               <label style={label} htmlFor="wh">
-                انبار
+                {t('invWarehouse')}
               </label>
               <select
                 id="wh"
@@ -609,7 +611,7 @@ export default function NewInvoicePage() {
 
             <div style={{ position: 'relative' }}>
               <label style={label} htmlFor="cust">
-                طرف حساب
+                {t('invParty')}
               </label>
               <input
                 id="cust"
@@ -676,7 +678,7 @@ export default function NewInvoicePage() {
 
             <div>
               <label style={label} htmlFor="agent">
-                ویزیتور
+                {t('invAgent')}
               </label>
               <select
                 id="agent"
@@ -684,7 +686,7 @@ export default function NewInvoicePage() {
                 value={salesAgentId}
                 onChange={(e) => setSalesAgentId(e.target.value)}
               >
-                <option value="">— بدون ویزیتور —</option>
+                <option value="">{t('invNoAgent')}</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -695,7 +697,7 @@ export default function NewInvoicePage() {
 
             <div>
               <label style={label} htmlFor="idate">
-                تاریخ فاکتور
+                {t('invDate')}
               </label>
               <input
                 id="idate"
@@ -708,7 +710,7 @@ export default function NewInvoicePage() {
 
             <div>
               <label style={label} htmlFor="ref">
-                رفرنس
+                {t('invReference')}
               </label>
               <input
                 id="ref"
@@ -721,7 +723,7 @@ export default function NewInvoicePage() {
 
             <div>
               <label style={label} htmlFor="due">
-                مهلت تسویه
+                {t('invDueDate')}
               </label>
               <input
                 id="due"
@@ -735,7 +737,7 @@ export default function NewInvoicePage() {
 
             <div>
               <label style={label} htmlFor="note">
-                شرح
+                {t('invNote')}
               </label>
               <input
                 id="note"
@@ -783,7 +785,7 @@ export default function NewInvoicePage() {
                 fontWeight: 600,
               }}
             >
-              افزودن
+              {t('invAdd')}
             </button>
           </form>
 
@@ -841,16 +843,16 @@ export default function NewInvoicePage() {
               <thead>
                 <tr>
                   <th style={{ ...th, width: 34 }}>#</th>
-                  <th style={th}>نام کالا</th>
-                  <th style={{ ...th, width: 118 }}>بارکد</th>
-                  <th style={{ ...th, width: 92 }}>مقدار</th>
-                  <th style={{ ...th, width: 54 }}>واحد</th>
-                  <th style={{ ...th, width: 128 }}>بهای واحد</th>
-                  <th style={{ ...th, width: 70 }}>تخفیف٪</th>
-                  <th style={{ ...th, width: 62 }}>مالیات٪</th>
-                  <th style={{ ...th, width: 128 }}>مبلغ</th>
-                  <th style={{ ...th, width: 110 }}>سریال</th>
-                  <th style={th}>شرح</th>
+                  <th style={th}>{t('invColName')}</th>
+                  <th style={{ ...th, width: 118 }}>{t('invColBarcode')}</th>
+                  <th style={{ ...th, width: 92 }}>{t('invColQty')}</th>
+                  <th style={{ ...th, width: 54 }}>{t('invColUnit')}</th>
+                  <th style={{ ...th, width: 128 }}>{t('invColUnitPrice')}</th>
+                  <th style={{ ...th, width: 70 }}>{t('invColDiscountPct')}</th>
+                  <th style={{ ...th, width: 62 }}>{t('invColTaxPct')}</th>
+                  <th style={{ ...th, width: 128 }}>{t('invColAmount')}</th>
+                  <th style={{ ...th, width: 110 }}>{t('invColSerial')}</th>
+                  <th style={th}>{t('invNote')}</th>
                   <th style={{ ...th, width: 40 }} />
                 </tr>
               </thead>
@@ -861,7 +863,7 @@ export default function NewInvoicePage() {
                       colSpan={12}
                       style={{ padding: 34, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}
                     >
-                      بارکد بزنید یا نام کالا را جست‌وجو کنید
+                      {t('invScanHint')}
                     </td>
                   </tr>
                 )}
@@ -995,7 +997,7 @@ export default function NewInvoicePage() {
           }}
         >
           <div style={box}>
-            <div style={{ ...label, marginBottom: 8 }}>کالای انتخاب‌شده</div>
+            <div style={{ ...label, marginBottom: 8 }}>{t('invSelectedProduct')}</div>
             {selected ? (
               <div style={{ display: 'grid', gap: 5, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>{selected.name}</div>
@@ -1005,7 +1007,7 @@ export default function NewInvoicePage() {
                 <Row k="تخفیف قلم" v={fa(lineDiscountAmount(selected))} />
               </div>
             ) : (
-              <div style={{ color: 'var(--muted)', fontSize: 13 }}>ردیفی انتخاب نشده</div>
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t('invNoRowSelected')}</div>
             )}
 
             {customerBalance !== null && (
@@ -1040,7 +1042,7 @@ export default function NewInvoicePage() {
               />
               {lines.some((line) => line.taxPercent > 0) ? (
                 <div>
-                  <span style={label}>مالیات بر ارزش افزوده</span>
+                  <span style={label}>{t('invVat')}</span>
                   <div
                     style={{
                       display: 'flex',
@@ -1050,7 +1052,7 @@ export default function NewInvoicePage() {
                     }}
                   >
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      از نرخ خودِ کالاها
+                      {t('invVatFromProducts')}
                     </span>
                     <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
                       {fa(totals.tax)}
@@ -1070,7 +1072,7 @@ export default function NewInvoicePage() {
               )}
               <div>
                 <label style={label} htmlFor="add">
-                  اضافات فاکتور (کرایه، بسته‌بندی)
+                  {t('invAdditions')}
                 </label>
                 <input
                   id="add"
@@ -1083,7 +1085,7 @@ export default function NewInvoicePage() {
               </div>
               <div>
                 <label style={label} htmlFor="ded">
-                  کسورات فاکتور
+                  {t('invDeductions')}
                 </label>
                 <input
                   id="ded"
@@ -1116,14 +1118,14 @@ export default function NewInvoicePage() {
                   fontWeight: 700,
                 }}
               >
-                <span>مبلغ قابل پرداخت</span>
+                <span>{t('invPayable')}</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fa(totals.payable)}</span>
               </div>
 
               {/* ---------- کالابرگ ---------- */}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8 }}>
                 <label style={label} htmlFor="ration">
-                  کالابرگ (کد ملی سرپرست)
+                  {t('invRationCode')}
                 </label>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input
@@ -1144,7 +1146,7 @@ export default function NewInvoicePage() {
                     onClick={() => void findRation()}
                     style={{ ...field, width: 'auto', padding: '7px 12px', cursor: 'pointer' }}
                   >
-                    یافتن
+                    {t('invFind')}
                   </button>
                 </div>
 
@@ -1157,7 +1159,7 @@ export default function NewInvoicePage() {
                     <Row k="سهم این خرید" v={fa(rationShare)} />
                     {rationShare > Number(ration.balance) && (
                       <div style={{ color: 'var(--danger)', fontSize: 12 }}>
-                        سهم از اعتبار بیشتر است؛ فقط تا سقف موجودی برداشت می‌شود.
+                        {t('invRationOverLimit')}
                       </div>
                     )}
                     <button
@@ -1177,7 +1179,7 @@ export default function NewInvoicePage() {
                         textAlign: 'right',
                       }}
                     >
-                      برداشتن کالابرگ
+                      {t('invRemoveRation')}
                     </button>
                   </div>
                 )}
@@ -1206,13 +1208,13 @@ export default function NewInvoicePage() {
                   }}
                   style={{ width: 18, height: 18 }}
                 />
-                تسویه شد (پرداخت کامل)
+                {t('invSettledFull')}
               </label>
 
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <div style={{ flex: 1 }}>
                   <label style={label} htmlFor="paid">
-                    پرداخت
+                    {t('invPayment')}
                   </label>
                   <input
                     id="paid"
@@ -1225,7 +1227,7 @@ export default function NewInvoicePage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={label} htmlFor="method">
-                    روش
+                    {t('invMethod')}
                   </label>
                   <select
                     id="method"
@@ -1233,11 +1235,11 @@ export default function NewInvoicePage() {
                     value={method}
                     onChange={(e) => setMethod(e.target.value)}
                   >
-                    <option value="CASH">نقدی</option>
-                    <option value="CARD">کارت‌خوان</option>
-                    <option value="CREDIT">نسیه</option>
-                    <option value="BANK_TRANSFER">حواله</option>
-                    <option value="CHEQUE">چک</option>
+                    <option value="CASH">{t('invCash')}</option>
+                    <option value="CARD">{t('invCard')}</option>
+                    <option value="CREDIT">{t('invCredit')}</option>
+                    <option value="BANK_TRANSFER">{t('invTransfer')}</option>
+                    <option value="CHEQUE">{t('invCheque')}</option>
                   </select>
                 </div>
               </div>
@@ -1267,7 +1269,7 @@ export default function NewInvoicePage() {
             onClick={() => void submit(true)}
             style={{ ...field, width: 'auto', padding: '9px 18px', cursor: 'pointer' }}
           >
-            ثبت و چاپ
+            {t('invSavePrint')}
           </button>
           <button
             type="button"
@@ -1275,7 +1277,7 @@ export default function NewInvoicePage() {
             onClick={() => void submit(false, true)}
             style={{ ...field, width: 'auto', padding: '9px 18px', cursor: 'pointer' }}
           >
-            ثبت و جدید
+            {t('invSaveNew')}
           </button>
           <button
             type="button"

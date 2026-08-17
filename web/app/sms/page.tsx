@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { StatCard, TOUCH } from '../../components/ui';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
 import { amountOnly } from '../../lib/money';
 
@@ -81,6 +82,7 @@ const SKIP_LABEL: Record<string, string> = {
 };
 
 export default function SmsPage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('send');
   const [stats, setStats] = useState<Stats | null>(null);
   const [history, setHistory] = useState<Message[]>([]);
@@ -234,7 +236,7 @@ export default function SmsPage() {
       subtitle="ارسال گروهی، انصراف مشتری، تاریخچه و قالب"
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
-          تازه‌سازی
+          {t('smsRefresh')}
         </button>
       }
     >
@@ -273,10 +275,10 @@ export default function SmsPage() {
       {/* ---------------------------------------------------- ارسال */}
       {tab === 'send' && (
         <div className="card">
-          <h3>ارسال گروهی</h3>
+          <h3>{t('smsBulkSend')}</h3>
 
           <div style={{ marginTop: 12 }}>
-            <label htmlFor="sms-body">متن پیام</label>
+            <label htmlFor="sms-body">{t('smsBody')}</label>
             <textarea
               id="sms-body"
               rows={4}
@@ -312,13 +314,13 @@ export default function SmsPage() {
                 }}
                 style={{ width: 18, height: 18 }}
               />
-              ارسال به همهٔ مشتریان
+              {t('smsToAll')}
             </label>
           </div>
 
           {!toAll && (
             <div style={{ marginTop: 12 }}>
-              <label htmlFor="sms-phones">شماره‌ها</label>
+              <label htmlFor="sms-phones">{t('smsNumbers')}</label>
               <textarea
                 id="sms-phones"
                 rows={3}
@@ -335,7 +337,7 @@ export default function SmsPage() {
 
           {templates.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <span id="grp-sms-tpl">از قالب</span>
+              <span id="grp-sms-tpl">{t('smsFromTemplate')}</span>
               <div role="group" aria-labelledby="grp-sms-tpl" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {templates.map((tpl) => (
                   <button
@@ -372,7 +374,7 @@ export default function SmsPage() {
               className="card"
               style={{ marginTop: 14, background: 'var(--panel-strong)' }}
             >
-              <h4 style={{ margin: 0, fontSize: 14 }}>پیش‌نمایش — هنوز چیزی فرستاده نشده</h4>
+              <h4 style={{ margin: 0, fontSize: 14 }}>{t('smsPreviewEmpty')}</h4>
               <div style={{ display: 'grid', gap: 5, marginTop: 10, fontSize: 13 }}>
                 <Row k="مخاطب" v={fa(preview.total)} />
                 <Row k="ارسال می‌شود" v={fa(preview.willSend)} />
@@ -408,7 +410,7 @@ export default function SmsPage() {
 
               {preview.willSend === 0 && (
                 <p className="muted" style={{ marginTop: 10 }}>
-                  هیچ گیرنده‌ای باقی نماند.
+                  {t('smsNoRecipients')}
                 </p>
               )}
             </div>
@@ -419,7 +421,7 @@ export default function SmsPage() {
       {/* -------------------------------------------------- تاریخچه */}
       {tab === 'history' && (
         <div className="card">
-          <h3>تاریخچهٔ پیامک</h3>
+          <h3>{t('smsHistory')}</h3>
           <p className="muted">
             آنچه نرفته هم ثبت می‌شود — وقتی مشتری می‌پرسد «چرا پیام نگرفتم»، پاسخ اینجاست.
           </p>
@@ -428,18 +430,18 @@ export default function SmsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={TH}>شماره</th>
-                  <th style={TH}>متن</th>
-                  <th style={TH}>وضعیت</th>
-                  <th style={TH}>علت</th>
-                  <th style={TH}>تاریخ</th>
+                  <th style={TH}>{t('smsColNumber')}</th>
+                  <th style={TH}>{t('smsColBody')}</th>
+                  <th style={TH}>{t('smsColStatus')}</th>
+                  <th style={TH}>{t('smsColReason')}</th>
+                  <th style={TH}>{t('smsColDate')}</th>
                 </tr>
               </thead>
               <tbody>
                 {history.length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: 26, textAlign: 'center', color: 'var(--muted)' }}>
-                      هنوز پیامکی فرستاده نشده
+                      {t('smsNoneSent')}
                     </td>
                   </tr>
                 )}
@@ -479,7 +481,7 @@ export default function SmsPage() {
       {/* --------------------------------------------------- انصراف */}
       {tab === 'optout' && (
         <div className="card">
-          <h3>انصراف از دریافت</h3>
+          <h3>{t('smsOptOut')}</h3>
           <p className="muted">
             مشتری‌ای که گفته «نفرست» دیگر پیام نمی‌گیرد — حتی اگر شماره‌اش دستی در فهرست
             ارسال بیاید.
@@ -493,7 +495,7 @@ export default function SmsPage() {
               onChange={(e) => setOptPhone(e.target.value)}
             />
             <button type="button" onClick={() => void setOptOut(optPhone, true)}>
-              ثبت انصراف
+              {t('smsAddOptOut')}
             </button>
           </div>
 
@@ -501,9 +503,9 @@ export default function SmsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={TH}>مشتری</th>
-                  <th style={TH}>شماره</th>
-                  <th style={TH}>تاریخ انصراف</th>
+                  <th style={TH}>{t('smsColCustomer')}</th>
+                  <th style={TH}>{t('smsColNumber')}</th>
+                  <th style={TH}>{t('smsOptOutDate')}</th>
                   <th style={TH} />
                 </tr>
               </thead>
@@ -511,7 +513,7 @@ export default function SmsPage() {
                 {optOuts.length === 0 && (
                   <tr>
                     <td colSpan={4} style={{ padding: 26, textAlign: 'center', color: 'var(--muted)' }}>
-                      کسی انصراف نداده
+                      {t('smsNoOptOut')}
                     </td>
                   </tr>
                 )}
@@ -530,7 +532,7 @@ export default function SmsPage() {
                         className="btn-sm ghost"
                         onClick={() => void setOptOut(c.phone, false)}
                       >
-                        بازگرداندن
+                        {t('smsRestore')}
                       </button>
                     </td>
                   </tr>
@@ -544,7 +546,7 @@ export default function SmsPage() {
       {/* ---------------------------------------------------- قالب */}
       {tab === 'templates' && (
         <div className="card">
-          <h3>قالب پیام</h3>
+          <h3>{t('smsTemplate')}</h3>
           <p className="muted">
             متن را یک بار بنویسید و هر بار همان را بفرستید — اشتباه تایپی نباید مستقیم به
             هزار مشتری برود.
@@ -566,13 +568,13 @@ export default function SmsPage() {
             />
             <div>
               <button type="button" onClick={() => void saveTemplate()}>
-                ذخیرهٔ قالب
+                {t('smsSaveTemplate')}
               </button>
             </div>
           </div>
 
           <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
-            {templates.length === 0 && <p className="muted">هنوز قالبی ساخته نشده</p>}
+            {templates.length === 0 && <p className="muted">{t('smsNoTemplate')}</p>}
             {templates.map((tpl) => (
               <div
                 key={tpl.id}
@@ -599,7 +601,7 @@ export default function SmsPage() {
                     void api(`/sms/templates/${tpl.id}`, { method: 'DELETE' }).then(load);
                   }}
                 >
-                  حذف
+                  {t('smsDelete')}
                 </button>
               </div>
             ))}

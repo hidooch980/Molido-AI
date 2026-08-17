@@ -64,9 +64,9 @@
       ]
     },
     {
-      "name": "انبارگردانی",
+      "name": "شمارش انبار",
       "short_name": "شمارش",
-      "url": "/stock-count",
+      "url": "/count",
       "icons": [
         {
           "src": "/icons/icon-192.png",

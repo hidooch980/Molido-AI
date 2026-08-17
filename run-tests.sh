@@ -14,7 +14,7 @@ cd "$(dirname "$0")" || exit 1
 #
 # ولی «اینجا اجرا نمی‌شود» نباید یعنی «هیچ‌جا اجرا نمی‌شود».  رگرسیون
 # رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
-SUITES="e2e-cycles integration shop shop-filter pricing pos-pricing pos-workflow invoice accounts
+SUITES="e2e-cycles integration shop shop-filter count-app pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
         product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice
         password ratelimit bundle apidocs untested records roles"

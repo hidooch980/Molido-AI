@@ -143,7 +143,11 @@ export class StockCountService {
     if (!header[0]) throw new NotFoundException('انبارگردانی یافت نشد');
 
     const lines = await this.db.query(
-      `SELECT l.*, p.name AS "productName", p.sku AS "productSku", p.unit AS "productUnit"
+      // بارکد در خودِ خط می‌آید تا اپ انبارگردانی برای هر اسکن یک
+      // درخواست تازه نزند: انباردار پشت سر هم اسکن می‌کند و روی
+      // وای‌فایِ ضعیفِ انبار، هر رفت‌وبرگشت یک مکث است.
+      `SELECT l.*, p.name AS "productName", p.sku AS "productSku",
+              p.unit AS "productUnit", p.barcode AS "productBarcode"
          FROM "StockCountLine" l
          JOIN "Product" p ON p.id = l."productId"
         WHERE l."countId" = $1

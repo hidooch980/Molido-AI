@@ -433,6 +433,18 @@ export class PurchasingService {
       [inquiryId, companyId],
     );
     if (!inquiry[0]) throw new NotFoundException('استعلام یافت نشد');
+    // ⚠️ انبار از **خودِ استعلام** می‌آید، نه از بدنهٔ درخواست.
+    //
+    //    استعلامی که بی‌انبار ساخته شده، هنگام سفارش به قید
+    //    `Purchase.warehouseId NOT NULL` می‌خورد و پیامش «یکی از
+    //    مقدارهای الزامی خالی است» می‌شود — که به کاربر نمی‌گوید
+    //    مشکل کجاست و چطور رفعش کند.
+    if (!inquiry[0].warehouseId) {
+      throw new BadRequestException(
+        'این استعلام انبار ندارد؛ هنگام ساخت استعلام انبار را مشخص کنید',
+      );
+    }
+
     if (inquiry[0].status === 'ORDERED') {
       throw new BadRequestException('برای این استعلام قبلاً سفارش ثبت شده است');
     }

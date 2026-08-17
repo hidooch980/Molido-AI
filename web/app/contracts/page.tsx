@@ -342,7 +342,7 @@ export default function ContractsPage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>قرارداد تازه</h2>
+          <h2 style={H2}>{t('ctrNew')}</h2>
           <form onSubmit={create} style={FORM}>
             <Field label="شماره">
               <input
@@ -443,7 +443,7 @@ export default function ContractsPage() {
         </div>
 
         {visible.length === 0 ? (
-          <p style={EMPTY}>قراردادی یافت نشد</p>
+          <p style={EMPTY}>{t('ctrNone')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {visible.map((c) => {
@@ -614,7 +614,7 @@ export default function ContractsPage() {
                         </div>
                       ) : (
                         <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
-                          قسطی ثبت نشده
+                          {t('ctrNoInstalment')}
                         </p>
                       )}
 

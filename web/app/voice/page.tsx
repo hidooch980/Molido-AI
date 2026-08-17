@@ -315,7 +315,7 @@ function Header({
         می‌کند و فهرست خالی می‌بیند، فکر می‌کند داده‌اش پاک شده.
       */}
       <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-        هر گویش پیکرهٔ جداگانه دارد — ضبط سرحدی به مکرانی ربطی ندارد.
+        {t('vcDialectHint')}
       </p>
 
       {status ? (
@@ -786,10 +786,7 @@ function Review({
     <div style={{ display: 'grid', gap: 24 }}>
       <section>
         <h2 style={{ fontSize: 16 }}>ضبط‌های در انتظار ({samples.length})</h2>
-        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 0 }}>
-          ضبط نویزی یا اشتباه، مدل را بدتر می‌کند نه بهتر — پس بازبینی پیش از
-          آموزش لازم است، نه بعدش.
-        </p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 0 }}>{t('vcReviewHint')}</p>
         {samples.length === 0 ? (
           <p style={{ color: 'var(--muted)' }}>{t('vcNothingPending')}</p>
         ) : (
@@ -837,11 +834,7 @@ function Review({
 
       <section>
         <h2 style={{ fontSize: 16 }}>پیشنهاد املای بلوچی ({suggestions.length})</h2>
-        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 0 }}>
-          این‌ها حدسِ ماشین است بر پایهٔ قاعدهٔ املایی — بلوچی حروف ویژهٔ عربی
-          (ص، ض، ط، ظ، ذ، ث، ح، ع) را ندارد. هیچ‌کدام ذخیره نشده؛ تا شما تأیید
-          نکنید وارد پیکره نمی‌شود.
-        </p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 0 }}>{t('vcGuessHint')}</p>
         {suggestions.length === 0 ? (
           <p style={{ color: 'var(--muted)' }}>{t('vcNoSuggestion')}</p>
         ) : (
@@ -923,7 +916,7 @@ function Import({
   return (
     <section style={{ display: 'grid', gap: 12 }}>
       <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-        فایل دو ستونی: فارسی و بلوچی. سرستون اختیاری است.
+        {t('vcTwoColumn')}
       </p>
 
       <input
@@ -985,10 +978,7 @@ function Import({
           */}
           {result.changes?.length ? (
             <>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--warning)' }}>
-                این‌ها را بخوانید — ترجمه‌ای که از راه انگلیسی آمده باشد ممکن
-                است واژهٔ هم‌شکل را اشتباه گرفته باشد.
-              </p>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--warning)' }}>{t('vcReadThese')}</p>
               <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 14 }}>
                 {result.changes.slice(0, 40).map((change) => (
                   <li key={`${change.kind}-${change.textFa}`}>

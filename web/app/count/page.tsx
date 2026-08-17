@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { api } from '../../lib/api';
+import { useI18n } from '../../lib/i18n-context';
 
 type Count = {
   id: string;
@@ -20,6 +21,7 @@ const fa = (v: unknown) => Number(v ?? 0).toLocaleString('fa-IR');
 const isOpen = (c: Count) => c.status === 'OPEN' || c.status === 'DRAFT';
 
 export default function CountListPage() {
+  const { t } = useI18n();
   const [counts, setCounts] = useState<Count[] | null>(null);
   const [error, setError] = useState('');
 
@@ -32,9 +34,9 @@ export default function CountListPage() {
   return (
     <>
       <header className="cnt-top">
-        <h1>شمارش انبار</h1>
+        <h1>{t('cntTitle')}</h1>
         <Link href="/stock-count" className="cnt-link">
-          نسخهٔ کامل
+          {t('cntFullVersion')}
         </Link>
       </header>
 
@@ -44,14 +46,14 @@ export default function CountListPage() {
             {error}
           </p>
         ) : counts === null ? (
-          <p className="cnt-muted">در حال دریافت…</p>
+          <p className="cnt-muted">{t('cntLoading')}</p>
         ) : counts.length === 0 ? (
           <div className="cnt-empty">
-            <p>انبارگردانی بازی نیست.</p>
+            <p>{t('cntNoneOpen')}</p>
             {/* انباردار اجازهٔ باز کردن ندارد؛ گفتنِ راهِ درست بهتر از
                 دکمه‌ای است که ۴۰۳ می‌دهد. */}
             <p className="cnt-muted">
-              سرپرست باید از بخش «انبارگردانی» یکی را باز کند.
+              {t('cntAskSupervisor')}
             </p>
           </div>
         ) : (

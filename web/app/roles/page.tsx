@@ -114,7 +114,7 @@ export default function RolesPage() {
             {error}
           </div>
         ) : (
-          <p style={{ color: 'var(--muted)' }}>در حال بارگذاری…</p>
+          <p style={{ color: 'var(--muted)' }}>{t('rolLoading')}</p>
         )}
       </AppShell>
     );
@@ -143,10 +143,7 @@ export default function RolesPage() {
             <span><Chip state="allow" /> اجازه داده شده</span>
             <span><Chip state="deny" /> اجازه گرفته شده</span>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-            «پیش‌فرض» با «ممنوع» فرق دارد: اولی یعنی هرچه سامانه گفته، دومی یعنی
-            صریحاً نه. مدیر ارشد همیشه همه‌چیز را دارد و قابل تغییر نیست.
-          </p>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>{t('rolDefaultVsDenyFull')}</p>
         </div>
 
         {catalog.groups.map((group) => (

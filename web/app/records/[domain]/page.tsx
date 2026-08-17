@@ -268,8 +268,8 @@ function Records({ def }: { def: DomainDef }) {
                     onChange={(e) => setDraft({ ...draft, [f.name]: e.target.value })}
                     style={INPUT}
                   >
-                    <option value="true">بله</option>
-                    <option value="false">خیر</option>
+                    <option value="true">{t('recYes')}</option>
+                    <option value="false">{t('recNo')}</option>
                   </select>
                 ) : f.kind === 'textarea' ? (
                   <textarea
@@ -343,7 +343,7 @@ function Records({ def }: { def: DomainDef }) {
         </div>
 
         {visible.length === 0 ? (
-          <p style={EMPTY}>رکوردی یافت نشد</p>
+          <p style={EMPTY}>{t('recNone')}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={TABLE}>

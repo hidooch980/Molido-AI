@@ -244,7 +244,7 @@ export default function QuickKeysPage() {
       <div className="card">
         <h3>{t('qkGroups')}</h3>
         <p className="muted">
-          هر گروه یک زبانه در صندوق است. بیش از بیست کلید روی یک صفحه گم می‌شود.
+          {t('qkGroupHint')}
         </p>
 
         <div className="lang-pills" style={{ margin: '12px 0' }}>
@@ -521,7 +521,7 @@ export default function QuickKeysPage() {
       {groups.length === 0 && (
         <div className="card">
           <p className="muted">
-            هنوز گروهی ساخته نشده. صندوق بدون کلید سریع هم کار می‌کند — فقط با اسکن.
+            {t('qkNoGroup')}
           </p>
         </div>
       )}

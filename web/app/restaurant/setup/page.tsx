@@ -391,7 +391,7 @@ export default function SetupPage() {
           <section style={{ ...CARD, borderColor: 'var(--warning)' }}>
             <h2 style={H2}>میزهای بدون سالن ({orphans.length})</h2>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-              این میزها روی نقشهٔ سالن دیده نمی‌شوند تا به سالنی منتقل شوند.
+              {t('stpUnassigned')}
             </p>
             <TableGrid
               tables={orphans}

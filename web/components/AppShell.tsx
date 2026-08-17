@@ -242,7 +242,7 @@ export default function AppShell({
           title={sidebarCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
         >
           <Icon name="menu" size={17} />
-          {!sidebarCollapsed && <span>جمع کردن منو</span>}
+          {!sidebarCollapsed && <span>{t('shellCollapse')}</span>}
         </button>
 
         <button type="button" className="danger sidebar-logout" onClick={logout}>

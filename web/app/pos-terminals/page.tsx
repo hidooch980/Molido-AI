@@ -109,6 +109,7 @@ const EMPTY_DRAFT: Draft = {
 };
 
 export default function PosTerminalsPage() {
+  const { t } = useI18n();
   const { locale } = useI18n();
 
   const [list, setList] = useState<Terminal[]>([]);
@@ -351,7 +352,7 @@ export default function PosTerminalsPage() {
                 onChange={(e) => setDraft({ ...draft, bankName: e.target.value })}
                 style={INPUT}
               >
-                <option value="">— انتخاب —</option>
+                <option value="">{t('ptChoose')}</option>
                 {banks.map((b) => (
                   <option key={b} value={b}>
                     {b}
@@ -489,7 +490,7 @@ export default function PosTerminalsPage() {
         ) : null}
 
         {visible.length === 0 ? (
-          <p style={EMPTY}>دستگاهی یافت نشد</p>
+          <p style={EMPTY}>{t('ptNone')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {visible.map((term) => (
@@ -539,7 +540,7 @@ export default function PosTerminalsPage() {
                   ) : term.accountNo ? (
                     <span>حساب {term.accountNo}</span>
                   ) : (
-                    <strong style={{ color: 'var(--warning)' }}>بدون حساب</strong>
+                    <strong style={{ color: 'var(--warning)' }}>{t('ptNoAccount')}</strong>
                   )}
                   {term.holderName ? <span>{term.holderName}</span> : null}
                   {term.merchantId ? <span>پذیرنده {term.merchantId}</span> : null}

@@ -1128,7 +1128,7 @@ export default function PosPage() {
             </button>
           </div>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            چند کالا با این نام هست — کدام؟
+            {t('posWhichProduct')}
           </p>
           <div style={{ display: 'grid', gap: 6 }}>
             {heard.options.map((option) => (

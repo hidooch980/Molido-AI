@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../../../lib/api';
+import { useI18n } from '../../../lib/i18n-context';
 
 type Line = {
   id: string;
@@ -40,6 +41,7 @@ function normalizeDigits(s: string): string {
 const isCounted = (l: Line) => l.countedQty !== null && l.countedQty !== '';
 
 export default function CountSessionPage() {
+  const { t } = useI18n();
   const params = useParams<{ id: string }>();
   const countId = params.id;
 
@@ -234,7 +236,7 @@ export default function CountSessionPage() {
                     {fa(l.countedQty)} {l.productUnit ?? ''}
                   </span>
                 ) : (
-                  <span className="cnt-line-todo">شمرده نشده</span>
+                  <span className="cnt-line-todo">{t('cntNotCounted')}</span>
                 )}
               </button>
             </li>
@@ -279,7 +281,7 @@ export default function CountSessionPage() {
             </p>
           ) : (
             <p className="cnt-muted cnt-blind">
-              مقدار سیستم پس از ثبت نشان داده می‌شود
+              {t('cntSystemAfterSave')}
             </p>
           )}
 
@@ -293,7 +295,7 @@ export default function CountSessionPage() {
               {saving ? 'در حال ثبت…' : 'ثبت'}
             </button>
             <button type="button" className="cnt-btn" onClick={next}>
-              بعدی
+              {t('cntNext')}
             </button>
           </div>
         </div>

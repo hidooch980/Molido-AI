@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../../components/AppShell';
 import { api } from '../../../lib/api';
+import { useI18n } from '../../../lib/i18n-context';
 
 type Item = {
   id: string;
@@ -72,6 +73,7 @@ function waitColor(minutes: number): string {
 }
 
 export default function KitchenPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<Item[]>([]);
   const [station, setStation] = useState('');
   const [stations, setStations] = useState<string[]>([]);
@@ -165,7 +167,7 @@ export default function KitchenPage() {
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <StationButton active={!station} onClick={() => setStation('')}>
-              همه
+              {t('kitAll')}
             </StationButton>
             {stations.map((s) => (
               <StationButton key={s} active={station === s} onClick={() => setStation(s)}>
@@ -189,7 +191,7 @@ export default function KitchenPage() {
 
         {visible.length === 0 ? (
           <p style={{ fontSize: 24, textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-            سفارشی در انتظار نیست
+            {t('kitNoPending')}
           </p>
         ) : null}
 

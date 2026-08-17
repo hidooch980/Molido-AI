@@ -220,7 +220,7 @@ echo '--- t shadow ---'
 node web/scripts/verify-no-t-shadow.mjs 2>&1 | tail -2
 
 echo '--- hardcoded fa ---'
-node web/scripts/audit-hardcoded-fa.mjs --max 70 2>&1 | tail -2
+node web/scripts/audit-hardcoded-fa.mjs --max 30 2>&1 | tail -2
 
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

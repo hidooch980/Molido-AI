@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Icon } from './icons';
+import { useI18n } from '../lib/i18n-context';
 
 /**
  * اسکن بارکد با دوربین — بدون کتابخانه.
@@ -61,6 +62,7 @@ export default function BarcodeScanner({
   onScan: (code: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
@@ -177,7 +179,7 @@ export default function BarcodeScanner({
           paddingTop: 'max(12px, env(safe-area-inset-top))',
         }}
       >
-        <span style={{ fontWeight: 700 }}>اسکن بارکد</span>
+        <span style={{ fontWeight: 700 }}>{t('bcScan')}</span>
         <button
           type="button"
           onClick={() => {
@@ -242,7 +244,7 @@ export default function BarcodeScanner({
             margin: 0,
           }}
         >
-          بارکد را داخل کادر بگیرید
+          {t('bcAim')}
         </p>
       )}
     </div>

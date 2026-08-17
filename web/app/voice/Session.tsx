@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { API_URL, api, getToken } from '../../lib/api';
+import { useI18n } from '../../lib/i18n-context';
 
 type Phrase = {
   id: string;
@@ -44,6 +45,7 @@ export default function Session({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [queue, setQueue] = useState<Phrase[]>([]);
   const [index, setIndex] = useState(0);
   const [state, setState] = useState<State>('idle');
@@ -219,10 +221,10 @@ export default function Session({
     return (
       <Shell onClose={onClose}>
         <p style={{ fontSize: 18 }}>
-          چیزی برای ضبط نمانده — همهٔ عبارت‌هایی که متن بلوچی دارند را گفته‌اید.
+          {t('vsNothingLeft')}
         </p>
         <p style={{ color: 'var(--muted)' }}>
-          اگر عبارت تازه‌ای می‌خواهید، اول متن بلوچی‌اش را در بخش بازبینی وارد کنید.
+          {t('vsAddMore')}
         </p>
       </Shell>
     );
@@ -321,7 +323,7 @@ export default function Session({
             cursor: 'pointer',
           }}
         >
-          بلد نیستم — بعدی
+          {t('vsDontKnow')}
         </button>
         <span style={{ alignSelf: 'center', fontSize: 13, color: 'var(--muted)' }}>
           {done} ضبط شد
@@ -332,6 +334,7 @@ export default function Session({
 }
 
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -359,7 +362,7 @@ function Shell({ children, onClose }: { children: React.ReactNode; onClose: () =
               cursor: 'pointer',
             }}
           >
-            بستن
+            {t('vsClose')}
           </button>
         </div>
         {children}

@@ -25,7 +25,7 @@ export MOLIDO_API=${MOLIDO_API:-http://localhost:3200}
 export MOLIDO_ADMIN_PASSWORD=${MOLIDO_ADMIN_PASSWORD:-admin123}
 export MOLIDO_COMPOSE=${MOLIDO_COMPOSE:-"docker compose -p molido-resto -f docker-compose.yml -f docker-compose.resto.yml"}
 
-SUITES="restaurant"
+SUITES="e2e-resto restaurant"
 [ $# -gt 0 ] && SUITES="$*"
 
 LOGDIR=${MOLIDO_LOGDIR:-.test-logs}

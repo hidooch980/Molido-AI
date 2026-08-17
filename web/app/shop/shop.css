@@ -793,65 +793,27 @@
   text-align: center;
 }
 
-/* ---------- اسکلت بارگذاری ---------- */
+/* ---------- چرا اینجا اسکلت بارگذاری نیست ---------- */
 
 /*
- * جای کالا را پیش از آمدنش نگه می‌دارد.
+ * `loading.tsx` نوشته شد، کار کرد، و برداشته شد.  اگر دوباره وسوسه‌اش
+ * را داشتید، این را بخوانید تا همان راه را دوباره نروید.
  *
- * بدون این، فاصلهٔ میان کلیک و داده یک صفحهٔ سفید است و بعد محتوا
- * ناگهان می‌پرد — همان جابه‌جاییِ چیدمان که خواندن را می‌شکند.
+ * روی Next 15.3 + React 19، یک `loading.tsx` در سطحِ مسیر روی این
+ * صفحه — که به‌خاطر `searchParams` پویاست — باعث می‌شود کلِ محتوای
+ * صفحه **دو بار** در DOM بماند:
+ *
+ *     HTML سرور:  یک نسخه، درون <div hidden id="S:1">
+ *     DOM مرورگر: دو نسخه — یکی دیدنی از رندرِ کلاینت،
+ *                  و نسخهٔ سرور که در همان div یتیم می‌ماند
+ *
+ * نتیجه‌اش سه شناسهٔ تکراری (`f-min`, `f-max`, `f-sort`) و دو برابر
+ * شدنِ حجمِ DOM بود — که روی کاتالوگِ دویست‌تایی بی‌اهمیت نیست.
+ *
+ * دو فرضیه آزموده و رد شد: نه `Suspense` دور نوار صافی درستش کرد، نه
+ * حذف `useSearchParams()`.  تنها متغیرِ مؤثر خودِ `loading.tsx` بود:
+ * با حذفش، تکرار صفر شد.
+ *
+ * اسکلت خوب است، ولی نه به این بها.
  */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--s-surface-2) 25%,
-    var(--s-border) 37%,
-    var(--s-surface-2) 63%
-  );
-  background-size: 400% 100%;
-  border-radius: var(--s-radius-sm);
-  animation: skeleton-sweep 1.4s ease-in-out infinite;
-}
 
-@keyframes skeleton-sweep {
-  from {
-    background-position: 100% 50%;
-  }
-  to {
-    background-position: 0 50%;
-  }
-}
-
-.skeleton-card {
-  pointer-events: none;
-}
-
-.skeleton-image {
-  aspect-ratio: 1;
-  width: 100%;
-  border-radius: var(--s-radius);
-}
-
-.skeleton-line {
-  height: 14px;
-  margin-top: var(--s-3);
-}
-
-.skeleton-line.short {
-  width: 55%;
-}
-
-.skeleton-btn {
-  height: 40px;
-  margin-top: var(--s-3);
-  border-radius: var(--s-radius-pill);
-}
-
-/* برای کسی که حرکت را کم کرده، تپش می‌رود و خاکستریِ ثابت می‌ماند —
-   جای صفحه همچنان نگه داشته می‌شود. */
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-    background: var(--s-surface-2);
-  }
-}

@@ -133,7 +133,7 @@ export default async function ShopPage({
       ) : null}
 
       {products.length > 0 || params.minPrice || params.maxPrice ? (
-        <ShopFilters total={products.length} />
+        <ShopFilters total={products.length} params={params} />
       ) : null}
 
       {search || activeCategory ? (

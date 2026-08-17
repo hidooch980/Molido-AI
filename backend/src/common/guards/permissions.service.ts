@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
+import { runInTenant } from '../../database/tenant-context';
 
 type Key = string;
 
@@ -134,13 +135,24 @@ export class PermissionsService {
     }
 
     try {
-      const rows = await this.db.query<{
-        role: string;
-        permission: string;
-        allowed: boolean;
-      }>(
-        `SELECT role, permission, allowed FROM "RolePermission" WHERE "companyId" = $1`,
-        [companyId],
+      // ⚠️ زمینهٔ شرکت باید **صریح** باشد.
+      //
+      //    در نست، نگهبان پیش از اینترسپتور اجرا می‌شود.  اینترسپتورِ
+      //    مستأجر است که `app.company_id` را می‌گذارد، پس وقتی این کد
+      //    صدا زده می‌شود آن مقدار هنوز خالی است — و سیاست RLS همهٔ
+      //    ردیف‌ها را پنهان می‌کند.
+      //
+      //    نتیجه‌اش بی‌صدا بود و دقیقاً شبیه «بازنویسی‌ای نیست»: اختیاری
+      //    که مدیر داده بود هیچ اثری نداشت و هیچ خطایی هم نمی‌داد.
+      const rows = await runInTenant({ companyId, userId: null }, () =>
+        this.db.query<{
+          role: string;
+          permission: string;
+          allowed: boolean;
+        }>(
+          `SELECT role, permission, allowed FROM "RolePermission" WHERE "companyId" = $1`,
+          [companyId],
+        ),
       );
 
       const map = new Map<Key, boolean>();

@@ -104,6 +104,25 @@ for suite in $SUITES; do
 
   wait_for_quota
   out=$(bash "$file" 2>&1)
+
+  # ─── تفکیک شکستِ گذرا از واقعی ───
+  #
+  # بارها مجموعه‌ای در اجرای کامل چند شکست داشت و به‌تنهایی سبز بود.
+  # نشانه‌اش همیشه `<<پاسخ-JSON-نبود: ۰ نویسه>>` بود — بدنهٔ خالی، که
+  # با ۴۲۹ فرق دارد (۴۲۹ بدنهٔ JSON دارد).
+  #
+  # یک بار اجرای دوباره، حدس را از عیب‌یابی حذف می‌کند.
+  if printf '%s' "$out" | grep -q 'FAIL'; then
+    printf '  %-15s شکست داشت؛ یک بار دیگر…\n' "$suite"
+    wait_for_quota
+    retry=$(bash "$file" 2>&1)
+    if ! printf '%s' "$retry" | grep -q 'FAIL'; then
+      printf '  %-15s ⚠️  شکستِ گذرا بود — بار دوم سبز شد\n' "$suite"
+      out="$retry"
+    else
+      out="$retry"
+    fi
+  fi
   printf '%s
 ' "$out" > "$LOGDIR/$suite.log"
   p=$(printf '%s' "$out" | grep -oE 'PASS: *[0-9]+' | tail -1 | grep -oE '[0-9]+')

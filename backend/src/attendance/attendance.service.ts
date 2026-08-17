@@ -6,6 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 
 import { DatabaseService } from '../database/database.service';
+import { parseDate } from '../common/date';
 
 /**
  * حضور و غیاب، مرخصی و مانده مرخصی.
@@ -87,8 +88,8 @@ export class AttendanceService {
     let overtime = 0;
 
     if (dto.checkIn && dto.checkOut) {
-      const start = new Date(dto.checkIn);
-      const end = new Date(dto.checkOut);
+      const start = parseDate(dto.checkIn, "ساعت ورود");
+      const end = parseDate(dto.checkOut, "ساعت خروج");
 
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
         throw new BadRequestException('ساعت ورود یا خروج نامعتبر است');
@@ -200,8 +201,8 @@ export class AttendanceService {
       reason?: string;
     },
   ) {
-    const start = new Date(dto.startDate);
-    const end = new Date(dto.endDate);
+    const start = parseDate(dto.startDate, "تاریخ شروع");
+    const end = parseDate(dto.endDate, "تاریخ پایان");
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       throw new BadRequestException('تاریخ نامعتبر است');

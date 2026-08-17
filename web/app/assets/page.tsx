@@ -216,8 +216,8 @@ export default function AssetsPage() {
           alignItems: 'center',
         }}
       >
-        <label className="muted">{t('depPeriod')}</label>
-        <input
+        <label htmlFor="asset-period" className="muted">{t('depPeriod')}</label>
+        <input id="asset-period"
           type="date"
           value={period}
           onChange={(e) => setPeriod(e.target.value)}

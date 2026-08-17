@@ -9,6 +9,7 @@ import { DatabaseService } from '../database/database.service';
 import { Params, setClause } from '../database/sql';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { parseDate } from '../common/date';
 
 type Product = Record<string, unknown> & { id: string };
 
@@ -190,7 +191,7 @@ export class ProductsService {
   private payloadOf(dto: CreateProductDto | UpdateProductDto): Record<string, unknown> {
     const { expiryDate, ...rest } = dto as Record<string, unknown> & { expiryDate?: string | null };
     const payload: Record<string, unknown> = { ...rest };
-    if (expiryDate !== undefined) payload.expiryDate = expiryDate ? new Date(expiryDate) : null;
+    if (expiryDate !== undefined) payload.expiryDate = expiryDate ? parseDate(expiryDate as string, "تاریخ انقضا") : null;
     return payload;
   }
 }

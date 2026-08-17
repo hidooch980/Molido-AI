@@ -1040,7 +1040,7 @@ export default function NewInvoicePage() {
               />
               {lines.some((line) => line.taxPercent > 0) ? (
                 <div>
-                  <label style={label}>مالیات بر ارزش افزوده</label>
+                  <span style={label}>مالیات بر ارزش افزوده</span>
                   <div
                     style={{
                       display: 'flex',

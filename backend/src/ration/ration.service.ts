@@ -9,6 +9,7 @@ import { PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service';
 import { Params, setClause } from '../database/sql';
 import { AuditTrailService } from '../audit-log/audit-trail.service';
+import { parseDate } from '../common/date';
 
 export type RationAccount = Record<string, unknown> & {
   id: string;
@@ -375,8 +376,8 @@ export class RationService {
       `t."companyId" = ${params.next(companyId)}`,
       `t.type IN ('SPEND', 'REVERSE')`,
     ];
-    if (from) conditions.push(`t."createdAt" >= ${params.next(new Date(from))}`);
-    if (to) conditions.push(`t."createdAt" <= ${params.next(new Date(to))}`);
+    if (from) conditions.push(`t."createdAt" >= ${params.next(parseDate(from, "از تاریخ"))}`);
+    if (to) conditions.push(`t."createdAt" <= ${params.next(parseDate(to, "تا تاریخ"))}`);
 
     const rows = await this.db.query<{ type: string; count: string; amount: string }>(
       `SELECT t.type, count(*)::text AS count, COALESCE(sum(t.amount), 0)::text AS amount

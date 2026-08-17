@@ -202,5 +202,11 @@ node web/scripts/audit-contrast.mjs 2>&1 | tail -2
 echo '--- default secrets ---'
 node web/scripts/verify-no-default-secrets.mjs 2>&1 | tail -2
 
+echo '--- labels ---'
+node web/scripts/verify-labels.mjs 2>&1 | tail -2
+
+echo '--- date parsing ---'
+node --experimental-strip-types web/scripts/verify-date.mjs 2>&1 | tail -2
+
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

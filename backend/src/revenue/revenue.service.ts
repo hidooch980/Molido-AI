@@ -11,6 +11,7 @@ import { AuditTrailService } from '../audit-log/audit-trail.service';
 import { N8nService } from '../n8n/n8n.service';
 import { PostingService } from '../accounting/posting.service';
 import { receiptEntry } from '../accounting/posting-rules';
+import { parseDate } from '../common/date';
 
 export type Receipt = Record<string, unknown> & { id: string; receiptNo: string };
 
@@ -192,8 +193,8 @@ export class RevenueService {
   async stats(companyId: string, from?: string, to?: string) {
     const params = new Params();
     const conditions = [`"companyId" = ${params.next(companyId)}`];
-    if (from) conditions.push(`"paidAt" >= ${params.next(new Date(from))}`);
-    if (to) conditions.push(`"paidAt" <= ${params.next(new Date(to))}`);
+    if (from) conditions.push(`"paidAt" >= ${params.next(parseDate(from, "از تاریخ"))}`);
+    if (to) conditions.push(`"paidAt" <= ${params.next(parseDate(to, "تا تاریخ"))}`);
 
     const rows = await this.db.query<{ entityType: string; count: string; amount: string }>(
       `SELECT "entityType", count(*)::text AS count, COALESCE(sum(amount), 0)::text AS amount

@@ -335,8 +335,8 @@ export default function SmsPage() {
 
           {templates.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <label>از قالب</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+              <span id="grp-sms-tpl">از قالب</span>
+              <div role="group" aria-labelledby="grp-sms-tpl" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {templates.map((tpl) => (
                   <button
                     key={tpl.id}

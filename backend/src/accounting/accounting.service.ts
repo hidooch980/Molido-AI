@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { Params, setClause } from '../database/sql';
+import { parseDate } from '../common/date';
 
 type Account = Record<string, unknown> & { id: string };
 
@@ -67,8 +68,8 @@ export class AccountingService {
   async summary(companyId: string, from?: string, to?: string) {
     const range = (params: Params, alias: string): string => {
       const parts: string[] = [];
-      if (from) parts.push(`AND ${alias}."createdAt" >= ${params.next(new Date(from))}`);
-      if (to) parts.push(`AND ${alias}."createdAt" <= ${params.next(new Date(to))}`);
+      if (from) parts.push(`AND ${alias}."createdAt" >= ${params.next(parseDate(from, "از تاریخ"))}`);
+      if (to) parts.push(`AND ${alias}."createdAt" <= ${params.next(parseDate(to, "تا تاریخ"))}`);
       return parts.join(' ');
     };
 
@@ -115,8 +116,8 @@ export class AccountingService {
   ): Promise<{ total: number; byEntityType: Record<string, number> }> {
     const params = new Params();
     const conditions = [`"companyId" = ${params.next(companyId)}`];
-    if (from) conditions.push(`"paidAt" >= ${params.next(new Date(from))}`);
-    if (to) conditions.push(`"paidAt" <= ${params.next(new Date(to))}`);
+    if (from) conditions.push(`"paidAt" >= ${params.next(parseDate(from, "از تاریخ"))}`);
+    if (to) conditions.push(`"paidAt" <= ${params.next(parseDate(to, "تا تاریخ"))}`);
 
     const rows = await this.db.query<{ entityType: string; amount: string }>(
       `SELECT "entityType", COALESCE(sum(amount), 0)::text AS amount

@@ -407,8 +407,8 @@ export default function QuickKeysPage() {
                 />
               </div>
               <div>
-                <label>رنگ</label>
-                <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+                <span id="grp-qk-color">رنگ</span>
+                <div role="group" aria-labelledby="grp-qk-color" style={{ display: 'flex', gap: 5, marginTop: 4 }}>
                   {PALETTE.map((c) => (
                     <button
                       key={c.hex}

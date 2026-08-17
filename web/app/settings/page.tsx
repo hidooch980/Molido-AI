@@ -199,8 +199,8 @@ export default function SettingsPage() {
         <p className="muted">{t('customizationHint')}</p>
 
         <div style={{ marginTop: 14 }}>
-          <label style={{ marginBottom: 8 }}>{t('accentColor')}</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span id="grp-accent" style={{ marginBottom: 8 }}>{t('accentColor')}</span>
+          <div role="group" aria-labelledby="grp-accent" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {/* رنگ‌های آماده کنار انتخابگر آزاد: بیشتر کاربران یکی از
                 این‌ها را می‌خواهند و باز کردن انتخابگر رنگ برایشان کند است. */}
             {PRESETS.map((color) => (
@@ -233,8 +233,8 @@ export default function SettingsPage() {
         </div>
 
         <div style={{ marginTop: 18 }}>
-          <label style={{ marginBottom: 8 }}>{t('density')}</label>
-          <div className="seg" role="group">
+          <span id="grp-density" style={{ marginBottom: 8 }}>{t('density')}</span>
+          <div className="seg" role="group" aria-labelledby="grp-density">
             {(['compact', 'normal', 'relaxed'] as const).map((item) => (
               <button
                 key={item}

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { Params } from '../database/sql';
+import { parseDate } from '../common/date';
 
 /** Sale and purchase statuses that never count as turnover. */
 const IGNORED_STATUSES = ['CANCELLED', 'DRAFT'];
@@ -30,8 +31,8 @@ export class ReportsService {
   /** Appends an optional created-at range to a WHERE clause under `alias`. */
   private range(params: Params, alias: string, from?: string, to?: string): string {
     const parts: string[] = [];
-    if (from) parts.push(`AND ${alias}."createdAt" >= ${params.next(new Date(from))}`);
-    if (to) parts.push(`AND ${alias}."createdAt" <= ${params.next(new Date(to))}`);
+    if (from) parts.push(`AND ${alias}."createdAt" >= ${params.next(parseDate(from, "از تاریخ"))}`);
+    if (to) parts.push(`AND ${alias}."createdAt" <= ${params.next(parseDate(to, "تا تاریخ"))}`);
     return parts.join(' ');
   }
 

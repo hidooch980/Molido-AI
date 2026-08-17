@@ -201,15 +201,15 @@ export default function AccountingPage() {
           alignItems: 'center',
         }}
       >
-        <label className="muted">{t('fromDate')}</label>
-        <input
+        <label htmlFor="acc-from" className="muted">{t('fromDate')}</label>
+        <input id="acc-from"
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           style={TOUCH}
         />
-        <label className="muted">{t('toDate')}</label>
-        <input
+        <label htmlFor="acc-to" className="muted">{t('toDate')}</label>
+        <input id="acc-to"
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}

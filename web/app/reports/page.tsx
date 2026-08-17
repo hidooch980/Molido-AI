@@ -195,10 +195,10 @@ export default function ReportsPage() {
           {t('allTime')}
         </button>
 
-        <label className="muted">{t('fromDate')}</label>
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={TOUCH} />
-        <label className="muted">{t('toDate')}</label>
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={TOUCH} />
+        <label htmlFor="rep-from" className="muted">{t('fromDate')}</label>
+        <input id="rep-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={TOUCH} />
+        <label htmlFor="rep-to" className="muted">{t('toDate')}</label>
+        <input id="rep-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} style={TOUCH} />
       </div>
 
       <div className="stats-grid" style={{ marginTop: 18 }}>

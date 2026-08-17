@@ -205,8 +205,8 @@ export default function LabelsPage() {
         className="card"
         style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
       >
-        <label className="muted">{t('labelSize')}</label>
-        <select
+        <label htmlFor="lbl-size" className="muted">{t('labelSize')}</label>
+        <select id="lbl-size"
           value={size}
           onChange={(e) => setSize(e.target.value as SizeKey)}
           style={{ ...TOUCH, minWidth: 160 }}
@@ -218,8 +218,8 @@ export default function LabelsPage() {
           ))}
         </select>
 
-        <label className="muted">{t('labelCount')}</label>
-        <input
+        <label htmlFor="lbl-count" className="muted">{t('labelCount')}</label>
+        <input id="lbl-count"
           type="number"
           min={1}
           max={500}

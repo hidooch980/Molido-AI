@@ -284,7 +284,7 @@ function Header({
       }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ fontWeight: 700 }}>گویش:</label>
+        <span style={{ fontWeight: 700 }}>گویش:</span>
         {dialects.map((d) => (
           <button
             key={d.code}

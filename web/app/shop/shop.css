@@ -11,37 +11,57 @@
    ============================================= */
 
 .shop {
-  /* سبز تازه + کهربایی: رنگ‌بندی خواروبار.  بنفش عمومی هرچیزی می‌توانست
-     باشد؛ این یکی می‌گوید اینجا خوراکی می‌فروشند. */
-  /* #059669 پیشنهاد اولیه بود ولی با متن سفید کنتراست ۳.۷۷ می‌دهد —
-     زیر حد ۴.۵ برای متن ۱۵px.  یک پله تیره‌تر، ۵.۱ می‌دهد و همان سبز
-     تازه می‌ماند. */
-  --s-primary: #047857;
-  --s-primary-dark: #065f46;
-  --s-primary-soft: #ecfdf5;
-  --s-accent: #d97706;
-  /* رنگ متن روی زمینهٔ اصلی.  توکن است نه مقدار ثابت در قاعدهٔ دکمه:
-     در تم تیره سبزِ روشن‌تر می‌شود و متن سفید رویش کنتراست ۱.۹ می‌دهد —
-     یعنی عملاً ناخوانا. */
+  /* بنفشِ برند.
+     ⚠️ دو بنفش داریم و تفاوتشان عمدی است.
+
+     `--s-brand` (#7c5cff) رنگِ **دیدنی** است: گرادیان، مرز، تأکید.
+     `--s-primary` (#7048f5) رنگِ **زمینهٔ متن‌دار** است.
+
+     چون #7c5cff با متن سفید کنتراست ۴٫۳۵ می‌دهد — زیر حد ۴٫۵ — و
+     دکمه‌ای که متنش خوانده نشود دکمه نیست.  یک پله تیره‌تر ۵٫۳۴
+     می‌دهد و چشم تفاوتش را به‌سختی می‌بیند.
+
+     همین محاسبه یک بار برای سبزِ قبلی (#059669 → ۳٫۷۷) انجام شده
+     بود؛ رنگ عوض شد، قاعده نه. */
+  --s-brand: #7c5cff;
+  --s-brand-2: #a78bfa;
+  --s-primary: #7048f5;
+  --s-primary-dark: #5b2de0;
+  --s-primary-soft: #f0ebff;
+  --s-accent: #f59e0b;
   --s-on-primary: #ffffff;
-  /* کهربایی با متن سفید حتی در تم روشن کنتراست ۳ می‌دهد؛ روی نشان‌های
-     ریز که متنشان ۱۲px است، این عملاً خوانده نمی‌شود. */
+  /* کهربایی با متن سفید کنتراست ۳ می‌دهد؛ روی نشانِ ۱۲px ناخواناست. */
   --s-on-accent: #2b1d02;
   --s-on-danger: #ffffff;
 
-  --s-bg: #f8faf9;
+  --s-bg: #f7f5fc;
   --s-surface: #ffffff;
-  --s-surface-2: #f1f5f4;
-  --s-border: #e3eae8;
-  --s-text: #0f172a;
-  --s-text-dim: #64748b;
+  --s-surface-2: #efebf8;
+  --s-border: #e4dff0;
+  --s-text: #140d26;
+  --s-text-dim: #5a5175;
 
-  --s-success: #059669;
-  --s-danger: #dc2626;
+  --s-success: #10b981;
+  --s-danger: #f43f5e;
 
-  --s-radius: 14px;
-  --s-radius-sm: 10px;
+  /* شعاع بزرگ‌تر و گردتر — امضای بصری این طرح. */
+  --s-radius: 18px;
+  --s-radius-sm: 12px;
   --s-radius-pill: 999px;
+
+  /* سایه‌ها.
+     نسخهٔ قبلی عمداً بی‌سایه بود («مرز به‌جای سایه»)، چون سایه روی
+     شبکه‌ای با سی کارت شلوغ می‌شود.  طرح تازه سایه دارد ولی فقط در
+     **هاور** — یعنی هم‌زمان بیش از یکی دیده نمی‌شود. */
+  --s-shadow: 0 4px 20px rgba(20, 13, 38, 0.07);
+  --s-shadow-lg: 0 24px 60px rgba(20, 13, 38, 0.18);
+  --s-glow: 0 8px 24px rgba(124, 92, 255, 0.38);
+  --s-glow-strong: 0 14px 34px rgba(124, 92, 255, 0.5);
+
+  /* گرادیانِ برند — روی دکمهٔ اصلی و چیپِ فعال.
+     نقطهٔ شروع روشن‌تر است تا حجم بدهد، و پایان همان رنگی است که
+     کنتراستش سنجیده شده. */
+  --s-brand-grad: linear-gradient(135deg, var(--s-brand-2), var(--s-primary));
 
   /* فاصله‌ها: مقیاس ۴ پایه‌ای */
   --s-1: 4px;
@@ -65,23 +85,32 @@
    می‌لرزاند و خواندن را سخت می‌کند. */
 @media (prefers-color-scheme: dark) {
   .shop {
-    --s-primary: #34d399;
-    --s-primary-dark: #6ee7b7;
-    --s-primary-soft: #0d2b22;
+    /* در تاریکی، بنفشِ روشن‌تر روی زمینهٔ تیره خوانا می‌شود و دیگر
+       نیازی به تیره کردنش نیست؛ متنِ رویش هم تیره می‌شود. */
+    --s-brand: #a78bfa;
+    --s-brand-2: #c4b5fd;
+    --s-primary: #a78bfa;
+    --s-primary-dark: #c4b5fd;
+    --s-primary-soft: #1d1240;
     --s-accent: #fbbf24;
-    --s-on-primary: #06251d;
+    --s-on-primary: #16093a;
     --s-on-accent: #2b1d02;
     --s-on-danger: #350808;
 
-    --s-bg: #0b1210;
-    --s-surface: #141c1a;
-    --s-surface-2: #1c2624;
-    --s-border: #24312e;
-    --s-text: #e8f0ed;
-    --s-text-dim: #94a8a2;
+    --s-bg: #0a0714;
+    --s-surface: #110d1f;
+    --s-surface-2: #181233;
+    --s-border: #282040;
+    --s-text: #efeafa;
+    --s-text-dim: #a096c0;
 
     --s-success: #34d399;
-    --s-danger: #f87171;
+    --s-danger: #fb7185;
+
+    --s-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --s-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7);
+    --s-glow: 0 8px 24px rgba(167, 139, 250, 0.28);
+    --s-glow-strong: 0 14px 34px rgba(167, 139, 250, 0.4);
   }
 }
 
@@ -178,24 +207,34 @@
   padding: 0 var(--s-4);
   border: 1px solid transparent;
   border-radius: var(--s-radius-pill);
-  background: var(--s-primary);
+  /* گرادیان به‌جای رنگِ تخت — امضای بصری این طرح. */
+  background: var(--s-brand-grad);
   color: var(--s-on-primary);
+  box-shadow: var(--s-glow);
   font-family: inherit;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--s-2);
   white-space: nowrap;
-  /* ۱۵۰ms: به‌اندازه‌ای که دیده شود، نه آن‌قدر که کند حس شود */
-  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 220ms ease, background 150ms ease, border-color 150ms ease,
+    color 150ms ease;
 }
 
 .shop button:hover:not(:disabled),
 .shop .btn:hover {
-  background: var(--s-primary-dark);
+  /* بالا آمدنِ دو پیکسلی — همان حسِ «فشاردادنی بودن» که طرح مرجع دارد. */
+  transform: translateY(-2px);
+  box-shadow: var(--s-glow-strong);
+}
+
+.shop button:active:not(:disabled),
+.shop .btn:active {
+  transform: translateY(0);
 }
 
 .shop button:disabled {
@@ -235,6 +274,17 @@
   border: 1px solid var(--s-border);
   border-radius: var(--s-radius);
   padding: var(--s-4);
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+/* هاور فقط روی دستگاهی که واقعاً اشاره‌گر دارد.
+   روی لمسی، `:hover` پس از ضربه می‌چسبد و کارت تا ضربهٔ بعدی
+   برجسته می‌ماند — که شبیه خرابی است. */
+@media (hover: hover) {
+  .shop-card:hover {
+    box-shadow: var(--s-shadow-lg);
+    border-color: var(--s-brand);
+  }
 }
 
 /* ---------- نوار اطلاع‌رسانی ---------- */
@@ -635,6 +685,31 @@
   }
 
   .product-card:hover .product-image img {
+    transform: none;
+  }
+}
+
+
+/* ---------- کاهش حرکت ---------- */
+
+/*
+ * طرح مرجع حرکت زیاد دارد: دکمه بالا می‌آید، کارت سایه می‌گیرد.
+ *
+ * برای کسی که به حرکت حساس است این آزاردهنده است، و او ترجیحش را در
+ * سیستم‌عامل اعلام کرده.  رنگ و شعاع و گرادیان می‌مانند — چیزی از
+ * هویت بصری کم نمی‌شود، فقط حرکتش.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .shop *,
+  .shop *::before,
+  .shop *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .shop button:hover:not(:disabled),
+  .shop .btn:hover,
+  .shop .btn:active {
     transform: none;
   }
 }

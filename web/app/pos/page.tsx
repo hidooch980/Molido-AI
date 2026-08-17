@@ -1109,7 +1109,7 @@ export default function PosPage() {
 
             {(quickGroups.find((g) => g.id === quickTab)?.keys ?? []).length === 0 && (
               <p className="muted" style={{ gridColumn: '1 / -1', margin: 0, fontSize: 13 }}>
-                این گروه هنوز کلیدی ندارد.
+                {t('qkGroupEmpty')}
               </p>
             )}
           </div>

@@ -490,10 +490,7 @@ const field: React.CSSProperties = {
       {!active && (
         <div className="card">
           <h3>{t('maryamLowTitle')}</h3>
-          <p className="muted">
-            موجودی زیر حداقل. مقدار پیشنهادی تا دو برابر حداقل پر می‌شود — خریدی که
-            دقیقاً به مرز برساند، فردا دوباره کم می‌آید.
-          </p>
+          <p className="muted">{t('maryamLowHint')}</p>
 
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -588,10 +585,7 @@ const field: React.CSSProperties = {
 
           {showScores && (
             <>
-              <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-                مقایسهٔ یک استعلام می‌گوید امروز چه کسی ارزان‌تر بود. این جدول
-                می‌گوید با چه کسی باید کار کرد.
-              </p>
+              <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>{t('maryamScorecardHint')}</p>
               <div style={{ overflowX: 'auto', marginTop: 10 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
                   <thead>
@@ -716,10 +710,7 @@ const field: React.CSSProperties = {
 
           <div className="card">
             <h3>{t('maryamCalledTitle')}</h3>
-            <p className="muted">
-              همین فرم برای تماس دستی و ویپ یکی است. بنکداری که جواب داد ولی قیمت نداد،
-              با کسی که اصلاً برنداشت فرق دارد — اولی را باید دوباره گرفت.
-            </p>
+            <p className="muted">{t('maryamCalledHint')}</p>
 
             <div style={{ marginTop: 12 }}>
               <label htmlFor="supplier">{t('maryamSupplier')}</label>

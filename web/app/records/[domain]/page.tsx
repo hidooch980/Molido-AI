@@ -51,6 +51,7 @@ export default function RecordsPage() {
 }
 
 function Records({ def }: { def: DomainDef }) {
+  const { t } = useI18n();
   const { locale } = useI18n();
 
   const [list, setList] = useState<Row[]>([]);
@@ -301,7 +302,7 @@ function Records({ def }: { def: DomainDef }) {
                     setDraft(emptyDraft(def));
                   }}
                 >
-                  انصراف
+                  {t('cancel')}
                 </button>
               ) : null}
             </div>
@@ -389,7 +390,7 @@ function Records({ def }: { def: DomainDef }) {
                         ))}
                       <td style={{ ...TD, whiteSpace: 'nowrap' }}>
                         <button type="button" onClick={() => startEdit(row)} style={BTN_SM}>
-                          ویرایش
+                          {t('edit')}
                         </button>{' '}
                         <button
                           type="button"
@@ -397,7 +398,7 @@ function Records({ def }: { def: DomainDef }) {
                           disabled={busy === String(row.id)}
                           style={{ ...BTN_SM, color: 'var(--danger)' }}
                         >
-                          حذف
+                          {t('delete')}
                         </button>
                       </td>
                     </tr>

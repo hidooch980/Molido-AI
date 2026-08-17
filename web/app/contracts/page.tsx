@@ -140,6 +140,7 @@ const EMPTY_DRAFT: Draft = {
 };
 
 export default function ContractsPage() {
+  const { t } = useI18n();
   const { locale } = useI18n();
 
   const [list, setList] = useState<Contract[]>([]);
@@ -581,13 +582,13 @@ export default function ContractsPage() {
                                     <td style={TD}>
                                       {p.status === 'PAID' ? (
                                         <span style={{ color: 'var(--success)' }}>
-                                          پرداخت‌شده
+                                          {t('paid')}
                                           {p.paidAt
                                             ? ` · ${new Date(p.paidAt).toLocaleDateString(locale)}`
                                             : ''}
                                         </span>
                                       ) : (
-                                        <span style={{ color: 'var(--muted)' }}>پرداخت‌نشده</span>
+                                        <span style={{ color: 'var(--muted)' }}>{t('unpaid')}</span>
                                       )}
                                     </td>
                                     <td style={{ ...TD, color: 'var(--muted)' }}>
@@ -601,7 +602,7 @@ export default function ContractsPage() {
                                           disabled={busy === p.id}
                                           style={BTN_SM}
                                         >
-                                          پرداخت شد
+                                          {t('markCommissionPaid')}
                                         </button>
                                       ) : null}
                                     </td>

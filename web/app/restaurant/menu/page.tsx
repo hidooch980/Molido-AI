@@ -389,9 +389,7 @@ export default function MenuAdminPage() {
             </div>
 
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-              مقدار مصرفی برای <strong>{t('mnuOnePortion')}</strong>. هنگام تسویهٔ سفارش، همین
-              مقدارها از انبار کم می‌شود.
-            </p>
+              مقدار مصرفی برای <strong>{t('mnuOnePortion')}</strong>{t('mnuUsageHint')}</p>
 
             {lines.length === 0 ? (
               <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>

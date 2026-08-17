@@ -131,6 +131,7 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export default function StaffPage() {
+  const { t } = useI18n();
   const { locale } = useI18n();
 
   const [tab, setTab] = useState<Tab>('people');
@@ -368,7 +369,7 @@ export default function StaffPage() {
 
           {tab === 'attendance' || tab === 'payroll' ? (
             <label style={{ marginInlineStart: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>دوره</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('stfPeriod')}</span>
               <input
                 type="month"
                 value={period}
@@ -382,7 +383,7 @@ export default function StaffPage() {
         {tab === 'people' ? (
           <section style={{ display: 'grid', gap: 10 }}>
             {employees.length === 0 ? (
-              <p style={EMPTY}>کارمندی ثبت نشده</p>
+              <p style={EMPTY}>{t('stfNoStaff')}</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={TABLE}>
@@ -430,7 +431,7 @@ export default function StaffPage() {
         {tab === 'attendance' ? (
           <>
             <section style={CARD}>
-              <h2 style={H2}>ثبت حضور</h2>
+              <h2 style={H2}>{t('stfRecordAttendance')}</h2>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 <Field label="کارمند">
                   <select value={attEmp} onChange={(e) => setAttEmp(e.target.value)} style={INPUT}>
@@ -477,9 +478,9 @@ export default function StaffPage() {
             </section>
 
             <section style={{ display: 'grid', gap: 10 }}>
-              <h2 style={H2}>خلاصهٔ دوره</h2>
+              <h2 style={H2}>{t('stfPeriodSummary')}</h2>
               {summary.length === 0 ? (
-                <p style={EMPTY}>برای این دوره حضوری ثبت نشده</p>
+                <p style={EMPTY}>{t('stfNoAttendance')}</p>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={TABLE}>
@@ -541,7 +542,7 @@ export default function StaffPage() {
         {tab === 'leave' ? (
           <>
             <section style={CARD}>
-              <h2 style={H2}>درخواست مرخصی</h2>
+              <h2 style={H2}>{t('stfLeaveRequest')}</h2>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 <Field label="کارمند">
                   <select value={lvEmp} onChange={(e) => setLvEmp(e.target.value)} style={INPUT}>
@@ -596,9 +597,9 @@ export default function StaffPage() {
             </section>
 
             <section style={{ display: 'grid', gap: 10 }}>
-              <h2 style={H2}>ماندهٔ مرخصی</h2>
+              <h2 style={H2}>{t('stfLeaveBalance')}</h2>
               {balances.length === 0 ? (
-                <p style={EMPTY}>سهمیه‌ای تعریف نشده</p>
+                <p style={EMPTY}>{t('stfNoEntitlement')}</p>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={TABLE}>
@@ -641,9 +642,9 @@ export default function StaffPage() {
             </section>
 
             <section style={{ display: 'grid', gap: 10 }}>
-              <h2 style={H2}>درخواست‌ها</h2>
+              <h2 style={H2}>{t('stfRequests')}</h2>
               {leaves.length === 0 ? (
-                <p style={EMPTY}>درخواستی ثبت نشده</p>
+                <p style={EMPTY}>{t('stfNoRequests')}</p>
               ) : (
                 leaves.map((l) => (
                   <article
@@ -690,7 +691,7 @@ export default function StaffPage() {
                           disabled={busy === l.id}
                           style={BTN}
                         >
-                          تأیید
+                          {t('confirm')}
                         </button>
                         <button
                           type="button"
@@ -698,7 +699,7 @@ export default function StaffPage() {
                           disabled={busy === l.id}
                           style={{ ...BTN, color: 'var(--danger)' }}
                         >
-                          رد
+                          {t('vcReject')}
                         </button>
                       </div>
                     ) : null}
@@ -762,14 +763,14 @@ export default function StaffPage() {
 
             <section style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h2 style={H2}>فیش‌های دوره</h2>
+                <h2 style={H2}>{t('stfPayslips')}</h2>
                 <span style={{ marginInlineStart: 'auto', fontSize: 14, color: 'var(--muted)' }}>
                   جمع خالص پرداختی: <strong>{money(payrollTotal)}</strong> ریال
                 </span>
               </div>
 
               {periodSlips.length === 0 ? (
-                <p style={EMPTY}>برای این دوره فیشی صادر نشده</p>
+                <p style={EMPTY}>{t('stfNoPayslip')}</p>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={TABLE}>
@@ -826,7 +827,7 @@ export default function StaffPage() {
                                 disabled={busy === s.id}
                                 style={BTN_SM}
                               >
-                                تأیید
+                                {t('confirm')}
                               </button>
                             ) : null}
                             {s.status === 'APPROVED' ? (
@@ -836,7 +837,7 @@ export default function StaffPage() {
                                 disabled={busy === s.id}
                                 style={BTN_SM}
                               >
-                                پرداخت
+                                {t('payment')}
                               </button>
                             ) : null}
                           </td>

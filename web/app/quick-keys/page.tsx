@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { TOUCH } from '../../components/ui';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
 import { amountOnly } from '../../lib/money';
 
@@ -68,6 +69,7 @@ function shade(hex: string, amount: number): string {
 }
 
 export default function QuickKeysPage() {
+  const { t } = useI18n();
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroup, setActiveGroup] = useState('');
   const [error, setError] = useState('');
@@ -232,7 +234,7 @@ export default function QuickKeysPage() {
       subtitle="کالای فله بارکد ندارد و پرفروش با یک لمس سریع‌تر از اسکن است"
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
-          تازه‌سازی
+          {t('qkRefresh')}
         </button>
       }
     >
@@ -240,7 +242,7 @@ export default function QuickKeysPage() {
 
       {/* ---------- گروه‌ها ---------- */}
       <div className="card">
-        <h3>گروه‌ها</h3>
+        <h3>{t('qkGroups')}</h3>
         <p className="muted">
           هر گروه یک زبانه در صندوق است. بیش از بیست کلید روی یک صفحه گم می‌شود.
         </p>
@@ -260,7 +262,7 @@ export default function QuickKeysPage() {
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: '1 1 180px' }}>
-            <label htmlFor="gname">گروه تازه</label>
+            <label htmlFor="gname">{t('qkNewGroup')}</label>
             <input
               id="gname"
               style={field}
@@ -292,7 +294,7 @@ export default function QuickKeysPage() {
             ))}
           </div>
           <button type="button" onClick={() => void addGroup()} disabled={busy}>
-            افزودن گروه
+            {t('qkAddGroup')}
           </button>
           {current && (
             <button
@@ -312,7 +314,7 @@ export default function QuickKeysPage() {
           <h3>افزودن کلید به «{current.name}»</h3>
 
           <div style={{ position: 'relative', marginTop: 10 }}>
-            <label htmlFor="qk-search">کالا</label>
+            <label htmlFor="qk-search">{t('qkProduct')}</label>
             <input
               id="qk-search"
               style={field}
@@ -385,7 +387,7 @@ export default function QuickKeysPage() {
               }}
             >
               <div>
-                <label htmlFor="qk-label">برچسب روی دکمه</label>
+                <label htmlFor="qk-label">{t('qkButtonLabel')}</label>
                 <input
                   id="qk-label"
                   style={field}
@@ -395,7 +397,7 @@ export default function QuickKeysPage() {
                 />
               </div>
               <div>
-                <label htmlFor="qk-qty">مقدار پیش‌فرض</label>
+                <label htmlFor="qk-qty">{t('qkDefaultQty')}</label>
                 <input
                   id="qk-qty"
                   type="number"
@@ -407,7 +409,7 @@ export default function QuickKeysPage() {
                 />
               </div>
               <div>
-                <span id="grp-qk-color">رنگ</span>
+                <span id="grp-qk-color">{t('qkColor')}</span>
                 <div role="group" aria-labelledby="grp-qk-color" style={{ display: 'flex', gap: 5, marginTop: 4 }}>
                   {PALETTE.map((c) => (
                     <button
@@ -431,7 +433,7 @@ export default function QuickKeysPage() {
                 </div>
               </div>
               <button type="button" onClick={() => void addKey()} disabled={busy}>
-                افزودن
+                {t('add')}
               </button>
             </div>
           )}
@@ -441,7 +443,7 @@ export default function QuickKeysPage() {
       {/* ---------- پیش‌نمایش ---------- */}
       {current && (
         <div className="card">
-          <h3>پیش‌نمایش — همان‌طور که صندوق‌دار می‌بیند</h3>
+          <h3>{t('qkPreview')}</h3>
 
           <div
             style={{
@@ -509,7 +511,7 @@ export default function QuickKeysPage() {
 
             {current.keys.length === 0 && (
               <p className="muted" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                این گروه هنوز کلیدی ندارد.
+                {t('qkGroupEmpty')}
               </p>
             )}
           </div>

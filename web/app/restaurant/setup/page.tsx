@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import AppShell from '../../../components/AppShell';
 import { api } from '../../../lib/api';
+import { useI18n } from '../../../lib/i18n-context';
 
 type Area = {
   id: string;
@@ -50,6 +51,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function SetupPage() {
+  const { t } = useI18n();
   const [areas, setAreas] = useState<Area[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [error, setError] = useState('');
@@ -259,7 +261,7 @@ export default function SetupPage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>سالن تازه</h2>
+          <h2 style={H2}>{t('stpNewHall')}</h2>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <Field label="نام">
               <input
@@ -284,7 +286,7 @@ export default function SetupPage() {
                 onChange={(e) => setAreaOutdoor(e.target.checked)}
                 style={{ width: 18, height: 18 }}
               />
-              <span>فضای باز</span>
+              <span>{t('stpOutdoor')}</span>
             </label>
             <button type="button" onClick={addArea} disabled={busy === 'area'} style={BTN_PRIMARY}>
               {busy === 'area' ? '…' : 'افزودن سالن'}
@@ -293,7 +295,7 @@ export default function SetupPage() {
         </section>
 
         <section style={CARD}>
-          <h2 style={H2}>میز تازه</h2>
+          <h2 style={H2}>{t('stpNewTable')}</h2>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <Field label="شماره میز">
               <input
@@ -325,7 +327,7 @@ export default function SetupPage() {
                 onChange={(e) => setTableArea(e.target.value)}
                 style={INPUT}
               >
-                <option value="">— بدون سالن —</option>
+                <option value="">{t('stpNoHall')}</option>
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -342,14 +344,14 @@ export default function SetupPage() {
               {busy === 'table' ? '…' : 'افزودن میز'}
             </button>
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-              با پر کردن «تا شماره»، یک‌جا چند میز ساخته می‌شود
+              {t('stpBulkHint')}
             </span>
           </div>
         </section>
 
         {areas.length === 0 && tables.length === 0 ? (
           <p style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-            هنوز سالنی تعریف نشده — از بالا شروع کنید
+            {t('stpNoHallYet')}
           </p>
         ) : null}
 
@@ -360,7 +362,7 @@ export default function SetupPage() {
               {area.floor ? (
                 <span style={{ color: 'var(--muted)', fontSize: 14 }}>طبقه {area.floor}</span>
               ) : null}
-              {area.isOutdoor ? <span style={TAG}>فضای باز</span> : null}
+              {area.isOutdoor ? <span style={TAG}>{t('stpOutdoor')}</span> : null}
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>
                 {tablesOf(area.id).length} میز
               </span>
@@ -370,7 +372,7 @@ export default function SetupPage() {
                 disabled={busy === area.id}
                 style={{ ...BTN_SM, marginInlineStart: 'auto', color: 'var(--danger)' }}
               >
-                حذف سالن
+                {t('stpDeleteHall')}
               </button>
             </div>
 
@@ -421,9 +423,10 @@ function TableGrid({
   onCapacity: (t: Table, capacity: number) => void;
   onRemove: (t: Table) => void;
 }) {
+  const { t: tr } = useI18n();
   if (tables.length === 0) {
     return (
-      <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>میزی در این سالن نیست</p>
+      <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>{tr('stpNoTableInHall')}</p>
     );
   }
 
@@ -461,7 +464,7 @@ function TableGrid({
           </div>
 
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>ظرفیت</span>
+            <span style={{ color: 'var(--muted)' }}>{tr('stpCapacity')}</span>
             <input
               defaultValue={String(t.capacity)}
               onBlur={(e) => {
@@ -483,7 +486,7 @@ function TableGrid({
             style={{ ...INPUT, minHeight: 34, padding: '4px 8px', fontSize: 13 }}
             aria-label={`سالن میز ${t.tableNo}`}
           >
-            <option value="">— بدون سالن —</option>
+            <option value="">{tr('stpNoHall')}</option>
             {areas.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -497,7 +500,7 @@ function TableGrid({
             disabled={busy === t.id}
             style={{ ...BTN_SM, color: 'var(--danger)' }}
           >
-            حذف میز
+            {tr('stpDeleteTable')}
           </button>
         </div>
       ))}

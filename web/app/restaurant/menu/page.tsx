@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import AppShell from '../../../components/AppShell';
 import { api } from '../../../lib/api';
+import { useI18n } from '../../../lib/i18n-context';
 
 type Category = { id: string; name: string; sortOrder?: number };
 
@@ -88,6 +89,7 @@ const EMPTY_DRAFT: Draft = {
 };
 
 export default function MenuAdminPage() {
+  const { t } = useI18n();
   const [cats, setCats] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [filterCat, setFilterCat] = useState('');
@@ -382,18 +384,18 @@ export default function MenuAdminPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={H2}>رسپی «{recipeFor.name}»</h2>
               <button type="button" style={BTN_SM} onClick={() => setRecipeFor(null)}>
-                بستن
+                {t('close')}
               </button>
             </div>
 
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-              مقدار مصرفی برای <strong>یک پرس</strong>. هنگام تسویهٔ سفارش، همین
+              مقدار مصرفی برای <strong>{t('mnuOnePortion')}</strong>. هنگام تسویهٔ سفارش، همین
               مقدارها از انبار کم می‌شود.
             </p>
 
             {lines.length === 0 ? (
               <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>
-                هنوز ماده‌ای ثبت نشده
+                {t('mnuNoIngredient')}
               </p>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
@@ -466,7 +468,7 @@ export default function MenuAdminPage() {
                       onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
                       style={{ ...BTN_SM, color: 'var(--danger)' }}
                     >
-                      حذف
+                      {t('delete')}
                     </button>
                   </div>
                 ))}
@@ -475,7 +477,7 @@ export default function MenuAdminPage() {
 
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button type="button" onClick={addLine} style={BTN}>
-                افزودن ماده
+                {t('mnuAddIngredient')}
               </button>
               <button
                 type="button"
@@ -539,7 +541,7 @@ export default function MenuAdminPage() {
                 onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
                 style={INPUT}
               >
-                <option value="">— بدون دسته —</option>
+                <option value="">{t('mnuNoCategory')}</option>
                 {cats.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -553,7 +555,7 @@ export default function MenuAdminPage() {
                 onChange={(e) => setDraft({ ...draft, station: e.target.value })}
                 style={INPUT}
               >
-                <option value="">— تعیین‌نشده —</option>
+                <option value="">{t('mnuUnset')}</option>
                 {STATIONS.map((s) => (
                   <option key={s} value={s}>
                     {STATION_FA[s]}
@@ -591,7 +593,7 @@ export default function MenuAdminPage() {
                     setDraft(EMPTY_DRAFT);
                   }}
                 >
-                  انصراف
+                  {t('cancel')}
                 </button>
               ) : null}
             </div>
@@ -599,7 +601,7 @@ export default function MenuAdminPage() {
         </section>
 
         <section style={CARD}>
-          <h2 style={H2}>دسته‌ها</h2>
+          <h2 style={H2}>{t('mnuCategories')}</h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={newCat}
@@ -611,7 +613,7 @@ export default function MenuAdminPage() {
               placeholder="نام دستهٔ تازه"
             />
             <button type="button" onClick={addCategory} disabled={busy === 'cat'} style={BTN}>
-              افزودن دسته
+              {t('mnuAddCategory')}
             </button>
             <span style={{ color: 'var(--muted)', fontSize: 13 }}>
               {cats.length} دسته · {items.length} قلم
@@ -648,7 +650,7 @@ export default function MenuAdminPage() {
 
           {visible.length === 0 ? (
             <p style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-              قلمی یافت نشد
+              {t('mnuNoItem')}
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -730,7 +732,7 @@ export default function MenuAdminPage() {
                         </td>
                         <td style={{ ...TD, whiteSpace: 'nowrap' }}>
                           <button type="button" onClick={() => startEdit(it)} style={BTN_SM}>
-                            ویرایش
+                            {t('edit')}
                           </button>{' '}
                           <button
                             type="button"
@@ -738,7 +740,7 @@ export default function MenuAdminPage() {
                             disabled={busy === `recipe-${it.id}`}
                             style={BTN_SM}
                           >
-                            رسپی
+                            {t('mnuRecipe')}
                           </button>{' '}
                           <button
                             type="button"
@@ -746,7 +748,7 @@ export default function MenuAdminPage() {
                             disabled={busy === it.id}
                             style={{ ...BTN_SM, color: 'var(--danger)' }}
                           >
-                            حذف
+                            {t('delete')}
                           </button>
                         </td>
                       </tr>

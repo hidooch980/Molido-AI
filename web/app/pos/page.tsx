@@ -1179,7 +1179,7 @@ export default function PosPage() {
             title="نام کالا را بگویید — «سه تا نان»"
             style={{
               minWidth: 48,
-              background: listening ? '#b91c1c' : undefined,
+              background: listening ? 'var(--danger)' : undefined,
               color: listening ? '#fff' : undefined,
             }}
           >

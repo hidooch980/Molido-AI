@@ -68,10 +68,10 @@ const STATUS_FA: Record<string, string> = {
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: '#6b7280',
-  ACTIVE: '#047857',
-  SUSPENDED: '#b45309',
+  ACTIVE: 'var(--success)',
+  SUSPENDED: 'var(--warning)',
   COMPLETED: '#1d4ed8',
-  TERMINATED: '#b91c1c',
+  TERMINATED: 'var(--danger)',
 };
 
 /** گام بعدی طبیعی هر وضعیت — تا کاربر از فهرست پنج‌تایی انتخاب نکند. */
@@ -319,7 +319,7 @@ export default function ContractsPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -328,7 +328,7 @@ export default function ContractsPage() {
         {expiring.length > 0 || totalOverdue > 0 ? (
           <div
             role="status"
-            style={{ ...ALERT, background: '#b4530922', color: '#b45309', display: 'grid', gap: 4 }}
+            style={{ ...ALERT, background: 'color-mix(in srgb, var(--warning) 13%, transparent)', color: 'var(--warning)', display: 'grid', gap: 4 }}
           >
             {expiring.length > 0 ? (
               <span>
@@ -496,8 +496,8 @@ export default function ContractsPage() {
                           color:
                             left !== null && c.status === 'ACTIVE' && left <= EXPIRY_WARN_DAYS
                               ? left < 0
-                                ? '#b91c1c'
-                                : '#b45309'
+                                ? 'var(--danger)'
+                                : 'var(--warning)'
                               : 'var(--muted)',
                           fontWeight:
                             left !== null && c.status === 'ACTIVE' && left <= EXPIRY_WARN_DAYS
@@ -519,7 +519,7 @@ export default function ContractsPage() {
                       </span>
                     ) : null}
                     {overdue > 0 ? (
-                      <strong style={{ color: '#b91c1c' }}>{overdue} قسط عقب‌افتاده</strong>
+                      <strong style={{ color: 'var(--danger)' }}>{overdue} قسط عقب‌افتاده</strong>
                     ) : null}
                   </div>
 
@@ -538,7 +538,7 @@ export default function ContractsPage() {
                         onClick={() => setStatus(c, s.to)}
                         disabled={busy === c.id}
                         style={
-                          s.to === 'TERMINATED' ? { ...BTN_SM, color: '#b91c1c' } : BTN_SM
+                          s.to === 'TERMINATED' ? { ...BTN_SM, color: 'var(--danger)' } : BTN_SM
                         }
                       >
                         {s.label}
@@ -570,7 +570,7 @@ export default function ContractsPage() {
                                     <td
                                       style={{
                                         ...TD,
-                                        color: late ? '#b91c1c' : undefined,
+                                        color: late ? 'var(--danger)' : undefined,
                                         fontWeight: late ? 700 : 400,
                                       }}
                                     >
@@ -580,7 +580,7 @@ export default function ContractsPage() {
                                     <td style={{ ...TD, textAlign: 'left' }}>{money(p.amount)}</td>
                                     <td style={TD}>
                                       {p.status === 'PAID' ? (
-                                        <span style={{ color: '#047857' }}>
+                                        <span style={{ color: 'var(--success)' }}>
                                           پرداخت‌شده
                                           {p.paidAt
                                             ? ` · ${new Date(p.paidAt).toLocaleDateString(locale)}`
@@ -772,6 +772,6 @@ const EMPTY: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

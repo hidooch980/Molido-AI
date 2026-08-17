@@ -342,7 +342,7 @@ function Header({
               style={{
                 width: `${status.percent}%`,
                 height: '100%',
-                background: status.canTrain ? '#047857' : 'var(--accent)',
+                background: status.canTrain ? 'var(--success)' : 'var(--accent)',
                 transition: 'width 240ms ease',
               }}
             />
@@ -373,8 +373,8 @@ function Banner({ tone, text }: { tone: 'good' | 'bad'; text: string }) {
       style={{
         padding: 12,
         borderRadius: 10,
-        border: `1px solid ${tone === 'bad' ? '#b91c1c' : '#047857'}`,
-        background: tone === 'bad' ? '#b91c1c14' : '#04785714',
+        border: `1px solid ${tone === 'bad' ? 'var(--danger)' : 'var(--success)'}`,
+        background: tone === 'bad' ? 'var(--danger)14' : 'var(--success)14',
         fontSize: 14,
       }}
     >
@@ -538,7 +538,7 @@ function PhraseRow({
         padding: 12,
         borderRadius: 12,
         border: '1px solid var(--border)',
-        background: complete ? '#04785710' : 'var(--surface)',
+        background: complete ? 'var(--success)10' : 'var(--surface)',
       }}
     >
       <span
@@ -559,7 +559,7 @@ function PhraseRow({
           <div style={{ fontSize: 15, color: 'var(--accent)' }}>{phrase.textTarget}</div>
         ) : (
           // بدون متن بلوچی، گوینده نمی‌داند چه بگوید.
-          <div style={{ fontSize: 13, color: '#b45309' }}>متن بلوچی وارد نشده</div>
+          <div style={{ fontSize: 13, color: 'var(--warning)' }}>متن بلوچی وارد نشده</div>
         )}
       </div>
 
@@ -711,7 +711,7 @@ function RecordButton({
         opacity: disabled ? 0.45 : 1,
         fontWeight: 700,
         color: '#fff',
-        background: state === 'recording' ? '#b91c1c' : 'var(--accent)',
+        background: state === 'recording' ? 'var(--danger)' : 'var(--accent)',
         transform: state === 'recording' ? 'scale(0.97)' : 'none',
         transition: 'transform 120ms ease, background 120ms ease',
         touchAction: 'none',
@@ -812,14 +812,14 @@ function Review({
                 <button
                   type="button"
                   onClick={() => review(sample.id, true)}
-                  style={{ ...TOUCH, borderRadius: 10, border: 'none', background: '#047857', color: '#fff', cursor: 'pointer' }}
+                  style={{ ...TOUCH, borderRadius: 10, border: 'none', background: 'var(--success)', color: '#fff', cursor: 'pointer' }}
                 >
                   <Icon name="check" /> تأیید
                 </button>
                 <button
                   type="button"
                   onClick={() => review(sample.id, false)}
-                  style={{ ...TOUCH, borderRadius: 10, border: 'none', background: '#b91c1c', color: '#fff', cursor: 'pointer' }}
+                  style={{ ...TOUCH, borderRadius: 10, border: 'none', background: 'var(--danger)', color: '#fff', cursor: 'pointer' }}
                 >
                   <Icon name="x" /> رد
                 </button>
@@ -978,7 +978,7 @@ function Import({
           */}
           {result.changes?.length ? (
             <>
-              <p style={{ margin: 0, fontSize: 13, color: '#b45309' }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--warning)' }}>
                 این‌ها را بخوانید — ترجمه‌ای که از راه انگلیسی آمده باشد ممکن
                 است واژهٔ هم‌شکل را اشتباه گرفته باشد.
               </p>

@@ -162,7 +162,7 @@ export default function ShiftPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -290,7 +290,7 @@ export default function ShiftPage() {
                             style={{
                               ...TD,
                               textAlign: 'left',
-                              color: diff === 0 ? 'var(--muted)' : diff < 0 ? '#b91c1c' : '#b45309',
+                              color: diff === 0 ? 'var(--muted)' : diff < 0 ? 'var(--danger)' : 'var(--warning)',
                               fontWeight: diff === 0 ? 400 : 700,
                             }}
                           >
@@ -479,6 +479,6 @@ const TD: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

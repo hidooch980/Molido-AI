@@ -127,7 +127,7 @@ export default function RolesPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -237,10 +237,10 @@ function Chip({ state, muted }: { state: State; muted?: boolean }) {
   };
 
   if (state === 'allow') {
-    return <span style={{ ...style, background: '#04785722', color: '#047857' }}>✓</span>;
+    return <span style={{ ...style, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>✓</span>;
   }
   if (state === 'deny') {
-    return <span style={{ ...style, background: '#b91c1c22', color: '#b91c1c' }}>✕</span>;
+    return <span style={{ ...style, background: 'color-mix(in srgb, var(--danger) 13%, transparent)', color: 'var(--danger)' }}>✕</span>;
   }
   return (
     <span
@@ -282,6 +282,6 @@ const TD: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

@@ -346,7 +346,7 @@ export default function StaffPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -414,7 +414,7 @@ export default function StaffPage() {
                           )}
                         </td>
                         <td style={TD}>
-                          <span style={{ color: e.isActive ? '#047857' : 'var(--muted)' }}>
+                          <span style={{ color: e.isActive ? 'var(--success)' : 'var(--muted)' }}>
                             {e.isActive ? 'فعال' : 'غیرفعال'}
                           </span>
                         </td>
@@ -508,7 +508,7 @@ export default function StaffPage() {
                             style={{
                               ...TD,
                               textAlign: 'left',
-                              color: Number(r.absentDays) > 0 ? '#b91c1c' : 'var(--muted)',
+                              color: Number(r.absentDays) > 0 ? 'var(--danger)' : 'var(--muted)',
                             }}
                           >
                             {Number(r.absentDays).toLocaleString('fa-IR')}
@@ -523,7 +523,7 @@ export default function StaffPage() {
                             style={{
                               ...TD,
                               textAlign: 'left',
-                              color: Number(r.overtimeHours) > 0 ? '#b45309' : 'var(--muted)',
+                              color: Number(r.overtimeHours) > 0 ? 'var(--warning)' : 'var(--muted)',
                             }}
                           >
                             {Number(r.overtimeHours).toLocaleString('fa-IR')}
@@ -627,7 +627,7 @@ export default function StaffPage() {
                               ...TD,
                               textAlign: 'left',
                               fontWeight: 700,
-                              color: Number(b.remaining) <= 0 ? '#b91c1c' : '#047857',
+                              color: Number(b.remaining) <= 0 ? 'var(--danger)' : 'var(--success)',
                             }}
                           >
                             {money(b.remaining)}
@@ -670,10 +670,10 @@ export default function StaffPage() {
                           fontWeight: 700,
                           color:
                             l.status === 'APPROVED'
-                              ? '#047857'
+                              ? 'var(--success)'
                               : l.status === 'REJECTED'
-                                ? '#b91c1c'
-                                : '#b45309',
+                                ? 'var(--danger)'
+                                : 'var(--warning)',
                         }}
                       >
                         {LEAVE_STATUS_FA[l.status] ?? l.status}
@@ -696,7 +696,7 @@ export default function StaffPage() {
                           type="button"
                           onClick={() => decide(l, false)}
                           disabled={busy === l.id}
-                          style={{ ...BTN, color: '#b91c1c' }}
+                          style={{ ...BTN, color: 'var(--danger)' }}
                         >
                           رد
                         </button>
@@ -794,13 +794,13 @@ export default function StaffPage() {
                           <td style={{ ...TD, textAlign: 'left' }}>{money(s.allowances)}</td>
                           <td style={{ ...TD, textAlign: 'left' }}>{money(s.overtimePay)}</td>
                           <td style={{ ...TD, textAlign: 'left' }}>{money(s.bonus)}</td>
-                          <td style={{ ...TD, textAlign: 'left', color: '#b91c1c' }}>
+                          <td style={{ ...TD, textAlign: 'left', color: 'var(--danger)' }}>
                             {money(s.deductions)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'left', color: '#b91c1c' }}>
+                          <td style={{ ...TD, textAlign: 'left', color: 'var(--danger)' }}>
                             {money(s.insurance)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'left', color: '#b91c1c' }}>
+                          <td style={{ ...TD, textAlign: 'left', color: 'var(--danger)' }}>
                             {money(s.tax)}
                           </td>
                           <td style={{ ...TD, textAlign: 'left', fontWeight: 700 }}>
@@ -809,7 +809,7 @@ export default function StaffPage() {
                           <td style={TD}>
                             <span
                               style={{
-                                color: s.status === 'PAID' ? '#047857' : 'var(--muted)',
+                                color: s.status === 'PAID' ? 'var(--success)' : 'var(--muted)',
                                 fontWeight: s.status === 'PAID' ? 700 : 400,
                               }}
                             >
@@ -957,6 +957,6 @@ const EMPTY: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

@@ -66,9 +66,9 @@ function showQty(qty: string | number): string {
 }
 
 function waitColor(minutes: number): string {
-  if (minutes >= LATE_MINUTES) return '#b91c1c';
-  if (minutes >= WARN_MINUTES) return '#b45309';
-  return '#047857';
+  if (minutes >= LATE_MINUTES) return 'var(--danger)';
+  if (minutes >= WARN_MINUTES) return 'var(--warning)';
+  return 'var(--success)';
 }
 
 export default function KitchenPage() {
@@ -182,7 +182,7 @@ export default function KitchenPage() {
         </header>
 
         {error ? (
-          <div role="alert" style={{ padding: 12, borderRadius: 10, background: '#b91c1c22' }}>
+          <div role="alert" style={{ padding: 12, borderRadius: 10, background: 'color-mix(in srgb, var(--danger) 13%, transparent)' }}>
             {error}
           </div>
         ) : null}
@@ -326,8 +326,8 @@ function Card({
             fontSize: 17,
             padding: '8px 12px',
             borderRadius: 8,
-            background: '#b4530922',
-            color: '#b45309',
+            background: 'color-mix(in srgb, var(--warning) 13%, transparent)',
+            color: 'var(--warning)',
             fontWeight: 600,
           }}
         >
@@ -347,7 +347,7 @@ function Card({
           border: 'none',
           cursor: busy ? 'wait' : 'pointer',
           color: '#fff',
-          background: busy ? '#6b7280' : ready ? '#047857' : 'var(--accent)',
+          background: busy ? '#6b7280' : ready ? 'var(--success)' : 'var(--accent)',
         }}
       >
         {busy ? '…' : action}

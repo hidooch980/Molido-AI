@@ -46,10 +46,10 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  ACTIVE: '#047857',
+  ACTIVE: 'var(--success)',
   INACTIVE: '#6b7280',
-  UNDER_REPAIR: '#b45309',
-  RETURNED: '#b91c1c',
+  UNDER_REPAIR: 'var(--warning)',
+  RETURNED: 'var(--danger)',
 };
 
 /** گام بعدی طبیعی هر وضعیت. */
@@ -310,7 +310,7 @@ export default function PosTerminalsPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -320,7 +320,7 @@ export default function PosTerminalsPage() {
         {summary.broken > 0 || summary.noAccount > 0 ? (
           <div
             role="status"
-            style={{ ...ALERT, background: '#b4530922', color: '#b45309', display: 'grid', gap: 4 }}
+            style={{ ...ALERT, background: 'color-mix(in srgb, var(--warning) 13%, transparent)', color: 'var(--warning)', display: 'grid', gap: 4 }}
           >
             {summary.broken > 0 ? <span>{summary.broken} دستگاه در تعمیر است</span> : null}
             {summary.noAccount > 0 ? (
@@ -539,7 +539,7 @@ export default function PosTerminalsPage() {
                   ) : t.accountNo ? (
                     <span>حساب {t.accountNo}</span>
                   ) : (
-                    <strong style={{ color: '#b45309' }}>بدون حساب</strong>
+                    <strong style={{ color: 'var(--warning)' }}>بدون حساب</strong>
                   )}
                   {t.holderName ? <span>{t.holderName}</span> : null}
                   {t.merchantId ? <span>پذیرنده {t.merchantId}</span> : null}
@@ -560,7 +560,7 @@ export default function PosTerminalsPage() {
                       type="button"
                       onClick={() => setStatus(t, s.to)}
                       disabled={busy === t.id}
-                      style={s.to === 'RETURNED' ? { ...BTN_SM, color: '#b91c1c' } : BTN_SM}
+                      style={s.to === 'RETURNED' ? { ...BTN_SM, color: 'var(--danger)' } : BTN_SM}
                     >
                       {s.label}
                     </button>
@@ -569,7 +569,7 @@ export default function PosTerminalsPage() {
                     type="button"
                     onClick={() => remove(t)}
                     disabled={busy === t.id}
-                    style={{ ...BTN_SM, color: '#b91c1c', marginInlineStart: 'auto' }}
+                    style={{ ...BTN_SM, color: 'var(--danger)', marginInlineStart: 'auto' }}
                   >
                     حذف
                   </button>
@@ -672,6 +672,6 @@ const EMPTY: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

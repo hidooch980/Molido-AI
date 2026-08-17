@@ -43,8 +43,8 @@ const TABLE_STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  FREE: '#047857',
-  OCCUPIED: '#b45309',
+  FREE: 'var(--success)',
+  OCCUPIED: 'var(--warning)',
   RESERVED: '#1d4ed8',
   CLEANING: '#6b7280',
 };
@@ -253,7 +253,7 @@ export default function SetupPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -368,7 +368,7 @@ export default function SetupPage() {
                 type="button"
                 onClick={() => removeArea(area)}
                 disabled={busy === area.id}
-                style={{ ...BTN_SM, marginInlineStart: 'auto', color: '#b91c1c' }}
+                style={{ ...BTN_SM, marginInlineStart: 'auto', color: 'var(--danger)' }}
               >
                 حذف سالن
               </button>
@@ -386,7 +386,7 @@ export default function SetupPage() {
         ))}
 
         {orphans.length > 0 ? (
-          <section style={{ ...CARD, borderColor: '#b45309' }}>
+          <section style={{ ...CARD, borderColor: 'var(--warning)' }}>
             <h2 style={H2}>میزهای بدون سالن ({orphans.length})</h2>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
               این میزها روی نقشهٔ سالن دیده نمی‌شوند تا به سالنی منتقل شوند.
@@ -495,7 +495,7 @@ function TableGrid({
             type="button"
             onClick={() => onRemove(t)}
             disabled={busy === t.id}
-            style={{ ...BTN_SM, color: '#b91c1c' }}
+            style={{ ...BTN_SM, color: 'var(--danger)' }}
           >
             حذف میز
           </button>
@@ -567,13 +567,13 @@ const TAG: React.CSSProperties = {
   fontSize: 12,
   padding: '2px 8px',
   borderRadius: 6,
-  background: '#04785722',
-  color: '#047857',
+  background: 'color-mix(in srgb, var(--success) 13%, transparent)',
+  color: 'var(--success)',
 };
 
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

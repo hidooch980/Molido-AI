@@ -499,7 +499,7 @@ export default function QuickKeysPage() {
                     className="btn-sm ghost"
                     aria-label={`حذف ${key.label ?? key.productName}`}
                     onClick={() => void removeKey(key.id)}
-                    style={{ minWidth: 32, padding: 4, color: '#b91c1c' }}
+                    style={{ minWidth: 32, padding: 4, color: 'var(--danger)' }}
                   >
                     <Icon name="x" size={13} />
                   </button>

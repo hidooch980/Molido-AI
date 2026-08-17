@@ -212,7 +212,7 @@ export default function Session({
   // ---------- نمایش ----------
 
   if (error && !queue.length) {
-    return <Shell onClose={onClose}><p style={{ color: '#b91c1c' }}>{error}</p></Shell>;
+    return <Shell onClose={onClose}><p style={{ color: 'var(--danger)' }}>{error}</p></Shell>;
   }
 
   if (!queue.length) {
@@ -283,7 +283,7 @@ export default function Session({
           color: '#fff',
           cursor: 'pointer',
           background:
-            state === 'recording' ? '#b91c1c' : state === 'saving' ? '#6b7280' : 'var(--accent)',
+            state === 'recording' ? 'var(--danger)' : state === 'saving' ? '#6b7280' : 'var(--accent)',
           transform: state === 'recording' ? 'scale(0.98)' : 'none',
           transition: 'background 120ms ease, transform 120ms ease',
           touchAction: 'none',
@@ -297,7 +297,7 @@ export default function Session({
       </p>
 
       {error ? (
-        <p role="alert" style={{ textAlign: 'center', color: '#b91c1c', margin: 0 }}>
+        <p role="alert" style={{ textAlign: 'center', color: 'var(--danger)', margin: 0 }}>
           {error}
         </p>
       ) : null}

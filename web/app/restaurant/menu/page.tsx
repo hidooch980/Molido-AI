@@ -372,7 +372,7 @@ export default function MenuAdminPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -464,7 +464,7 @@ export default function MenuAdminPage() {
                     <button
                       type="button"
                       onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
-                      style={{ ...BTN_SM, color: '#b91c1c' }}
+                      style={{ ...BTN_SM, color: 'var(--danger)' }}
                     >
                       حذف
                     </button>
@@ -712,8 +712,8 @@ export default function MenuAdminPage() {
                               margin === null
                                 ? 'var(--muted)'
                                 : margin < 20
-                                  ? '#b91c1c'
-                                  : '#047857',
+                                  ? 'var(--danger)'
+                                  : 'var(--success)',
                           }}
                         >
                           {margin === null ? '—' : `${margin}٪`}
@@ -744,7 +744,7 @@ export default function MenuAdminPage() {
                             type="button"
                             onClick={() => remove(it)}
                             disabled={busy === it.id}
-                            style={{ ...BTN_SM, color: '#b91c1c' }}
+                            style={{ ...BTN_SM, color: 'var(--danger)' }}
                           >
                             حذف
                           </button>
@@ -862,6 +862,6 @@ const TD: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

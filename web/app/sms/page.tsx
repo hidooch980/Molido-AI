@@ -240,7 +240,7 @@ export default function SmsPage() {
     >
       {error ? <div className="error">{error}</div> : null}
       {flash ? (
-        <div className="card" style={{ borderColor: '#047857', color: '#047857' }}>
+        <div className="card" style={{ borderColor: 'var(--success)', color: 'var(--success)' }}>
           {flash}
         </div>
       ) : null}
@@ -453,9 +453,9 @@ export default function SmsPage() {
                         style={{
                           color:
                             m.status === 'SENT'
-                              ? '#047857'
+                              ? 'var(--success)'
                               : m.status === 'FAILED'
-                                ? '#b91c1c'
+                                ? 'var(--danger)'
                                 : 'var(--muted)',
                         }}
                       >

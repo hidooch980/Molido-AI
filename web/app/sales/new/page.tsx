@@ -570,12 +570,12 @@ export default function NewInvoicePage() {
     >
       <div style={{ display: 'grid', gap: 12 }}>
         {flash && (
-          <div style={{ ...box, borderColor: '#047857', color: '#047857', padding: 9, fontSize: 13 }}>
+          <div style={{ ...box, borderColor: 'var(--success)', color: 'var(--success)', padding: 9, fontSize: 13 }}>
             {flash}
           </div>
         )}
         {error && (
-          <div style={{ ...box, borderColor: '#b91c1c', color: '#b91c1c', padding: 9, fontSize: 13 }}>
+          <div style={{ ...box, borderColor: 'var(--danger)', color: 'var(--danger)', padding: 9, fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -880,7 +880,7 @@ export default function NewInvoicePage() {
                       <td style={{ padding: '4px 8px' }}>
                         {line.name}
                         {isShort && (
-                          <span style={{ marginInlineStart: 6, fontSize: 11, color: '#b91c1c' }}>
+                          <span style={{ marginInlineStart: 6, fontSize: 11, color: 'var(--danger)' }}>
                             موجودی {fa(line.available)}
                           </span>
                         )}
@@ -969,7 +969,7 @@ export default function NewInvoicePage() {
                             ...TOUCH,
                             background: 'transparent',
                             border: 0,
-                            color: '#b91c1c',
+                            color: 'var(--danger)',
                             cursor: 'pointer',
                             padding: 4,
                           }}
@@ -1156,7 +1156,7 @@ export default function NewInvoicePage() {
                         باید نقد بدهد، نه اینکه پای صندوق معلوم شود. */}
                     <Row k="سهم این خرید" v={fa(rationShare)} />
                     {rationShare > Number(ration.balance) && (
-                      <div style={{ color: '#b91c1c', fontSize: 12 }}>
+                      <div style={{ color: 'var(--danger)', fontSize: 12 }}>
                         سهم از اعتبار بیشتر است؛ فقط تا سقف موجودی برداشت می‌شود.
                       </div>
                     )}
@@ -1253,7 +1253,7 @@ export default function NewInvoicePage() {
         </div>
 
         {short.length > 0 && (
-          <div style={{ ...box, borderColor: '#b91c1c', color: '#b91c1c', fontSize: 13, padding: 9 }}>
+          <div style={{ ...box, borderColor: 'var(--danger)', color: 'var(--danger)', fontSize: 13, padding: 9 }}>
             {fa(short.length)} قلم بیش از موجودی انبار است. فاکتور ثبت می‌شود ولی موجودی منفی
             خواهد شد.
           </div>

@@ -45,11 +45,11 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING: '#b45309',
-  CONFIRMED: '#047857',
+  PENDING: 'var(--warning)',
+  CONFIRMED: 'var(--success)',
   SEATED: '#1d4ed8',
   CANCELLED: '#6b7280',
-  NO_SHOW: '#b91c1c',
+  NO_SHOW: 'var(--danger)',
 };
 
 /** گام بعدی طبیعی هر وضعیت — تا متصدی مجبور نباشد از فهرست انتخاب کند. */
@@ -244,7 +244,7 @@ export default function ReservationsPage() {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -420,7 +420,7 @@ export default function ReservationsPage() {
                           onClick={() => setStatus(r, step.to)}
                           disabled={busy === r.id}
                           style={step.to === 'CANCELLED' || step.to === 'NO_SHOW'
-                            ? { ...BTN, color: '#b91c1c' }
+                            ? { ...BTN, color: 'var(--danger)' }
                             : BTN}
                         >
                           {step.label}
@@ -499,6 +499,6 @@ const BTN_PRIMARY: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

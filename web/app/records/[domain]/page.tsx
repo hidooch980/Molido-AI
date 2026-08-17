@@ -226,7 +226,7 @@ function Records({ def }: { def: DomainDef }) {
           </div>
         ) : null}
         {note ? (
-          <div role="status" style={{ ...ALERT, background: '#04785722', color: '#047857' }}>
+          <div role="status" style={{ ...ALERT, background: 'color-mix(in srgb, var(--success) 13%, transparent)', color: 'var(--success)' }}>
             {note}
           </div>
         ) : null}
@@ -395,7 +395,7 @@ function Records({ def }: { def: DomainDef }) {
                           type="button"
                           onClick={() => remove(row)}
                           disabled={busy === String(row.id)}
-                          style={{ ...BTN_SM, color: '#b91c1c' }}
+                          style={{ ...BTN_SM, color: 'var(--danger)' }}
                         >
                           حذف
                         </button>
@@ -515,6 +515,6 @@ const EMPTY: React.CSSProperties = {
 const ALERT: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
-  background: '#b91c1c22',
-  color: '#b91c1c',
+  background: 'color-mix(in srgb, var(--danger) 13%, transparent)',
+  color: 'var(--danger)',
 };

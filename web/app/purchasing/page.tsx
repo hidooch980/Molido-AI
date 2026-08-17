@@ -472,7 +472,7 @@ const field: React.CSSProperties = {
     >
       {error ? <div className="error">{error}</div> : null}
       {flash ? (
-        <div className="card" style={{ borderColor: '#047857', color: '#047857' }}>
+        <div className="card" style={{ borderColor: 'var(--success)', color: 'var(--success)' }}>
           {flash}
         </div>
       ) : null}
@@ -515,7 +515,7 @@ const field: React.CSSProperties = {
                 {suggestions.map((s) => (
                   <tr key={s.productId} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={TD}>{s.productName}</td>
-                    <td style={{ ...TD, color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>
+                    <td style={{ ...TD, color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>
                       {fa(s.onHand)} {s.unit}
                     </td>
                     <td style={{ ...TD, color: 'var(--muted)' }}>{fa(s.minStock)}</td>
@@ -645,10 +645,10 @@ const field: React.CSSProperties = {
                               row.avgGapPct === null
                                 ? 'var(--muted)'
                                 : row.avgGapPct <= 0
-                                  ? '#047857'
+                                  ? 'var(--success)'
                                   : row.avgGapPct > 10
-                                    ? '#b91c1c'
-                                    : '#b45309',
+                                    ? 'var(--danger)'
+                                    : 'var(--warning)',
                             fontWeight: row.avgGapPct !== null && row.avgGapPct > 10 ? 700 : 400,
                           }}
                         >
@@ -826,8 +826,8 @@ const field: React.CSSProperties = {
                     style={{
                       padding: 10,
                       borderRadius: 8,
-                      background: '#b4530922',
-                      color: '#b45309',
+                      background: 'color-mix(in srgb, var(--warning) 13%, transparent)',
+                      color: 'var(--warning)',
                       fontSize: 13,
                       display: 'grid',
                       gap: 4,
@@ -953,7 +953,7 @@ const field: React.CSSProperties = {
                                       {change !== null && change !== 0 && (
                                         <span
                                           style={{
-                                            color: change > 0 ? '#b91c1c' : '#047857',
+                                            color: change > 0 ? 'var(--danger)' : 'var(--success)',
                                             fontWeight: 700,
                                           }}
                                         >
@@ -965,7 +965,7 @@ const field: React.CSSProperties = {
                                         <span className="muted">{fa(h.leadDays)} روز</span>
                                       )}
                                       {h.isSelected && (
-                                        <span style={{ color: '#047857' }}>· خریداری شد</span>
+                                        <span style={{ color: 'var(--success)' }}>· خریداری شد</span>
                                       )}
                                       <span className="muted" style={{ fontSize: 12 }}>
                                         {h.inquiryNo}
@@ -1030,7 +1030,7 @@ const field: React.CSSProperties = {
           {comparison.summary.expensive.length > 0 && (
             <div
               className="card"
-              style={{ marginTop: 12, borderColor: '#b91c1c', color: '#b91c1c' }}
+              style={{ marginTop: 12, borderColor: 'var(--danger)', color: 'var(--danger)' }}
             >
               {fa(comparison.summary.expensive.length)} قلم بیش از ۱۵٪ گران‌تر از خرید قبل است:{' '}
               {comparison.summary.expensive.map((w) => w.productName).join('، ')}
@@ -1058,7 +1058,7 @@ const field: React.CSSProperties = {
                       {w.quote ? (
                         w.quote.supplierName
                       ) : (
-                        <span style={{ color: '#b91c1c' }}>هیچ‌کس</span>
+                        <span style={{ color: 'var(--danger)' }}>هیچ‌کس</span>
                       )}
                     </td>
                     <td style={{ ...TD, fontVariantNumeric: 'tabular-nums' }}>
@@ -1072,8 +1072,8 @@ const field: React.CSSProperties = {
                           w.changePercent === null
                             ? 'var(--muted)'
                             : w.changePercent > 0
-                              ? '#b91c1c'
-                              : '#047857',
+                              ? 'var(--danger)'
+                              : 'var(--success)',
                       }}
                     >
                       {w.changePercent === null ? '—' : `${fa(w.changePercent)}٪`}

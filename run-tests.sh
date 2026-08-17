@@ -208,5 +208,8 @@ node web/scripts/verify-labels.mjs 2>&1 | tail -2
 echo '--- date parsing ---'
 node --experimental-strip-types web/scripts/verify-date.mjs 2>&1 | tail -2
 
+echo '--- auth throttle ---'
+node web/scripts/verify-auth-throttle.mjs 2>&1 | tail -2
+
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { ShopService } from './shop.service';
 import { CheckinService } from '../loyalty/checkin.service';
@@ -113,12 +114,29 @@ export class ShopPublicController {
 
   // ---------- حساب مشتری ----------
 
+  /**
+   * ⚠️ سقف سخت، مثل ورودِ کارمند.
+   *
+   *    ورودِ پنل سقفِ ۱۰ در دقیقه داشت با این توضیح: «سقف عمومی برای
+   *    کار روزمرهٔ صندوق بالا برده شده، ولی همان سقف روی ورود یعنی
+   *    هزار حدس رمز در دقیقه».
+   *
+   *    همان استدلال برای مشتری هم درست است و اعمال نشده بود: این دو
+   *    مسیر فقط سقفِ سراسریِ ۱۲۰۰ در دقیقه را داشتند.  یعنی حسابِ
+   *    کارمند محافظت می‌شد و حسابِ مشتری نه — در حالی که نشانی و
+   *    سابقهٔ خرید و شمارهٔ تلفنِ مشتری هم آنجاست.
+   *
+   *    ثبت‌نام هم سقف می‌گیرد: بی‌سقف، می‌شود فهمید کدام شمارهٔ تلفن
+   *    از قبل حساب دارد — که خودش افشای اطلاعات است.
+   */
   @Post('register')
+  @Throttle({ long: { ttl: 60000, limit: 10 } })
   register(@Req() req: ShopRequest, @Body() dto: ShopRegisterDto) {
     return this.service.register(this.company(req), dto);
   }
 
   @Post('login')
+  @Throttle({ long: { ttl: 60000, limit: 10 } })
   login(
     @Req() req: ShopRequest,
     @Body() dto: ShopLoginDto,

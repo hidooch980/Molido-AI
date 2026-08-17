@@ -2045,3 +2045,155 @@ kbd {
     display: none;
   }
 }
+
+/* ---------- میان‌برهای صفحهٔ اصلی ---------- */
+
+/*
+ * کارت‌های سه‌بعدی.
+ *
+ * ⚠️ عمق اینجا تزئین نیست — نشانهٔ **فشاردادنی بودن** است.
+ *
+ *    کارت روی سطح صفحه بالا ایستاده و با فشار پایین می‌رود، مثل
+ *    کلیدِ واقعی.  همین یک اشاره کافی است؛ چرخشِ تند و پرسپکتیوِ
+ *    اغراق‌شده روی صفحه‌ای که روزی صد بار باز می‌شود، از زیبایی به
+ *    مزاحمت تبدیل می‌شود.
+ *
+ *    عمق با سه لایه ساخته می‌شود:
+ *      ۱) لبهٔ پایینی تیره  -> ضخامتِ خودِ کلید
+ *      ۲) سایهٔ نرم زیرش    -> فاصله از سطح
+ *      ۳) درخششِ بالایی     -> نوری که از بالا می‌تابد
+ */
+
+.sc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+  /* پرسپکتیو روی ظرف است نه تک‌تک کارت‌ها: این‌طور همه از یک نقطه
+     دیده می‌شوند و شبکه یکپارچه به نظر می‌رسد. */
+  perspective: 900px;
+}
+
+.sc-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  /* ۹۶ خیلی بالاتر از حد ۴۴ است — این کارت‌ها روی موبایل با شست زده
+     می‌شوند، اغلب در حال حرکت. */
+  min-height: 96px;
+  padding: 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+  text-decoration: none;
+  transform-style: preserve-3d;
+  box-shadow:
+    /* ضخامتِ کلید */
+    0 4px 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+    /* فاصله از سطح */
+    0 10px 20px rgba(0, 0, 0, 0.22),
+    /* نورِ بالایی */
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  transition:
+    transform 160ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.sc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--sc-tone, var(--primary));
+  color: var(--on-primary);
+  /* آیکون یک پله جلوتر از کارت می‌ایستد — همان چیزی که عمق را
+     باورپذیر می‌کند. */
+  transform: translateZ(14px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sc-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+  transform: translateZ(6px);
+}
+
+/* هاور فقط با اشاره‌گر واقعی — روی لمسی `:hover` پس از ضربه می‌چسبد
+   و کارت تا ضربهٔ بعدی برجسته می‌ماند، که شبیه خرابی است. */
+@media (hover: hover) {
+  .sc-tile:hover {
+    transform: translateY(-4px) rotateX(6deg);
+    border-color: var(--sc-tone, var(--primary));
+    box-shadow:
+      0 8px 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+      0 18px 30px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  }
+}
+
+/* فشار: کارت تا ته پایین می‌رود و ضخامتش صفر می‌شود — حس کلیدِ
+   واقعی که خورده. */
+.sc-tile:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 0 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+    0 4px 10px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sc-tile:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* رنگِ لبه فقط برای تشخیصِ سریع است، نه معنا — کسی که رنگ را
+   نمی‌بیند، برچسب را می‌خواند و چیزی از دست نمی‌دهد. */
+.sc-a { --sc-tone: #5a5ce8; }
+.sc-b { --sc-tone: #0e9f6e; }
+.sc-c { --sc-tone: #0b7ea8; }
+.sc-d { --sc-tone: #b45309; }
+.sc-e { --sc-tone: #7c3aed; }
+.sc-f { --sc-tone: #be185d; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-tile {
+    transition: none;
+  }
+
+  /* عمق و رنگ می‌مانند؛ فقط حرکت می‌رود.  چیزی از خواناییِ صفحه کم
+     نمی‌شود. */
+  .sc-tile:hover,
+  .sc-tile:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .sc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+  }
+
+  .sc-tile {
+    min-height: 86px;
+    padding: 12px 8px;
+  }
+
+  .sc-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sc-label {
+    font-size: 12.5px;
+  }
+}

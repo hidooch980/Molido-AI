@@ -1196,6 +1196,17 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   stpCapacity: { fa: 'ظرفیت', en: 'Capacity', ar: 'السعة' },
   stpDeleteTable: { fa: 'حذف میز', en: 'Delete table', ar: 'حذف الطاولة' },
 
+  // ---------- میان‌برهای صفحهٔ اصلی ----------
+  scTitle: { fa: 'میان‌برها', en: 'Shortcuts', ar: 'الاختصارات' },
+  scPos: { fa: 'صندوق فروش', en: 'Point of sale', ar: 'نقطة البيع' },
+  scNewInvoice: { fa: 'فاکتور جدید', en: 'New invoice', ar: 'فاتورة جديدة' },
+  scProducts: { fa: 'کالاها', en: 'Products', ar: 'المنتجات' },
+  scInventory: { fa: 'انبار', en: 'Inventory', ar: 'المخزون' },
+  scCount: { fa: 'شمارش انبار', en: 'Stock count', ar: 'جرد المخزون' },
+  scPurchasing: { fa: 'خرید', en: 'Purchasing', ar: 'المشتريات' },
+  scCustomers: { fa: 'مشتریان', en: 'Customers', ar: 'العملاء' },
+  scReports: { fa: 'گزارش‌ها', en: 'Reports', ar: 'التقارير' },
+
   // ---------- شیفت رستوران ----------
   shfShift: { fa: 'شیفت', en: 'Shift', ar: 'الوردية' },
   shfCalcOnClose: {

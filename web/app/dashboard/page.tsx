@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import ShortcutGrid from '../../components/ShortcutGrid';
 import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -58,6 +59,11 @@ export default function DashboardPage() {
   return (
     <AppShell title={t('dashboardTitle')} subtitle={t('overview')}>
       {error ? <div className="error">{error}</div> : null}
+
+      {/* میان‌برها **بالای** آمار.
+          آمار خواندنی است، میان‌بر کاری — و کسی که داشبورد را باز
+          می‌کند معمولاً برای رفتن آمده، نه برای خواندن. */}
+      <ShortcutGrid />
 
       {!data && !error ? (
         <div className="stats-grid">

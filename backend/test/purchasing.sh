@@ -223,6 +223,34 @@ chk "message states the amount" \
 chk "message states the saving" \
   "$(echo "$CMP" | P "'\u0635\u0631\u0641\u0647\u200c\u062c\u0648\u06cc\u06cc' in d['brief']['message']")" "True"
 
+echo '--- 19) کارنامهٔ بنکداران ---'
+# `compare` می‌گوید در **این** استعلام چه کسی ارزان‌تر بود.  مدیری که
+# می‌پرسد «با کدام بنکدار کار کنم» چیز دیگری می‌خواهد: چه کسی همیشه
+# ارزان‌تر است، چه کسی جواب می‌دهد، چه کسی سرِ وقت می‌رساند.
+SC=$(curl -s "$A/purchasing/scorecard" -H "$AU")
+chk "کارنامه فهرست می‌دهد" "$(echo "$SC" | P "isinstance(d, list)")" "True"
+chk "بنکدارهای آزمون آمدند"   "$(echo "$SC" | P "sum(1 for x in d if x['supplierName'].startswith('BUY-')) >= 2")" "True"
+# ارزان‌ترین باید برنده شده باشد و فاصله‌اش از بهترین قیمت صفر باشد.
+chk "ارزان‌ترین نسبت برد دارد"   "$(echo "$SC" | P "[x['winRate'] for x in d if x['supplierName']=='BUY-Cheap'][0] > 0")" "True"
+chk "فاصلهٔ ارزان‌ترین صفر است"   "$(echo "$SC" | P "[x['avgGapPct'] for x in d if x['supplierName']=='BUY-Cheap'][0]")" "0"
+chk "گران‌تر فاصلهٔ مثبت دارد"   "$(echo "$SC" | P "[x['avgGapPct'] for x in d if x['supplierName']=='BUY-Mid'][0] > 0")" "True"
+# ⚠️ نسبت برد روی **قیمت‌های داده‌شده** حساب می‌شود نه تماس‌ها: بنکداری
+#    که جواب نداد نباید ۰٪ برد بگیرد، چون اصلاً قیمتی نداده و صفر
+#    گرفتنش یعنی «گران است» که غلط است.
+# بنکداری که قیمت نداده باید فاصله‌اش خالی باشد نه صفر: صفر یعنی
+# «ارزان‌ترین بود»، که دربارهٔ کسی که اصلاً جواب نداده غلط است.
+chk "بی‌قیمت، فاصلهٔ خالی دارد" \
+  "$(echo "$SC" | P "[x['avgGapPct'] for x in d if x['supplierName']=='BUY-Rich'][0] is None")" "True"
+# ⚠️ «۰٪ برد» یعنی «همیشه بازنده»؛ «هنوز خریدی نشده» چیز دیگری است.
+#    `isSelected` هنگام ثبت سفارش تنظیم می‌شود، پس پیش از سفارش همه
+#    صفر می‌گرفتند — عددی که معنایش غلط بود.  حالا تعریف‌نشده است.
+chk "پیش از سفارش، برد تعریف‌نشده است"   "$(echo "$SC" | P "all(x['winRate'] is None for x in d) if not any(x['wins'] for x in d) else True")" "True"
+chk "نسبت‌ها درصد یا خالی‌اند"   "$(echo "$SC" | P "all(x['winRate'] is None or 0 <= x['winRate'] <= 100 for x in d)")" "True"
+chk "بازهٔ پیش‌فرض ۱۸۰ روز" "$(echo "$SC" | P "d[0]['days']")" "180"
+chk "بازهٔ دلخواه اثر می‌کند"   "$(curl -s "$A/purchasing/scorecard?days=30" -H "$AU" | P "d[0]['days'] if d else 30")" "30"
+chk "بازهٔ نامعتبر به پیش‌فرض برمی‌گردد"   "$(curl -s "$A/purchasing/scorecard?days=abc" -H "$AU" | P "d[0]['days'] if d else 180")" "180"
+
+
 
 psql "DELETE FROM \"PurchaseItem\" WHERE \"purchaseId\" IN
         (SELECT id FROM \"Purchase\" WHERE note LIKE '%BUY-TEST%' OR note LIKE '%INQ-%');

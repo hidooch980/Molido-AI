@@ -250,7 +250,51 @@ export class VoiceService {
         await add('COMMAND', command, null);
       }
 
-      return { dialect: scope.dialect, created, products: products.rows.length };
+      // ─── پاک‌سازی ردیف‌های یتیم ───
+      //
+      // `ON CONFLICT DO NOTHING` فقط اضافه می‌کند.  وقتی فهرست پایه
+      // عوض شد — و شد: فرمان‌های صندوق جای خود را به عبارت‌های تماس با
+      // بنکدار دادند — ردیف‌های قدیمی در پایگاه داده ماندند و هیچ‌جا
+      // خطایی نداد.
+      //
+      // نتیجه‌اش این بود که پیکره ده فرمانِ مرده داشت که هیچ‌کدام در
+      // کد استفاده نمی‌شدند، و «۷ عبارت بدون متن» گزارش می‌شد که
+      // اصلاً عبارتِ زنده نبودند.  آمار غلط بدتر از آمار نداشتن است.
+      //
+      // ⚠️ فقط ردیفی حذف می‌شود که **هیچ ضبطی ندارد**.
+      //
+      //    عبارتی که کسی صدایش را ضبط کرده، حتی اگر از فهرست پایه
+      //    بیرون رفته باشد، کارِ انجام‌شدهٔ یک آدم است.  حذفش یعنی
+      //    دور ریختن دقیقه‌هایی که کسی پای میکروفن گذاشته.
+      const known = [...BASE_NUMBERS.map(([, w]) => w), ...BASE_COMMANDS];
+      const orphans = await tx.query<{ id: string; textFa: string; samples: string }>(
+        `SELECT p.id, p."textFa",
+                (SELECT count(*)::text FROM "VoiceSample" s WHERE s."phraseId" = p.id) AS samples
+           FROM "VoicePhrase" p
+          WHERE p."companyId" = $1 AND p.lang = $2 AND p.dialect = $3
+            AND p.kind <> 'PRODUCT'
+            AND NOT (p."textFa" = ANY($4))`,
+        [scope.companyId, scope.lang, scope.dialect, known],
+      );
+
+      const removable = orphans.rows.filter((o) => Number(o.samples) === 0);
+      const kept = orphans.rows.filter((o) => Number(o.samples) > 0);
+
+      if (removable.length) {
+        await tx.query('DELETE FROM "VoicePhrase" WHERE id = ANY($1)', [
+          removable.map((o) => o.id),
+        ]);
+      }
+
+      return {
+        dialect: scope.dialect,
+        created,
+        products: products.rows.length,
+        removed: removable.map((o) => o.textFa),
+        // عبارتی که از فهرست بیرون رفته ولی ضبط دارد، دست‌نخورده
+        // می‌ماند و اینجا گزارش می‌شود تا آدم تصمیم بگیرد.
+        orphansWithSamples: kept.map((o) => o.textFa),
+      };
     });
   }
 

@@ -19,9 +19,26 @@ import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
 import { StatCard, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
+import { isSpeechSupported, listenOnce } from '../../lib/speech';
+import { suggestQuotes, type QuoteSuggestion } from '../../lib/price-speech';
 import { amountOnly } from '../../lib/money';
 
 const fa = (value: unknown) => amountOnly(value);
+
+type Score = {
+  supplierId: string;
+  supplierName: string;
+  phone: string | null;
+  calls: number;
+  answered: number;
+  quoteCount: number;
+  wins: number;
+  answerRate: number | null;
+  winRate: number | null;
+  avgGapPct: number | null;
+  avgLeadDays: number | null;
+  days: number;
+};
 
 type Suggestion = {
   productId: string;
@@ -120,14 +137,29 @@ export default function PurchasingPage() {
   const [quotes, setQuotes] = useState<Record<string, string>>({});
   const [availability, setAvailability] = useState<Record<string, string>>({});
 
+  // ─── شنیدن قیمت از مکالمه ───
+  //
+  // متن مکالمه از قبل ذخیره می‌شد ولی هیچ‌کس از آن قیمت درنمی‌آورد؛
+  // اپراتور باید هر عدد را دستی تایپ می‌کرد.  یعنی «کارپرداز صوتی» در
+  // عمل یک فرم دستی بود.
+  // کارنامهٔ بنکداران — مقایسه در طول زمان، نه در یک استعلام.
+  const [scorecard, setScorecard] = useState<Score[]>([]);
+  const [showScores, setShowScores] = useState(false);
+
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [heard, setHeard] = useState<QuoteSuggestion[]>([]);
+
   const load = useCallback(async () => {
     try {
-      const [sug, list] = await Promise.all([
+      const [sug, list, scores] = await Promise.all([
         api<Suggestion[]>('/purchasing/suggestions'),
         api<Inquiry[]>('/purchasing/inquiries'),
+        api<Score[]>('/purchasing/scorecard'),
       ]);
       setSuggestions(sug);
       setInquiries(list);
+      setScorecard(scores);
     } catch {
       setError('بارگذاری اطلاعات خرید ناموفق بود');
     }
@@ -185,6 +217,60 @@ export default function PurchasingPage() {
     }
   }
 
+  /**
+   * شنیدن قیمت‌ها از مکالمه.
+   *
+   * اپراتور بلندگو را روشن می‌کند یا خودش تکرار می‌کند؛ عددها به
+   * میدان‌ها می‌نشینند و **متن مکالمه هم ذخیره می‌شود** تا اگر روزی
+   * قیمتی غلط درآمد، بشود فهمید چه شنیده شده.
+   *
+   * ⚠️ عددها **پیشنهاد**اند، نه ثبت.
+   *
+   *    قیمتی که اشتباه شنیده شود و خودکار ثبت شود، سفارش خرید را خراب
+   *    می‌کند و کسی هم نمی‌فهمد چرا.  هر عدد در میدان می‌نشیند تا
+   *    اپراتور ببیند و در صورت لزوم عوضش کند — و هشدارهایش کنارش
+   *    نوشته می‌شود.
+   */
+  function listenForQuotes() {
+    if (!items.length) {
+      setError('اول استعلامی را باز کنید');
+      return;
+    }
+
+    setError('');
+    setListening(true);
+
+    listenOnce(
+      (text) => {
+        setTranscript((prev) => (prev ? `${prev} ${text}` : text));
+
+        const merged = transcript ? `${transcript} ${text}` : text;
+        const found = suggestQuotes(
+          merged,
+          items.map((it) => ({ productId: it.productId, productName: it.productName })),
+        );
+        setHeard(found);
+
+        // میدان‌ها پر می‌شوند ولی قابل ویرایش می‌مانند.
+        setQuotes((prev) => {
+          const next = { ...prev };
+          for (const row of found) {
+            if (row.rial !== null) next[row.productId] = String(row.rial);
+          }
+          return next;
+        });
+        // شنیدن یک جمله تمام شد؛ اپراتور برای جملهٔ بعدی دوباره
+        // می‌زند.  حالت پیوسته میکروفن را باز نگه می‌دارد و مکالمهٔ
+        // بعدی را هم می‌شنود.
+        setListening(false);
+      },
+      (message) => {
+        setListening(false);
+        setError(message);
+      },
+    );
+  }
+
   async function saveCall(status?: string) {
     if (!callSupplier) {
       setError('بنکدار را انتخاب کنید');
@@ -210,6 +296,11 @@ export default function PurchasingPage() {
           supplierId: callSupplier,
           ...(status ? { status } : {}),
           ...(collected.length ? { quotes: collected } : {}),
+          // متن مکالمه کنار قیمت‌ها می‌ماند: اگر روزی قیمتی غلط درآمد،
+          // باید بشود فهمید چه شنیده شده و از کدام مسیر آمده.
+          ...(transcript.trim()
+            ? { transcript: transcript.trim(), channel: 'VOIP' }
+            : {}),
         },
       });
       setFlash(
@@ -262,7 +353,13 @@ export default function PurchasingPage() {
     }
   }
 
-  const field: React.CSSProperties = {
+  const cell: React.CSSProperties = {
+  padding: '8px 10px',
+  fontSize: 14,
+  borderBottom: '1px solid var(--border)',
+};
+
+const field: React.CSSProperties = {
     ...TOUCH,
     width: '100%',
     padding: '7px 9px',
@@ -380,6 +477,107 @@ export default function PurchasingPage() {
         </div>
       )}
 
+      {/* ------------------------------------------ کارنامهٔ بنکداران */}
+      {!active && scorecard.length > 0 && (
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>کارنامهٔ بنکداران</h3>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {fa(scorecard[0].days)} روز گذشته
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              style={{ marginInlineStart: 'auto' }}
+              onClick={() => setShowScores((v) => !v)}
+            >
+              {showScores ? 'بستن' : 'نمایش'}
+            </button>
+          </div>
+
+          {showScores && (
+            <>
+              <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                مقایسهٔ یک استعلام می‌گوید امروز چه کسی ارزان‌تر بود. این جدول
+                می‌گوید با چه کسی باید کار کرد.
+              </p>
+              <div style={{ overflowX: 'auto', marginTop: 10 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
+                  <thead>
+                    <tr>
+                      {['بنکدار', 'تماس', 'جواب داد', 'قیمت داد', 'برنده', 'فاصله از ارزان‌ترین', 'تحویل'].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            style={{
+                              textAlign: 'start',
+                              padding: '8px 10px',
+                              fontSize: 13,
+                              color: 'var(--muted)',
+                              borderBottom: '1px solid var(--border)',
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scorecard.map((row) => (
+                      <tr key={row.supplierId}>
+                        <td style={cell}>
+                          <strong>{row.supplierName}</strong>
+                          {row.phone ? (
+                            <span className="muted" style={{ fontSize: 12 }}> · {row.phone}</span>
+                          ) : null}
+                        </td>
+                        <td style={cell}>{fa(row.calls)}</td>
+                        <td style={cell}>
+                          {row.answerRate === null ? '—' : `${fa(row.answerRate)}٪`}
+                        </td>
+                        <td style={cell}>{fa(row.quoteCount)}</td>
+                        {/* «—» یعنی هنوز سفارشی ثبت نشده، نه «همیشه
+                            بازنده».  دو حالت کاملاً متفاوت. */}
+                        <td style={cell}>
+                          {row.winRate === null
+                            ? row.quoteCount > 0
+                              ? 'خریدی نشده'
+                              : '—'
+                            : `${fa(row.winRate)}٪`}
+                        </td>
+                        {/* عددِ اصلیِ «گران یا ارزان»: صفر یعنی همیشه
+                            ارزان‌ترین بوده.  خالی یعنی قیمتی نداده — که
+                            با «صفر» یکی نیست. */}
+                        <td
+                          style={{
+                            ...cell,
+                            color:
+                              row.avgGapPct === null
+                                ? 'var(--muted)'
+                                : row.avgGapPct <= 0
+                                  ? '#047857'
+                                  : row.avgGapPct > 10
+                                    ? '#b91c1c'
+                                    : '#b45309',
+                            fontWeight: row.avgGapPct !== null && row.avgGapPct > 10 ? 700 : 400,
+                          }}
+                        >
+                          {row.avgGapPct === null ? 'قیمتی نداد' : `${fa(row.avgGapPct)}٪`}
+                        </td>
+                        <td style={cell}>
+                          {row.avgLeadDays === null ? '—' : `${fa(row.avgLeadDays)} روز`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ------------------------------------------ فهرست استعلام‌ها */}
       {!active && inquiries.length > 0 && (
         <div className="card">
@@ -451,6 +649,81 @@ export default function PurchasingPage() {
                 ))}
               </select>
             </div>
+
+            {/* ─── شنیدن قیمت از مکالمه ───
+                دکمه فقط وقتی نشان داده می‌شود که مرورگر تشخیص گفتار
+                داشته باشد: دکمه‌ای که کار نمی‌کند بدتر از نبودنش است. */}
+            {callSupplier && isSpeechSupported() && (
+              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={listenForQuotes}
+                    disabled={listening}
+                    style={{ minHeight: 44 }}
+                  >
+                    {listening ? '… در حال شنیدن' : '🎙 شنیدن قیمت‌ها'}
+                  </button>
+                  {transcript && (
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setTranscript('');
+                        setHeard([]);
+                      }}
+                    >
+                      پاک کردن متن
+                    </button>
+                  )}
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    بلندگو را روشن کنید یا خودتان تکرار کنید
+                  </span>
+                </div>
+
+                {transcript && (
+                  <div
+                    style={{
+                      padding: 10,
+                      borderRadius: 8,
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      fontSize: 14,
+                    }}
+                  >
+                    {transcript}
+                  </div>
+                )}
+
+                {/* هشدارها جدا و صریح: عددی که با هشدار می‌آید همان
+                    جایی است که خطای ده‌برابری رخ می‌دهد. */}
+                {heard.some((h) => h.warnings.length > 0) && (
+                  <div
+                    role="status"
+                    style={{
+                      padding: 10,
+                      borderRadius: 8,
+                      background: '#b4530922',
+                      color: '#b45309',
+                      fontSize: 13,
+                      display: 'grid',
+                      gap: 4,
+                    }}
+                  >
+                    {heard
+                      .filter((h) => h.warnings.length > 0)
+                      .map((h) => (
+                        <span key={h.productId}>
+                          <strong>{h.productName}</strong>
+                          {h.spoken !== null ? ` — «${h.phrase}»` : ''}
+                          {': '}
+                          {h.warnings.join(' · ')}
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {callSupplier && (
               <div style={{ overflowX: 'auto', marginTop: 12 }}>

@@ -104,6 +104,33 @@ curl -s -X POST "$A/voice/phrases/build?lang=$L" -H "$AU" >/dev/null
 chk "بدون تکرار" \
   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind IN ('NUMBER','COMMAND') AND dialect='SARHADDI'")" "45"
 
+echo '--- 3b) ردیف یتیم پاک می‌شود، ولی نه اگر ضبط داشته باشد ---'
+# شناسهٔ شرکت از خودِ عبارت‌های ساخته‌شده گرفته می‌شود، نه حدس:
+# نصب‌های مختلف شناسهٔ متفاوت دارند.
+CO=$(psqlv "SELECT \"companyId\" FROM \"VoicePhrase\" WHERE lang='voicetst' LIMIT 1")
+# `ON CONFLICT DO NOTHING` فقط اضافه می‌کرد.  وقتی فهرست پایه عوض شد —
+# فرمان‌های صندوق جای خود را به عبارت‌های تماس با بنکدار دادند — ده
+# ردیف قدیمی در پایگاه داده ماندند و هیچ خطایی نداد.  «۷ عبارت بدون
+# متن» گزارش می‌شد که اصلاً عبارتِ زنده نبودند.
+psql "INSERT INTO \"VoicePhrase\" (id, \"companyId\", lang, dialect, kind, \"textFa\", \"sortOrder\")
+      VALUES ('vt-orphan-1', '$CO', 'voicetst', 'SARHADDI', 'COMMAND', 'فرمانِ مرده', 900),
+             ('vt-orphan-2', '$CO', 'voicetst', 'SARHADDI', 'COMMAND', 'فرمانِ ضبط‌شده', 901)"
+# یکی‌شان ضبط دارد؛ کارِ انجام‌شدهٔ یک آدم است و نباید دور ریخته شود.
+psql "INSERT INTO \"VoiceSample\" (id, \"companyId\", \"phraseId\", \"speakerTag\", \"audioUrl\", \"durationMs\")
+      VALUES ('vt-smp-orphan', '$CO', 'vt-orphan-2', 'گویندهٔ آزمون', 'x/y.webm', 1000)"
+
+R=$(curl -s -X POST "$A/voice/phrases/build?lang=$L" -H "$AU")
+chk "یتیمِ بی‌ضبط حذف شد"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE id='vt-orphan-1'")" "0"
+chk "یتیمِ ضبط‌دار نگه داشته شد"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE id='vt-orphan-2'")" "1"
+chk "حذف‌شده گزارش می‌شود"   "$(echo "$R" | P "'فرمانِ مرده' in d.get('removed', [])")" "True"
+# گزارش‌شدن مهم است: عبارتی که ضبط دارد ولی از فهرست بیرون رفته، تصمیمِ
+# آدم می‌خواهد نه حذف خودکار.
+chk "یتیمِ ضبط‌دار گزارش می‌شود"   "$(echo "$R" | P "'فرمانِ ضبط‌شده' in d.get('orphansWithSamples', [])")" "True"
+chk "عبارت‌های واقعی دست‌نخوردند"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind IN ('NUMBER','COMMAND') AND dialect='SARHADDI' AND \"textFa\" <> 'فرمانِ ضبط‌شده'")" "45"
+
+psql "DELETE FROM \"VoiceSample\" WHERE id='vt-smp-orphan'"
+psql "DELETE FROM \"VoicePhrase\" WHERE id='vt-orphan-2'"
+
 echo '--- 4) گویش نامعتبر رد می‌شود ---'
 chk "گویش ناشناس ۴۰۰" \
   "$(curl -s -X POST "$A/voice/phrases/build?lang=$L&dialect=BALOCHI" -H "$AU" | P "d.get('statusCode')")" "400"

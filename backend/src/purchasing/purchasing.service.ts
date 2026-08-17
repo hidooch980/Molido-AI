@@ -512,6 +512,112 @@ export class PurchasingService {
   }
 
   /** تاریخچهٔ قیمت یک کالا نزد تأمین‌کننده‌های مختلف. */
+  /**
+   * کارنامهٔ بنکداران — مقایسه در طول زمان، نه در یک استعلام.
+   *
+   * `compare` می‌گوید در **این** استعلام چه کسی ارزان‌تر بود.  ولی
+   * مدیری که می‌خواهد بداند «با کدام بنکدار کار کنم» به چیز دیگری
+   * نیاز دارد: چه کسی همیشه ارزان‌تر است، چه کسی جواب می‌دهد، و چه
+   * کسی سرِ وقت می‌رساند.
+   *
+   * چهار عدد که هرکدام تصمیم متفاوتی را روشن می‌کنند:
+   *
+   *   `answerRate`  چند درصد تماس‌ها به قیمت رسید.  بنکداری که جواب
+   *                 نمی‌دهد، وقتِ مریم را می‌گیرد.
+   *   `winRate`     چند درصد قیمت‌هایش برنده شد.  صفر یعنی همیشه
+   *                 گران‌تر است و زنگ زدنش فایده ندارد.
+   *   `avgGapPct`   به‌طور میانگین چقدر از ارزان‌ترین قیمتِ همان قلم
+   *                 دورتر بوده.  عددِ اصلیِ «گران یا ارزان».
+   *   `avgLeadDays` میانگین روز تحویل.  ارزانی که دیر می‌رساند، برای
+   *                 قفسهٔ خالی جواب نیست.
+   */
+  async supplierScorecard(companyId: string, days = 180) {
+    const since = new Date(Date.now() - days * 86_400_000);
+
+    const rows = await this.db.query<{
+      supplierId: string;
+      supplierName: string;
+      phone: string | null;
+      calls: string;
+      answered: string;
+      quoteCount: string;
+      wins: string;
+      avgLeadDays: string | null;
+      avgGapPct: string | null;
+    }>(
+      `WITH q AS (
+         SELECT c."supplierId", q."productId", q."callId",
+                q."unitPrice", q."isSelected", q."leadDays",
+                -- ارزان‌ترین قیمتِ همین قلم در همین استعلام: مبنای
+                -- «چقدر گران‌تر بود».  مقایسه با میانگینِ کل غلط است،
+                -- چون قیمت‌ها در طول ماه‌ها بالا می‌روند.
+                MIN(q."unitPrice") OVER (PARTITION BY c."inquiryId", q."productId")
+                  AS "bestOfLine"
+           FROM "SupplierQuote" q
+           JOIN "SupplierCall" c ON c.id = q."callId"
+          WHERE q."companyId" = $1 AND q."createdAt" >= $2
+       )
+       SELECT s.id AS "supplierId", s.name AS "supplierName", s.phone,
+              count(DISTINCT c.id)::text AS calls,
+              count(DISTINCT c.id) FILTER (
+                WHERE c.status IN ('ANSWERED','QUOTED'))::text AS answered,
+              count(q."callId")::text AS "quoteCount",
+              count(*) FILTER (WHERE q."isSelected")::text AS wins,
+              avg(q."leadDays")::text AS "avgLeadDays",
+              -- درصد فاصله از بهترین قیمتِ همان سطر
+              avg(
+                CASE WHEN q."bestOfLine" > 0
+                     THEN (q."unitPrice" - q."bestOfLine") / q."bestOfLine" * 100
+                END
+              )::text AS "avgGapPct"
+         FROM "Supplier" s
+         JOIN "SupplierCall" c ON c."supplierId" = s.id AND c."companyId" = $1
+         LEFT JOIN q ON q."callId" = c.id
+        WHERE s."companyId" = $1 AND c."calledAt" >= $2
+        GROUP BY s.id, s.name, s.phone
+        ORDER BY s.name`,
+      [companyId, since],
+    );
+
+    const pct = (part: number, whole: number) =>
+      whole > 0 ? Math.round((part / whole) * 100) : null;
+
+    // ⚠️ «برد» یعنی از او خریده شد، نه اینکه در مقایسه ارزان‌تر بود.
+    //
+    //    `isSelected` هنگام ثبت سفارش تنظیم می‌شود.  پس تا وقتی
+    //    سفارشی ثبت نشده، همه صفر برد دارند — و «۰٪ برد» یعنی «همیشه
+    //    بازنده»، در حالی که واقعیت «هنوز خریدی نشده» است.
+    //
+    //    دو حالت کاملاً متفاوت که یک عدد نشان می‌دادند.  وقتی هیچ
+    //    سفارشی در بازه نبوده، سنجه تعریف‌نشده است نه صفر.
+    const anyOrdered = rows.some((r) => Number(r.wins) > 0);
+
+    return rows.map((r) => {
+      const calls = Number(r.calls);
+      const answered = Number(r.answered);
+      const quoteCount = Number(r.quoteCount);
+      const wins = Number(r.wins);
+
+      return {
+        supplierId: r.supplierId,
+        supplierName: r.supplierName,
+        phone: r.phone,
+        calls,
+        answered,
+        quoteCount,
+        wins,
+        answerRate: pct(answered, calls),
+        // نسبت برد روی **قیمت‌های داده‌شده** حساب می‌شود نه تماس‌ها:
+        // بنکداری که یک بار قیمت داد و برد، ۱۰۰٪ است — و همین درست
+        // است، چون سنجه دربارهٔ قیمت اوست نه در دسترس بودنش.
+        winRate: anyOrdered ? pct(wins, quoteCount) : null,
+        avgGapPct: r.avgGapPct === null ? null : Math.round(Number(r.avgGapPct) * 10) / 10,
+        avgLeadDays: r.avgLeadDays === null ? null : Math.round(Number(r.avgLeadDays)),
+        days,
+      };
+    });
+  }
+
   async priceHistory(companyId: string, productId: string) {
     return this.db.query<Row>(
       `SELECT q."unitPrice", q."availableQty", q."leadDays", q."isSelected", q."createdAt",

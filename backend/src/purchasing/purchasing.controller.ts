@@ -81,6 +81,18 @@ export class PurchasingController {
   }
 
   /** تاریخچهٔ قیمت یک کالا نزد تأمین‌کننده‌های مختلف. */
+  /** کارنامهٔ بنکداران — مقایسه در طول زمان، نه در یک استعلام. */
+  @Get('scorecard')
+  scorecard(@CurrentUser() user: AuthUser, @Query('days') days?: string) {
+    // بازهٔ پیش‌فرض شش ماه: کوتاه‌تر از آن، بنکداری که ماهی یک بار
+    // سفارش می‌گیرد اصلاً در آمار نمی‌آید.
+    const n = Number(days);
+    return this.purchasing.supplierScorecard(
+      user.companyId as string,
+      Number.isFinite(n) && n > 0 ? Math.min(n, 1095) : 180,
+    );
+  }
+
   @Get('price-history/:productId')
   @Roles(...BUYER_ROLES)
   priceHistory(@CurrentUser() user: AuthUser, @Param('productId') productId: string) {

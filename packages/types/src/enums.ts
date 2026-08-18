@@ -24,6 +24,9 @@ export type AiAgentStatus = (typeof AI_AGENT_STATUSES)[number];
 export const AI_AGENT_TYPES = ['RESEARCH', 'ANALYSIS', 'AUTOMATION'] as const;
 export type AiAgentType = (typeof AI_AGENT_TYPES)[number];
 
+export const SYSTEM_MODES = ['NORMAL', 'PAUSED'] as const;
+export type SystemMode = (typeof SYSTEM_MODES)[number];
+
 export const SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export type Severity = (typeof SEVERITIES)[number];
 

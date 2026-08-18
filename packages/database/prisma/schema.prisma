@@ -114,6 +114,11 @@ enum Severity {
   CRITICAL
 }
 
+enum SystemMode {
+  NORMAL
+  PAUSED
+}
+
 enum AiTaskStatus {
   PENDING
   RUNNING
@@ -454,4 +459,29 @@ model AiTask {
   @@index([createdAt])
   @@index([status, createdAt])
   @@map("ai_tasks")
+}
+
+/// Global operating mode, as a single row.
+///
+/// Modelled in the database rather than in process memory so the Founder's
+/// decision to halt AI work survives a restart, and so every instance of the
+/// API observes the same state rather than each keeping its own opinion.
+model SystemState {
+  /// Enforced single row: the check constraint on `id` means a second row
+  /// cannot be inserted by accident.
+  id Int @id @default(1)
+
+  mode SystemMode @default(NORMAL)
+
+  /// Why the system was paused. Shown to callers whose task is rejected, so a
+  /// pause is explained rather than looking like a malfunction.
+  reason String? @db.VarChar(500)
+
+  /// Who changed it, and when.
+  changedBy String?  @db.Uuid
+  changedAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@map("system_state")
 }

@@ -6,6 +6,7 @@ import {
   ROLE_NAMES,
   SECURITY_EVENT_TYPES,
   SEVERITIES,
+  SYSTEM_MODES,
   USER_STATUSES,
 } from '@molido/types';
 import {
@@ -15,6 +16,7 @@ import {
   RoleName,
   SecurityEventType,
   Severity,
+  SystemMode,
   UserStatus,
 } from './index';
 
@@ -32,6 +34,7 @@ describe('shared enums mirror the Prisma schema', () => {
     ['AiAgentType', AI_AGENT_TYPES, AiAgentType],
     ['SecurityEventType', SECURITY_EVENT_TYPES, SecurityEventType],
     ['Severity', SEVERITIES, Severity],
+    ['SystemMode', SYSTEM_MODES, SystemMode],
   ];
 
   for (const [name, shared, prismaEnum] of cases) {

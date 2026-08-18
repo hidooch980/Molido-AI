@@ -22,6 +22,7 @@ export {
   SecurityEventType,
   SessionRevokeReason,
   Severity,
+  SystemMode,
   UserStatus,
 } from '@prisma/client';
 
@@ -35,6 +36,7 @@ export type {
   SecurityEvent,
   Session,
   SystemEvent,
+  SystemState,
   User,
   UserRole,
 } from '@prisma/client';

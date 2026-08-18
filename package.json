@@ -1,0 +1,55 @@
+{
+  "name": "molido-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MOLIDO AI — FROM ZERO. FOR THE FUTURE.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:packages": "pnpm --filter \"./packages/**\" build",
+    "dev": "pnpm --parallel --filter \"./apps/**\" dev",
+    "dev:api": "pnpm --filter @molido/api dev",
+    "dev:web": "pnpm --filter @molido/web dev",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @molido/database generate",
+    "db:migrate": "pnpm --filter @molido/database migrate",
+    "db:deploy": "pnpm --filter @molido/database deploy",
+    "db:seed": "pnpm --filter @molido/database seed",
+    "db:studio": "pnpm --filter @molido/database studio",
+    "infra:up": "docker compose -f infrastructure/docker/docker-compose.dev.yml up -d",
+    "infra:down": "docker compose -f infrastructure/docker/docker-compose.dev.yml down",
+    "infra:logs": "docker compose -f infrastructure/docker/docker-compose.dev.yml logs -f",
+    "infra:reset": "docker compose -f infrastructure/docker/docker-compose.dev.yml down -v"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "playwright": "^1.62.1",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "@swc/core",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ],
+    "overrides": {
+      "fastify": "5.11.3"
+    }
+  }
+}

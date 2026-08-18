@@ -1,0 +1,11 @@
+node_modules
+dist
+.next
+coverage
+pnpm-lock.yaml
+packages/database/generated
+# Legacy Molido product — formatted by its own tooling.
+backend
+web
+legacy
+n8n-workflows

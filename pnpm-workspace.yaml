@@ -1,0 +1,9 @@
+# MOLIDO AI — pnpm workspace
+#
+# Scoped deliberately to the MVP monorepo directories. The legacy
+# `backend/` and `web/` directories in this repository belong to the
+# previous Molido product and are intentionally NOT part of this workspace.
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'workers/*'

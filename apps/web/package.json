@@ -1,0 +1,34 @@
+{
+  "name": "@molido/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MOLIDO AI web application (Next.js App Router).",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf .next dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@molido/types": "workspace:*",
+    "next": "^15.5.23",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.23",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

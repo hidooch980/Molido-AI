@@ -188,22 +188,45 @@ export class ShopService {
 
   // ---------------------------------------------------------- فروشگاه
 
+  /**
+   * تنظیمات فروشگاه — **عمومی**، بدون احراز هویت.
+   *
+   * ⚠️ فهرستِ صریح، نه `SELECT *`.
+   *
+   *    نسخهٔ اول `SELECT *` بود و `companyId`، `warehouseId`،
+   *    `createdAt` و `updatedAt` را به هر بازدیدکنندهٔ ناشناس می‌داد.
+   *
+   *    امروز خطرش کم است چون شرکت از پیکربندی سرور می‌آید نه از
+   *    درخواست.  ولی شناسه‌های داخلی سرمایهٔ مهاجم‌اند: اولین مسیری
+   *    که روزی `companyId` را از کاربر بپذیرد، این نشتی را تبدیل به
+   *    حفره می‌کند.
+   *
+   *    و `SELECT *` مسئلهٔ ماندگارتری دارد: هر ستونی که فردا به این
+   *    جدول اضافه شود، **خودکار** عمومی می‌شود.  فهرستِ صریح یعنی
+   *    اضافه کردنِ ستون، تصمیمِ آگاهانه بماند.
+   */
   async settings(companyId: string) {
     const rows = await this.db.query<Row>(
-      'SELECT * FROM "ShopSetting" WHERE "companyId" = $1',
+      `SELECT "shopName", "shopDescription", "isOpen", "shippingFee",
+              "freeShippingOver", "minOrderAmount", "supportPhone"
+         FROM "ShopSetting" WHERE "companyId" = $1`,
       [companyId],
     );
 
     // پیش‌فرض معقول تا مدیر تنظیمات را پر کند؛ فروشگاه نباید به‌خاطر
     // نبودِ یک ردیف تنظیمات، خالی به مشتری نشان داده شود.
+    //
+    // شکلش دقیقاً همان شکلِ بالاست — وگرنه رابط برای فروشگاهِ تازه
+    // میدان‌هایی می‌بیند که برای فروشگاهِ پیکربندی‌شده نمی‌بیند.
     return (
       rows[0] ?? {
-        companyId,
         shopName: null,
+        shopDescription: null,
         isOpen: true,
         shippingFee: 0,
         freeShippingOver: null,
         minOrderAmount: 0,
+        supportPhone: null,
       }
     );
   }

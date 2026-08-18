@@ -57,8 +57,28 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <LanguageProvider>{children}</LanguageProvider>
-        <ServiceWorkerRegistrar />
+        {/*
+          ⚠️ `ServiceWorkerRegistrar` **داخل** provider است، نه بیرونش.
+
+             تا امروز بیرون بود و اشکالی نداشت — چون هیچ متنی نداشت.
+             ولی وقتی سه‌زبانه شد و `useI18n()` صدا زد، هر صفحه‌ای که
+             prerender می‌شد با «useI18n باید داخل LanguageProvider
+             باشد» می‌افتاد.
+
+             خطا **صفحه‌ای که ساخت را می‌شکست را عوض می‌کرد** — هر بار
+             /pos، /sales، /pricing، /settings — چون کارگرهای موازیِ
+             Next به ترتیب متفاوتی می‌رسیدند.  همین گمراه‌کننده بود:
+             دنبال اشکال در آن صفحه‌ها گشتم، در حالی که هیچ‌کدام مقصر
+             نبودند.
+
+             `tsc` هم نمی‌گرفتش: از نظر نوع‌ها همه‌چیز درست است.  فقط
+             **ساخت** می‌گیردش، و آن هم فقط وقتی صفحه‌ای واقعاً
+             prerender شود.
+        */}
+        <LanguageProvider>
+          {children}
+          <ServiceWorkerRegistrar />
+        </LanguageProvider>
       </body>
     </html>
   );

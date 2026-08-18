@@ -4,10 +4,22 @@ import './shop.css';
 import ShopHeader from './ShopHeader';
 import { shopFetch } from '../../lib/shop-server';
 
+/**
+ * ⚠️ نام میدان‌ها باید با آنچه API می‌دهد یکی باشد.
+ *
+ *    اینجا `phone` و `address` نوشته شده بود و پابرگ رندرشان می‌کرد —
+ *    ولی `ShopSetting` نه ستونِ `phone` دارد نه `address`.  ستونش
+ *    `supportPhone` است.
+ *
+ *    نتیجه: پابرگِ فروشگاه **هرگز** شماره‌ای نشان نداده بود، و
+ *    هیچ خطایی هم نمی‌داد — `undefined` است و شرط رد می‌شود.
+ *
+ *    TypeScript هم نمی‌گرفتش: `shopFetch<Settings>` هر شکلی را که
+ *    بگویی می‌پذیرد؛ نوع فقط ادعاست، نه سنجش.
+ */
 type Settings = {
   shopName?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  supportPhone?: string | null;
 };
 
 /**
@@ -53,14 +65,14 @@ export default async function ShopLayout({
 
       <footer className="shop-footer">
         <div style={{ fontWeight: 700, color: 'var(--s-text)' }}>{name}</div>
-        {settings.address ? (
-          <div style={{ marginTop: 'var(--s-1)' }}>{settings.address}</div>
-        ) : null}
-        {settings.phone ? (
+        {settings.supportPhone ? (
           // تماس تلفنی روی موبایل باید یک لمس باشد، نه کپی‌کردن دستی شماره.
           <div style={{ marginTop: 'var(--s-1)' }}>
-            <a href={`tel:${settings.phone}`} style={{ color: 'var(--s-primary)' }}>
-              {settings.phone}
+            <a
+              href={`tel:${settings.supportPhone}`}
+              style={{ color: 'var(--s-primary)' }}
+            >
+              {settings.supportPhone}
             </a>
           </div>
         ) : null}

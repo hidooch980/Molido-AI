@@ -77,13 +77,35 @@ Request
 The order is deliberate: an unauthenticated flood is rejected before it costs a
 database round trip, and authorisation cannot run before identity is known.
 
+## How an AI task actually flows
+
+```
+POST /api/v1/ai/tasks
+      │  validate → authorise → system mode → agent eligible → budget
+      ▼
+  AiTask row (PENDING)          written *before* any work happens
+      │
+      ▼
+  BullMQ `ai-tasks` queue        jobId = taskId, so a retry cannot double-queue
+      │
+      ▼
+  workers/ai-worker              re-reads the row; a queued message is a
+      │                          snapshot, never current truth
+      ▼
+  ResearchAgent (@molido/ai-core)   same implementation the API would have used
+      │
+      ▼
+  AIProvider → Zod validation → AiTask (COMPLETED | FAILED) → AuditLog
+```
+
+The API never executes an agent. That keeps a slow model from holding an HTTP
+request open, and means a restart loses no queued work.
+
 ## What is not built yet
 
 Named here so the diagram is not mistaken for a promise:
 
-- The BullMQ worker in `workers/` — the queue is configured, task execution is
-  currently synchronous.
-- The Founder dashboard (`/dashboard`).
 - Streaming AI responses (the interface exists; adapters yield one chunk).
+- Any mobile application — there is no Flutter code in this repository.
 - Anything to do with tokens, wallets, nodes or a chain. See
   [product/mvp.md](../product/mvp.md).

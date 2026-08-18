@@ -17,6 +17,11 @@
 | AI provider abstraction | Working, tested |
 | Research agent + orchestrator | Working, tested |
 | `POST /api/v1/ai/tasks` | Working |
+| Async task queue (BullMQ) + worker | Working, tested |
+| Founder command centre (real metrics) | Working, tested |
+| Emergency pause / resume | Working, tested |
+| Task cancellation + pagination | Working, tested |
+| Web app: sign in, dashboard, tasks, founder | Working, browser-tested |
 | Web landing page with live status | Working |
 | CI pipeline | Configured |
 
@@ -41,10 +46,14 @@ manipulation. No Sybil accounts. No bots inflating anything.
 
 ## Honest limitations
 
-- AI tasks execute **synchronously**. The queue is configured; the worker is not
-  built. A slow model will hold the request open.
-- The **Founder dashboard** (`/dashboard`) is not built.
-- **Streaming** exists in the interface but yields a single chunk.
+- **Streaming** exists in the `AIProvider` interface but yields a single chunk;
+  no UI consumes a stream yet.
+- **No mobile application.** There is no `apps/mobile`, no Flutter code, and no
+  Dart toolchain in this repository.
+- Task progress is shown by **polling**, not server-sent events. The polling is
+  bounded — widening intervals, then it stops.
+- The worker runs at **concurrency 1**. Fine for now; it is the obvious first
+  thing to raise when real load arrives.
 - The research agent works from **model knowledge only**. It cannot browse, and
   it is told so plainly. Its output schema has no `sources` field, so a
   fabricated citation has nowhere to go.

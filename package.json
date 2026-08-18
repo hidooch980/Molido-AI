@@ -2,7 +2,7 @@
   "name": "molido-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "MOLIDO AI — FROM ZERO. FOR THE FUTURE.",
+  "description": "MOLIDO AI \u2014 FROM ZERO. FOR THE FUTURE.",
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -11,7 +11,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter \"./packages/**\" build",
-    "dev": "pnpm --parallel --filter \"./apps/**\" dev",
+    "dev": "pnpm --parallel --filter \"./apps/**\" --filter \"./workers/**\" dev",
     "dev:api": "pnpm --filter @molido/api dev",
     "dev:web": "pnpm --filter @molido/web dev",
     "lint": "eslint .",
@@ -28,7 +28,8 @@
     "infra:up": "docker compose -f infrastructure/docker/docker-compose.dev.yml up -d",
     "infra:down": "docker compose -f infrastructure/docker/docker-compose.dev.yml down",
     "infra:logs": "docker compose -f infrastructure/docker/docker-compose.dev.yml logs -f",
-    "infra:reset": "docker compose -f infrastructure/docker/docker-compose.dev.yml down -v"
+    "infra:reset": "docker compose -f infrastructure/docker/docker-compose.dev.yml down -v",
+    "dev:worker": "pnpm --filter @molido/ai-worker dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

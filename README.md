@@ -39,8 +39,11 @@ pnpm build                             # workspace packages, then the apps
 pnpm db:deploy                         # apply migrations
 pnpm db:seed                           # roles, permissions, agent registry
 
-pnpm dev                               # API :4000 · web :3000
+pnpm dev                               # API :4000 · web :3000 · worker
 ```
+
+The `dev` script starts three processes: the API, the web app, and the AI task
+worker that drains the queue.
 
 Verify:
 
@@ -87,12 +90,14 @@ apps/
   api/            NestJS on Fastify — /api/v1
 packages/
   types/          Shared vocabulary. No runtime dependencies.
+  queue/          BullMQ queue shared by the API and the worker
   security/       Password hashing, opaque tokens, redaction
   config/         Zod-validated environment → typed AppConfig
   logger/         Structured logging, redaction built in
   database/       Prisma schema, client, migrations, seed
   ai-core/        AIProvider interface and its adapters
-workers/          AI task worker (not yet built)
+workers/
+  ai-worker/      Drains the ai-tasks queue and executes agents
 infrastructure/   Docker compose for local data stores
 docs/             Architecture, security, API, product
 ```
@@ -105,7 +110,8 @@ docs/             Architecture, security, API, product
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` | Run API and web together |
+| `pnpm dev` | Run API, web and the worker together |
+| `pnpm dev:worker` | Run only the AI task worker |
 | `pnpm build` | Build packages, then apps, in dependency order |
 | `pnpm lint` | ESLint across the workspace |
 | `pnpm typecheck` | TypeScript, strict, no emit |

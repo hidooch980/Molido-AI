@@ -102,6 +102,7 @@ that the session ended.
 | `POST /ai/tasks` | `AI_TASK_CREATE` |
 | `GET /ai/tasks` | `AI_TASK_READ` (own) / `AI_TASK_MANAGE` (all) |
 | `GET /ai/tasks/:id` | `AI_TASK_READ` (own) / `AI_TASK_MANAGE` (all) |
+| `POST /ai/tasks/:id/cancel` | `AI_TASK_CANCEL` |
 | `GET /ai/agents` | `AGENT_READ` |
 
 ### `POST /ai/tasks`
@@ -109,7 +110,16 @@ that the session ended.
 { "agent": "research", "input": "Explain the future of decentralized AI." }
 ```
 
-→ `201`, completed:
+→ `201`. Execution is **asynchronous**: the task is recorded and queued, and
+the response returns immediately.
+
+```json
+{ "taskId": "uuid", "status": "PENDING", "output": null, "error": null }
+```
+
+Poll `GET /ai/tasks/:id` until the status leaves `PENDING`/`RUNNING`. A completed
+task looks like:
+
 ```json
 {
   "taskId": "uuid",
@@ -126,21 +136,53 @@ that the session ended.
 }
 ```
 
-→ `201`, no provider configured:
+With no provider configured the task is still created and queued; the worker
+fails it with `AI_PROVIDER_NOT_CONFIGURED`. A failure is always recorded, never
+silent.
+
+If the queue itself cannot be reached, the API does not pretend otherwise: the
+task is marked `FAILED` with `QUEUE_UNAVAILABLE` and `retryable: true`, because a
+task recorded as pending that no worker will ever see is worse than an honest
+error.
+
+### `GET /ai/tasks`
+Paginated. `?page=1&pageSize=20` (max 100).
+
 ```json
-{
-  "taskId": "uuid",
-  "status": "FAILED",
-  "output": null,
-  "error": {
-    "code": "AI_PROVIDER_NOT_CONFIGURED",
-    "message": "No AI provider is configured. Set AI_PROVIDER and AI_MODEL to enable AI features.",
-    "retryable": false
-  }
-}
+{ "items": [ ... ], "page": 1, "pageSize": 20, "total": 42, "totalPages": 3 }
 ```
 
-The task row is created either way — a failure is recorded, never silent.
+### `POST /ai/tasks/:id/cancel`
+Cancels a `PENDING` or `RUNNING` task. Returns `{ "cancelled": false }` when the
+task had already finished — an honest no-op rather than a false success.
+
+## Founder
+
+Backend-enforced. Hiding the screen in a client is presentation, not a control.
+
+| Route | Permission |
+| --- | --- |
+| `GET /founder/overview` | `SYSTEM_READ` + `USER_READ` + `AI_TASK_MANAGE` |
+| `GET /founder/security` | `SECURITY_READ` |
+| `GET /founder/tasks` | `AI_TASK_MANAGE` |
+| `POST /founder/pause` | `SYSTEM_MANAGE` |
+| `POST /founder/resume` | `SYSTEM_MANAGE` |
+
+### `GET /founder/overview`
+Live counts. Zero is returned as zero — revenue and node count are real zeros
+with a note saying so, not placeholders awaiting data.
+
+### `GET /founder/security`
+Recent security events with **masked** source addresses (`203.0.113.x`) and no
+raw metadata. Enough to spot a pattern, not enough to identify a person.
+
+### `POST /founder/pause`
+```json
+{ "reason": "Investigating unusual activity" }
+```
+Stops **new** AI tasks with a `503` that quotes the reason. Queued and running
+tasks are deliberately left to finish — a control that silently destroys
+in-flight work is not a safety feature.
 
 Every `finding` is labelled `MODEL_KNOWLEDGE` or `ASSUMPTION`. There is no
 `sources` field: the agent cannot browse, so it has nowhere to put a citation it

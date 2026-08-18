@@ -1,0 +1,457 @@
+// =====================================================================
+// MOLIDO AI — data model
+//
+// Design rules for this phase:
+//   * UUID primary keys everywhere (no guessable sequential ids).
+//   * createdAt / updatedAt on every mutable entity.
+//   * Foreign keys with explicit delete behaviour — nothing is left implicit.
+//   * Indexes on every column the application actually filters or sorts by.
+//   * Deliberately small. The MVP models identity, sessions, audit and AI
+//     tasks. Nothing about tokens, wallets, ledgers or nodes exists here.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------
+
+enum RoleName {
+  FOUNDER
+  ADMIN
+  USER
+  AI_AGENT
+  SERVICE
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum SessionRevokeReason {
+  LOGOUT
+  LOGOUT_ALL
+  ROTATED
+  REUSE_DETECTED
+  ADMIN_REVOKED
+  EXPIRED
+  PASSWORD_CHANGED
+}
+
+enum ActorType {
+  USER
+  AI_AGENT
+  SERVICE
+  SYSTEM
+  ANONYMOUS
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+enum EventLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  CRITICAL
+}
+
+enum EventCategory {
+  AUTH
+  AUTHZ
+  SECURITY
+  AI
+  SYSTEM
+  QUEUE
+}
+
+enum AiAgentStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+  MAINTENANCE
+}
+
+enum AiAgentType {
+  RESEARCH
+  ANALYSIS
+  AUTOMATION
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  LOGOUT_ALL
+  REGISTER_SUCCESS
+  REGISTER_FAILURE
+  TOKEN_REFRESH
+  TOKEN_REUSE_DETECTED
+  SESSION_REVOKED
+  ACCOUNT_LOCKED
+  AUTHORIZATION_FAILURE
+  RATE_LIMIT_TRIGGERED
+  SUSPICIOUS_ACTIVITY
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AiTaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Always stored normalised (trimmed, lower-cased) so one address cannot
+  /// become two accounts.
+  email        String  @unique @db.VarChar(254)
+  /// Encoded KDF output, never a plaintext password. Format is self-describing
+  /// (`scrypt$N=...,r=...,p=...$salt$hash`) so parameters can be upgraded.
+  passwordHash String  @db.VarChar(512)
+  displayName  String? @db.VarChar(120)
+
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+
+  /// Failed-login counter driving the temporary lockout. Reset on success.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles          UserRole[]
+  sessions       Session[]
+  aiTasks        AiTask[]
+  auditLogs      AuditLog[]
+  securityEvents SecurityEvent[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Role {
+  id   String   @id @default(uuid()) @db.Uuid
+  name RoleName @unique
+
+  description String @db.VarChar(255)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// A single, explicit capability. Modelled as a row rather than a string on the
+/// role so that a grant can be audited, described and revoked individually.
+model Permission {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stable machine code, e.g. `AI_TASK_CREATE`.
+  code        String @unique @db.VarChar(64)
+  description String @db.VarChar(255)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+/// Join table between roles and permissions. Carries its own timestamp so the
+/// audit trail can answer "when did this role gain this capability?".
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  grantedAt DateTime @default(now())
+  /// Who granted it. Null for seeded defaults.
+  grantedBy String?  @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/// Join table so a user can hold several roles, and so the assignment itself
+/// is a record with its own timestamp.
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+
+  assignedAt DateTime @default(now())
+  /// Who granted this role. Null for system/seed assignments.
+  assignedBy String?  @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------
+
+/// One row per refresh token. Rotation replaces the row rather than mutating
+/// the token, which is what makes reuse detectable.
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 digest of the opaque refresh token. The token itself is returned
+  /// to the client exactly once and is never stored anywhere.
+  refreshTokenHash String @unique @db.Char(64)
+
+  /// All sessions descended from a single login share a family id. When a
+  /// rotated token is replayed, the entire family is revoked at once.
+  familyId String @db.Uuid
+
+  /// Set when this session is rotated; points at its successor. Lets an
+  /// investigator walk the chain after a reuse incident.
+  replacedById String? @db.Uuid
+
+  /// Client-supplied, non-authoritative device hint. Useful for showing a user
+  /// their session list; never trusted as an identity signal.
+  deviceId  String? @db.VarChar(128)
+  ipAddress String? @db.VarChar(45)
+  userAgent String? @db.VarChar(512)
+
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason SessionRevokeReason?
+
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------
+// Oversight
+// ---------------------------------------------------------------------
+
+/// Append-only record of who did what. Never updated, never deleted by the
+/// application — a mutable audit log is not an audit log.
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  actorType   ActorType
+  /// Identifier of the acting principal, whatever its type.
+  actorId     String?   @db.Uuid
+  /// Set only when the actor is a User, so the relation stays valid for agent
+  /// and service actors.
+  actorUserId String?   @db.Uuid
+  actorUser   User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  /// Dotted action name, e.g. `auth.login` or `ai.task.create`.
+  action     String       @db.VarChar(120)
+  resource   String       @db.VarChar(120)
+  resourceId String?      @db.VarChar(120)
+  outcome    AuditOutcome
+
+  ipAddress String? @db.VarChar(45)
+  userAgent String? @db.VarChar(512)
+  requestId String? @db.Uuid
+
+  /// Redacted before it is written. Credentials never reach this column.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+/// Security-relevant occurrences: authentication outcomes, token reuse,
+/// authorisation failures, rate-limit trips.
+///
+/// Kept separate from AuditLog because the two answer different questions.
+/// AuditLog answers "who did what"; SecurityEvent answers "what happened that
+/// security should care about", including events with no legitimate actor.
+model SecurityEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  type     SecurityEventType
+  severity Severity          @default(LOW)
+
+  /// Null when the event cannot be attributed — a login attempt against an
+  /// address that does not exist, for instance.
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  ipAddress String? @db.VarChar(45)
+  userAgent String? @db.VarChar(512)
+  requestId String? @db.Uuid
+
+  /// Redacted before write. Never contains credentials or tokens.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@map("security_events")
+}
+
+/// Operational events about the system's own behaviour — startup, queue
+/// activity, degraded dependencies.
+model SystemEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stable event name from the catalogue in `@molido/logger`.
+  type     String        @db.VarChar(120)
+  severity Severity      @default(LOW)
+  level    EventLevel
+  category EventCategory
+  message  String        @db.VarChar(1000)
+
+  requestId String? @db.Uuid
+  actorId   String? @db.Uuid
+  ipAddress String? @db.VarChar(45)
+
+  /// Redacted before write.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([severity])
+  @@index([category])
+  @@index([type])
+  @@index([createdAt])
+  @@map("system_events")
+}
+
+// ---------------------------------------------------------------------
+// AI
+// ---------------------------------------------------------------------
+
+/// An agent is a bounded capability, not an autonomous actor. Its permissions,
+/// budgets and rate limits live here so they can be inspected and revoked by
+/// the Founder at runtime.
+model AiAgent {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stable machine key, e.g. `research`.
+  key         String        @unique @db.VarChar(64)
+  name        String        @db.VarChar(120)
+  description String        @db.VarChar(1000)
+  type        AiAgentType   @default(RESEARCH)
+  status      AiAgentStatus @default(ACTIVE)
+
+  /// Non-secret runtime settings (temperature, max output, prompt version).
+  /// Credentials never live here — they come from validated configuration.
+  configuration Json?
+
+  /// Explicit allow-list of permission codes. An agent has no ambient
+  /// authority: anything absent from this array is denied.
+  permissions String[]
+
+  /// Budget and throughput ceilings enforced by the orchestrator.
+  maxTokensPerTask Int @default(8000)
+  maxTasksPerHour  Int @default(60)
+
+  /// True when the agent may take actions that need Founder sign-off.
+  requiresApproval Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks AiTask[]
+
+  @@index([status])
+  @@map("ai_agents")
+}
+
+model AiTask {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Null until the orchestrator has selected an agent for the goal.
+  agentId String?  @db.Uuid
+  agent   AiAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  /// The requesting user. Null for system-initiated tasks.
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  goal   String @db.VarChar(4000)
+  input  Json?
+  output Json?
+
+  status AiTaskStatus @default(PENDING)
+  /// Redacted, user-safe failure summary. Stack traces stay in the logs.
+  error  String?      @db.VarChar(2000)
+
+  attempts    Int @default(0)
+  maxAttempts Int @default(3)
+
+  /// Recorded per task so cost is observable from day one.
+  tokensUsed Int @default(0)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@index([agentId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("ai_tasks")
+}

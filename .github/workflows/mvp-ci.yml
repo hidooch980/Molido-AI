@@ -1,0 +1,112 @@
+# MOLIDO AI — MVP monorepo CI.
+#
+# Separate from the legacy `ci.yml`, which builds the older backend/ and web/
+# applications in this repository. Neither workflow interferes with the other.
+#
+# Build, verify, report. Nothing here deploys.
+name: MVP CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'workers/**'
+      - 'infrastructure/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - '.github/workflows/mvp-ci.yml'
+  pull_request:
+    branches: [main]
+
+# Least privilege: the workflow only ever reads the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: mvp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: molido
+          POSTGRES_PASSWORD: molido_ci_password
+          POSTGRES_DB: molido_test
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U molido -d molido_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://molido:molido_ci_password@localhost:5433/molido_test?schema=public
+      REDIS_URL: redis://localhost:6380
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Topological: workspace packages build before the apps that consume them.
+      - name: Build
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Seed roles, permissions and agent registry
+        run: pnpm db:seed
+
+      - name: Write API test environment
+        run: |
+          cat > apps/api/.env.test <<'ENVEOF'
+          NODE_ENV=test
+          LOG_LEVEL=error
+          DATABASE_URL=postgresql://molido:molido_ci_password@localhost:5433/molido_test?schema=public
+          REDIS_URL=redis://localhost:6380
+          JWT_ACCESS_SECRET=ci-only-secret-value-not-used-outside-ci-0123456789
+          CORS_ORIGINS=http://localhost:3000
+          RATE_LIMIT_LIMIT=100000
+          AUTH_RATE_LIMIT_LIMIT=100000
+          AI_PROVIDER=null
+          ENVEOF
+
+      - name: Test
+        run: pnpm test

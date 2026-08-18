@@ -1,0 +1,51 @@
+# MOLIDO AI — scheduled security checks for the MVP monorepo.
+#
+# Dependency and secret scanning belong in CI, not in a checklist somebody
+# remembers to run. Neither is a substitute for an external audit before
+# production.
+name: MVP Security
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['apps/**', 'packages/**', 'workers/**', 'pnpm-lock.yaml']
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly disclosed advisory surfaces without a push.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        # Moderate and above fails the job; the full report is always printed.
+        run: pnpm audit --prod --audit-level moderate
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

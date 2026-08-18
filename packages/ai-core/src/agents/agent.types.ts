@@ -1,4 +1,4 @@
-import type { AIProvider } from '@molido/ai-core';
+import type { AIProvider } from '../types';
 
 /** What the orchestrator hands an agent. Nothing more is in scope. */
 export interface AgentContext {

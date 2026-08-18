@@ -1,0 +1,32 @@
+{
+  "name": "@molido/ai-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Consumes the ai-tasks queue and executes MOLIDO agents.",
+  "license": "MIT",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@molido/ai-core": "workspace:*",
+    "@molido/config": "workspace:*",
+    "@molido/database": "workspace:*",
+    "@molido/logger": "workspace:*",
+    "@molido/queue": "workspace:*",
+    "@molido/security": "workspace:*",
+    "@molido/types": "workspace:*",
+    "bullmq": "^5.81.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { AI_ERROR_CODE, AIProviderError, type AIProvider } from '@molido/ai-core';
 import { z } from 'zod';
+import { AI_ERROR_CODE, AIProviderError } from '../errors';
+import type { AIProvider } from '../types';
 import type { Agent, AgentContext, AgentResult } from './agent.types';
 
 /**
@@ -65,7 +65,12 @@ Rules you must follow:
   clarifying questions in "suggestedNextSteps".
 - Prefer being useful and honest over sounding comprehensive.`;
 
-@Injectable()
+/**
+ * Framework-free on purpose: the agent lives in `@molido/ai-core` so the API
+ * and the queue worker run the *same* implementation. An agent duplicated
+ * across two processes is an agent that will eventually behave differently in
+ * each.
+ */
 export class ResearchAgent implements Agent {
   readonly key = 'research';
 

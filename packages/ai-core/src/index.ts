@@ -14,3 +14,5 @@ export * from './providers/null.provider';
 export * from './providers/ollama.provider';
 export * from './providers/openai-compatible.provider';
 export { extractJson } from './providers/http';
+export * from './agents/agent.types';
+export * from './agents/research.agent';

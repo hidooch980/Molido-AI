@@ -4,12 +4,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 
 import { JwtService } from '@nestjs/jwt';
 
 import { DatabaseService } from '../database/database.service';
+import { SmsService } from '../sms/sms.service';
 import { ShopSettingsDto } from './dto/shop.dto';
 
 /**
@@ -42,7 +43,112 @@ export class ShopService {
   constructor(
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
+    private readonly sms: SmsService,
   ) {}
+
+  // ------------------------------------------------ تأیید شمارهٔ موبایل
+
+  /** عمر کد.  کوتاه است چون پیامک چند ثانیه‌ای می‌رسد. */
+  private static readonly CODE_TTL_MS = 3 * 60 * 1000;
+
+  /** سقف حدس روی یک کد. */
+  private static readonly CODE_MAX_ATTEMPTS = 5;
+
+  /**
+   * کد یک‌بارمصرف می‌سازد و پیامک می‌کند.
+   *
+   * ⚠️ پاسخ **همیشه یکسان** است، چه شماره وجود داشته باشد چه نه.
+   *
+   *    وگرنه همین مسیر تبدیل می‌شود به ابزارِ شمردنِ مشتری‌ها: مهاجم
+   *    شماره‌ها را یکی‌یکی می‌فرستد و از تفاوتِ پاسخ می‌فهمد کدام‌ها
+   *    مشتری‌اند.
+   */
+  async requestPhoneCode(companyId: string, rawPhone: string) {
+    const phone = String(rawPhone ?? '').trim();
+    if (!/^09\d{9}$/.test(phone)) {
+      throw new BadRequestException('شمارهٔ موبایل معتبر نیست');
+    }
+
+    const claimable = await this.db.query<{ id: string }>(
+      `SELECT id FROM "Customer"
+        WHERE "companyId" = $1 AND phone = $2 AND "passwordHash" IS NULL`,
+      [companyId, phone],
+    );
+
+    // چیزی برای تصاحب نیست: کد نمی‌فرستیم، ولی همان پاسخ را می‌دهیم.
+    if (!claimable[0]) return { sent: true };
+
+    const code = String(randomInt(100000, 1000000));
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await this.db.execute(
+      `INSERT INTO "PhoneVerification"
+         (id, "companyId", phone, "codeHash", "expiresAt")
+       VALUES ($1, $2, $3, $4, now() + ($5 || ' milliseconds')::interval)`,
+      [randomUUID(), companyId, phone, codeHash, String(ShopService.CODE_TTL_MS)],
+    );
+
+    await this.sms.send(phone, `کد تأیید مولیدو: ${code}`);
+    return { sent: true };
+  }
+
+  /**
+   * کد را می‌سنجد و مصرف می‌کند — یا خطا می‌دهد.
+   *
+   * ⚠️ در نبودِ کدِ معتبر **بسته** می‌ماند، نه باز.
+   *
+   *    اگر پیامک پیکربندی نشده باشد، `sms.send` شبیه‌سازی می‌کند و
+   *    کد به دستِ مشتری نمی‌رسد — یعنی تصاحب ممکن نیست.  این عمدی
+   *    است: نصبی که پیامک ندارد نباید حسابِ مشتریِ حضوری را به هرکسی
+   *    بدهد.  راهش این است که صندوق‌دار خودش رمز را تنظیم کند.
+   */
+  private async consumePhoneCode(
+    tx: { query: <T>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }> },
+    companyId: string,
+    phone: string,
+    code: string | undefined,
+  ) {
+    const entered = String(code ?? '').trim();
+    if (!entered) {
+      throw new BadRequestException(
+        'این شماره در فروشگاه سابقه دارد — برای ادامه کد تأیید را بگیرید',
+      );
+    }
+
+    const rows = await tx.query<{
+      id: string;
+      codeHash: string;
+      attempts: number;
+    }>(
+      `SELECT id, "codeHash", attempts FROM "PhoneVerification"
+        WHERE "companyId" = $1 AND phone = $2
+          AND "consumedAt" IS NULL AND "expiresAt" > now()
+        ORDER BY "createdAt" DESC LIMIT 1`,
+      [companyId, phone],
+    );
+
+    const row = rows.rows[0];
+    if (!row) throw new BadRequestException('کد تأیید منقضی شده است');
+
+    if (row.attempts >= ShopService.CODE_MAX_ATTEMPTS) {
+      throw new BadRequestException('تلاش بیش از حد — کد تازه بگیرید');
+    }
+
+    if (!(await bcrypt.compare(entered, row.codeHash))) {
+      // شمارنده **پیش از** خطا بالا می‌رود، وگرنه سقف بی‌اثر است.
+      await tx.query(
+        'UPDATE "PhoneVerification" SET attempts = attempts + 1 WHERE id = $1',
+        [row.id],
+      );
+      throw new BadRequestException('کد تأیید نادرست است');
+    }
+
+    // مصرف‌شده: دوباره کار نمی‌کند حتی اگر منقضی نشده باشد.
+    await tx.query(
+      'UPDATE "PhoneVerification" SET "consumedAt" = now() WHERE id = $1',
+      [row.id],
+    );
+  }
 
   /**
    * توکن مشتری.
@@ -228,7 +334,14 @@ export class ShopService {
 
   async register(
     companyId: string,
-    dto: { phone: string; password: string; firstName: string; lastName?: string },
+    dto: {
+      phone: string;
+      password: string;
+      firstName: string;
+      lastName?: string;
+      /** کدِ تأیید — فقط برای تصاحبِ رکوردِ مشتریِ حضوریِ موجود لازم است. */
+      code?: string;
+    },
   ) {
     const phone = String(dto.phone ?? '').trim();
     const password = String(dto.password ?? '');
@@ -257,6 +370,20 @@ export class ShopService {
         if (existing.rows[0].passwordHash) {
           throw new BadRequestException('این شماره قبلاً ثبت‌نام کرده است');
         }
+
+        // ⚠️ تصاحبِ رکوردِ موجود **کدِ تأیید می‌خواهد**.
+        //
+        //    این مسیر تا امروز هیچ اثباتی نمی‌خواست که ثبت‌نام‌کننده
+        //    صاحبِ شماره است.  در آزمون زنده: مهاجم فقط شمارهٔ
+        //    ۰۹۱۲۵۵۵۷۷۷۷ را می‌دانست، ثبت‌نام کرد، و توکنِ حسابِ
+        //    «مریم کریمی» را گرفت — با دسترسی به `/shop/my-orders` او.
+        //
+        //    شمارهٔ موبایل راز نیست: روی رسید نوشته می‌شود، و الگویش
+        //    (۰۹XXXXXXXXX) شمردنی است.
+        //
+        //    ثبت‌نامِ شمارهٔ **تازه** کد نمی‌خواهد — آنجا چیزی برای
+        //    تصاحب نیست و اصطکاکِ بی‌دلیل ثبت‌نام را می‌شکند.
+        await this.consumePhoneCode(tx, companyId, phone, dto.code);
 
         const updated = await tx.query<Row>(
           `UPDATE "Customer" SET "passwordHash" = $1, "updatedAt" = now()

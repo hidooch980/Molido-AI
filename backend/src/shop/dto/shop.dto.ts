@@ -67,6 +67,24 @@ export class ShopRegisterDto {
   @MinLength(6, { message: 'رمز باید دست‌کم ۶ نویسه باشد' })
   @MaxLength(72)
   password!: string;
+
+  /**
+   * کدِ تأیید — فقط وقتی لازم است که این شماره از قبل در فروشگاه
+   * سابقه دارد (مشتریِ حضوری که صندوق‌دار ثبتش کرده).
+   *
+   * ⚠️ اعلامش در DTO **اجباری** است، حتی با `@IsOptional`.
+   *
+   *    `ValidationPipe` با `whitelist` و `forbidNonWhitelisted` کار
+   *    می‌کند: میدانی که اینجا نباشد، درخواست را با ۴۰۰ رد می‌کند.
+   *
+   *    یعنی اگر این چند خط نبود، رفعِ امنیتی «کار می‌کرد» — ولی هیچ
+   *    مشتریِ حضوری‌ای نمی‌توانست ثبت‌نام کند، و علتش هم از پیام خطا
+   *    معلوم نمی‌شد.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  code?: string;
 }
 
 export class ShopLoginDto {

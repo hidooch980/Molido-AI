@@ -135,6 +135,22 @@ export class ShopPublicController {
     return this.service.register(this.company(req), dto);
   }
 
+  /**
+   * کد تأیید برای تصاحبِ رکوردِ مشتریِ حضوری.
+   *
+   * ⚠️ سقفش از ثبت‌نام سخت‌تر است.
+   *
+   *    هر درخواست یک پیامک می‌فرستد — یعنی هم هزینه دارد، هم اگر
+   *    بی‌سقف بماند می‌شود ابزارِ آزارِ یک شماره با ده‌ها پیامک.
+   *
+   *    پاسخ همیشه یکسان است، چه شماره سابقه داشته باشد چه نه.
+   */
+  @Post('register/request-code')
+  @Throttle({ long: { ttl: 60000, limit: 3 } })
+  requestCode(@Req() req: ShopRequest, @Body() dto: { phone: string }) {
+    return this.service.requestPhoneCode(this.company(req), dto?.phone);
+  }
+
   @Post('login')
   @Throttle({ long: { ttl: 60000, limit: 10 } })
   login(

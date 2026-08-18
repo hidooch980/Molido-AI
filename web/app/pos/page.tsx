@@ -1194,7 +1194,7 @@ export default function PosPage() {
             type="button"
             className="ghost"
             onClick={() => setScanning(true)}
-            aria-label="اسکن با دوربین"
+            aria-label={t('scanCamera')}
             style={{ minWidth: 48 }}
           >
             <Icon name="pos" size={20} />

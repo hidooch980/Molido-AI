@@ -155,7 +155,7 @@ export default function ShiftPage() {
   const totalRevenue = top.reduce((s, i) => s + Number(i.revenue || 0), 0);
 
   return (
-    <AppShell title="شیفت و گزارش">
+    <AppShell title={t('menuShift')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -169,12 +169,12 @@ export default function ShiftPage() {
         ) : null}
 
         <section style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-          <Tile label="سفارش‌های باز" value={String(stats.openOrders ?? 0)} />
-          <Tile label="سفارش امروز" value={String(stats.todayOrders ?? 0)} />
-          <Tile label="فروش امروز" value={money(stats.todaySales)} unit="ریال" />
-          <Tile label="میانگین فاکتور" value={money(stats.avgTicket)} unit="ریال" />
+          <Tile label={t('openOrdersTitle')} value={String(stats.openOrders ?? 0)} />
+          <Tile label={t('statTodayOrders')} value={String(stats.todayOrders ?? 0)} />
+          <Tile label={t('todaySales')} value={money(stats.todaySales)} unit={t('stfRial')} />
+          <Tile label={t('statAvgTicket')} value={money(stats.avgTicket)} unit={t('stfRial')} />
           <Tile
-            label="میز آزاد"
+            label={t('statFreeTables')}
             value={`${stats.freeTables ?? 0} از ${stats.tables ?? 0}`}
           />
         </section>

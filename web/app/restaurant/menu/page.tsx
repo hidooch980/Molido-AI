@@ -366,7 +366,7 @@ export default function MenuAdminPage() {
   const countIn = (id: string) => items.filter((i) => (i.categoryId ?? '') === id).length;
 
   return (
-    <AppShell title="منو">
+    <AppShell title={t('tabMenu')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -434,7 +434,7 @@ export default function MenuAdminPage() {
                       }
                       style={INPUT}
                       inputMode="decimal"
-                      aria-label="مقدار"
+                      aria-label={t('colQty')}
                     />
                     <input
                       value={line.unit ?? ''}
@@ -444,8 +444,8 @@ export default function MenuAdminPage() {
                         )
                       }
                       style={INPUT}
-                      placeholder="واحد"
-                      aria-label="واحد"
+                      placeholder={t('unit')}
+                      aria-label={t('unit')}
                     />
                     <input
                       value={String(line.wastePct ?? '')}
@@ -508,7 +508,7 @@ export default function MenuAdminPage() {
         <section style={CARD}>
           <h2 style={H2}>{editing ? 'ویرایش غذا' : 'افزودن غذا'}</h2>
           <form onSubmit={submit} style={FORM}>
-            <Field label="نام">
+            <Field label={t('name')}>
               <input
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -525,7 +525,7 @@ export default function MenuAdminPage() {
                 placeholder="850000"
               />
             </Field>
-            <Field label="بهای تمام‌شده">
+            <Field label={t('costCol')}>
               <input
                 value={draft.cost}
                 onChange={(e) => setDraft({ ...draft, cost: e.target.value })}
@@ -533,7 +533,7 @@ export default function MenuAdminPage() {
                 inputMode="numeric"
               />
             </Field>
-            <Field label="دسته">
+            <Field label={t('assetCategory')}>
               <select
                 value={draft.categoryId}
                 onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
@@ -547,7 +547,7 @@ export default function MenuAdminPage() {
                 ))}
               </select>
             </Field>
-            <Field label="ایستگاه">
+            <Field label={t('station')}>
               <select
                 value={draft.station}
                 onChange={(e) => setDraft({ ...draft, station: e.target.value })}
@@ -570,7 +570,7 @@ export default function MenuAdminPage() {
                 placeholder="10"
               />
             </Field>
-            <Field label="کد">
+            <Field label={t('code')}>
               <input
                 value={draft.code}
                 onChange={(e) => setDraft({ ...draft, code: e.target.value })}

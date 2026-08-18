@@ -464,7 +464,7 @@ const field: React.CSSProperties = {
 
   return (
     <AppShell
-      title="مریم — منشی خرید"
+      title={t('menuPurchasing')}
       subtitle="استعلام قیمت از بنکدارها، مقایسه، و صدور فاکتور خرید"
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
@@ -482,8 +482,8 @@ const field: React.CSSProperties = {
       <div className="stats-grid">
         <StatCard icon="alert" label="کالای کم‌موجود" value={fa(suggestions.length)} />
         <StatCard icon="clipboard" label="استعلام باز" value={fa(inquiries.filter((i) => !['ORDERED', 'CANCELLED'].includes(i.status)).length)} />
-        <StatCard icon="check" label="سفارش‌شده" value={fa(inquiries.filter((i) => i.status === 'ORDERED').length)} />
-        <StatCard icon="package" label="انتخاب‌شده" value={fa(totalPicked)} />
+        <StatCard icon="check" label={t('pStatusORDERED')} value={fa(inquiries.filter((i) => i.status === 'ORDERED').length)} />
+        <StatCard icon="package" label={t('selected')} value={fa(totalPicked)} />
       </div>
 
       {/* ---------------------------------------- ۱) چه چیزی کم داریم */}
@@ -1017,7 +1017,7 @@ const field: React.CSSProperties = {
               value={fa(comparison.summary.uncovered)}
               accent={comparison.summary.uncovered > 0 ? 'var(--warning)' : undefined}
             />
-            <StatCard icon="agent" label="تأمین‌کننده" value={fa(comparison.summary.supplierCount)} />
+            <StatCard icon="agent" label={t('supplier')} value={fa(comparison.summary.supplierCount)} />
           </div>
 
           {comparison.summary.expensive.length > 0 && (

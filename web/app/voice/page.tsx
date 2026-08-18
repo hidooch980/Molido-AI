@@ -75,6 +75,7 @@ const MIN_SPEAKERS = 3;
 const num = (value: unknown) => Number(value ?? 0);
 
 export default function VoicePage() {
+  const { t } = useI18n();
   const [dialects, setDialects] = useState<Dialect[]>([]);
   const [dialect, setDialect] = useState('SARHADDI');
   const [phrases, setPhrases] = useState<Phrase[]>([]);
@@ -170,7 +171,7 @@ export default function VoicePage() {
   }, [phrases, kindFilter]);
 
   return (
-    <AppShell title="پیکرهٔ صوتی بلوچی">
+    <AppShell title={t('menuVoice')}>
       <div style={{ display: 'grid', gap: 16 }}>
         <Header
           dialects={dialects}

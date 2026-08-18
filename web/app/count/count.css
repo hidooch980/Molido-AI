@@ -400,3 +400,22 @@
     transition: none;
   }
 }
+
+/* ---------- صفِ نرفته ---------- */
+
+/*
+ * ⚠️ رنگش کهربایی است، نه قرمز.
+ *
+ *    شمارشِ در صف **گم نشده** — روی دستگاه است و خودش می‌رود.  قرمز
+ *    یعنی «خراب شد» و انباردار را وامی‌دارد دوباره بشمارد؛ کهربایی
+ *    یعنی «هنوز نرفته»، که واقعیت است.
+ */
+.cnt-queue {
+  margin: 0;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--cnt-warn) 16%, transparent);
+  color: var(--cnt-warn);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}

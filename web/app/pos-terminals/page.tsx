@@ -303,7 +303,7 @@ export default function PosTerminalsPage() {
   }, [list]);
 
   return (
-    <AppShell title="کارت‌خوان‌ها">
+    <AppShell title={t('menuPos')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -346,7 +346,7 @@ export default function PosTerminalsPage() {
                 placeholder="12345678"
               />
             </Field>
-            <Field label="بانک">
+            <Field label={t('bankName')}>
               <select
                 value={draft.bankName}
                 onChange={(e) => setDraft({ ...draft, bankName: e.target.value })}
@@ -374,7 +374,7 @@ export default function PosTerminalsPage() {
                 ))}
               </select>
             </Field>
-            <Field label="نوع">
+            <Field label={t('returnType')}>
               <select
                 value={draft.type}
                 onChange={(e) => setDraft({ ...draft, type: e.target.value })}
@@ -402,7 +402,7 @@ export default function PosTerminalsPage() {
                 style={INPUT}
               />
             </Field>
-            <Field label="شبا">
+            <Field label={t('iban')}>
               <input
                 value={draft.iban}
                 onChange={(e) => setDraft({ ...draft, iban: e.target.value })}
@@ -410,7 +410,7 @@ export default function PosTerminalsPage() {
                 placeholder="IR…"
               />
             </Field>
-            <Field label="شماره حساب">
+            <Field label={t('accountNo')}>
               <input
                 value={draft.accountNo}
                 onChange={(e) => setDraft({ ...draft, accountNo: e.target.value })}

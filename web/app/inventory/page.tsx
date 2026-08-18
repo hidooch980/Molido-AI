@@ -256,7 +256,7 @@ export default function InventoryPage() {
             className="ghost"
             style={TOUCH}
             onClick={() => setScanning(true)}
-            aria-label="اسکن با دوربین"
+            aria-label={t('scanCamera')}
           >
             <Icon name="pos" size={20} />
           </button>

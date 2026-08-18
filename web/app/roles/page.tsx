@@ -108,7 +108,7 @@ export default function RolesPage() {
 
   if (!catalog) {
     return (
-      <AppShell title="اختیارات نقش‌ها">
+      <AppShell title={t('menuRoles')}>
         {error ? (
           <div role="alert" style={ALERT}>
             {error}
@@ -121,7 +121,7 @@ export default function RolesPage() {
   }
 
   return (
-    <AppShell title="اختیارات نقش‌ها">
+    <AppShell title={t('menuRoles')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>

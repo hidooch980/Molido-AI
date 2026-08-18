@@ -154,7 +154,7 @@ export default function KitchenPage() {
   const ready = visible.filter((i) => i.status === 'READY');
 
   return (
-    <AppShell title="آشپزخانه">
+    <AppShell title={t('tabKitchen')}>
       <div style={{ display: 'grid', gap: 16 }}>
         <header
           style={{
@@ -201,7 +201,7 @@ export default function KitchenPage() {
               key={item.id}
               item={item}
               busy={busy === item.id}
-              action="آماده شد"
+              action={t('markReady')}
               onAction={() => setStatus(item, 'READY')}
             />
           ))}
@@ -214,7 +214,7 @@ export default function KitchenPage() {
                 key={item.id}
                 item={item}
                 busy={busy === item.id}
-                action="تحویل شد"
+                action={t('markDelivered')}
                 onAction={() => setStatus(item, 'SERVED')}
                 ready
               />

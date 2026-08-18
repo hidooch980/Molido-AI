@@ -158,7 +158,7 @@ export default function BarcodeScanner({
   return (
     <div
       role="dialog"
-      aria-label="اسکن بارکد"
+      aria-label={t('bcScan')}
       style={{
         position: 'fixed',
         inset: 0,
@@ -195,7 +195,7 @@ export default function BarcodeScanner({
             color: '#fff',
             cursor: 'pointer',
           }}
-          aria-label="بستن"
+          aria-label={t('close')}
         >
           <Icon name="x" size={22} />
         </button>

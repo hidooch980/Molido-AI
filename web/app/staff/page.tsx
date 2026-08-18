@@ -339,7 +339,7 @@ export default function StaffPage() {
   const payrollTotal = periodSlips.reduce((s, x) => s + Number(x.netPay || 0), 0);
 
   return (
-    <AppShell title="کارکنان">
+    <AppShell title={t('menuStaff')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -433,7 +433,7 @@ export default function StaffPage() {
             <section style={CARD}>
               <h2 style={H2}>{t('stfRecordAttendance')}</h2>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <Field label="کارمند">
+                <Field label={t('roleEMPLOYEE')}>
                   <select value={attEmp} onChange={(e) => setAttEmp(e.target.value)} style={INPUT}>
                     {employees.map((e) => (
                       <option key={e.id} value={e.id}>
@@ -442,7 +442,7 @@ export default function StaffPage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="تاریخ">
+                <Field label={t('date')}>
                   <input
                     type="date"
                     value={attDate}
@@ -450,7 +450,7 @@ export default function StaffPage() {
                     style={INPUT}
                   />
                 </Field>
-                <Field label="ورود">
+                <Field label={t('signIn')}>
                   <input
                     type="time"
                     value={attIn}
@@ -458,7 +458,7 @@ export default function StaffPage() {
                     style={INPUT}
                   />
                 </Field>
-                <Field label="خروج">
+                <Field label={t('logout')}>
                   <input
                     type="time"
                     value={attOut}
@@ -544,7 +544,7 @@ export default function StaffPage() {
             <section style={CARD}>
               <h2 style={H2}>{t('stfLeaveRequest')}</h2>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <Field label="کارمند">
+                <Field label={t('roleEMPLOYEE')}>
                   <select value={lvEmp} onChange={(e) => setLvEmp(e.target.value)} style={INPUT}>
                     {employees.map((e) => (
                       <option key={e.id} value={e.id}>
@@ -553,7 +553,7 @@ export default function StaffPage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="نوع">
+                <Field label={t('returnType')}>
                   <select value={lvKind} onChange={(e) => setLvKind(e.target.value)} style={INPUT}>
                     {Object.entries(LEAVE_KIND_FA).map(([k, v]) => (
                       <option key={k} value={k}>
@@ -578,7 +578,7 @@ export default function StaffPage() {
                     style={INPUT}
                   />
                 </Field>
-                <Field label="دلیل">
+                <Field label={t('reason')}>
                   <input
                     value={lvReason}
                     onChange={(e) => setLvReason(e.target.value)}
@@ -715,7 +715,7 @@ export default function StaffPage() {
             <section style={CARD}>
               <h2 style={H2}>صدور فیش — دورهٔ {period}</h2>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <Field label="کارمند">
+                <Field label={t('roleEMPLOYEE')}>
                   <select value={slEmp} onChange={(e) => setSlEmp(e.target.value)} style={INPUT}>
                     {employees
                       .filter((e) => e.isActive)

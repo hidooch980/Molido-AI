@@ -247,7 +247,7 @@ export default function SetupPage() {
   const orphans = tablesOf(null);
 
   return (
-    <AppShell title="چیدمان سالن">
+    <AppShell title={t('menuFloorSetup')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -263,7 +263,7 @@ export default function SetupPage() {
         <section style={CARD}>
           <h2 style={H2}>{t('stpNewHall')}</h2>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <Field label="نام">
+            <Field label={t('name')}>
               <input
                 value={areaName}
                 onChange={(e) => setAreaName(e.target.value)}
@@ -313,7 +313,7 @@ export default function SetupPage() {
                 placeholder="۲۰"
               />
             </Field>
-            <Field label="ظرفیت">
+            <Field label={t('stpCapacity')}>
               <input
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
@@ -321,7 +321,7 @@ export default function SetupPage() {
                 inputMode="numeric"
               />
             </Field>
-            <Field label="سالن">
+            <Field label={t('typeDINE_IN')}>
               <select
                 value={tableArea}
                 onChange={(e) => setTableArea(e.target.value)}

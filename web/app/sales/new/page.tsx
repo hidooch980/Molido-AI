@@ -1002,7 +1002,7 @@ export default function NewInvoicePage() {
               <div style={{ display: 'grid', gap: 5, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>{selected.name}</div>
                 <Row k="موجودی انبار" v={selected.available === null ? '—' : fa(selected.available)} />
-                <Row k="مقدار" v={`${fa(selected.quantity)} ${selected.unit}`} />
+                <Row k={t('colQty')} v={`${fa(selected.quantity)} ${selected.unit}`} />
                 <Row k="مبلغ ناخالص" v={fa(lineGross(selected))} />
                 <Row k="تخفیف قلم" v={fa(lineDiscountAmount(selected))} />
               </div>
@@ -1062,7 +1062,7 @@ export default function NewInvoicePage() {
               ) : (
                 <Percent
                   id="vat"
-                  label="مالیات بر ارزش افزوده"
+                  label={t('statVat')}
                   value={extras.fallbackTaxPercent}
                   amount={totals.tax}
                   onChange={(v) => setExtras((e) => ({ ...e, fallbackTaxPercent: v }))}
@@ -1104,7 +1104,7 @@ export default function NewInvoicePage() {
               <Row k="جمع مبلغ کالاها" v={fa(totals.itemsTotal)} />
               <Row k="تخفیف ردیف‌ها" v={fa(totals.lineDiscount)} />
               <Row k="تخفیف کلی" v={fa(totals.overallDiscount)} />
-              <Row k="مالیات" v={fa(totals.tax)} />
+              <Row k={t('tax')} v={fa(totals.tax)} />
               <Row k="اضافات" v={fa(totals.additions)} />
               <Row k="کسورات" v={fa(totals.deductions)} />
               <div
@@ -1152,7 +1152,7 @@ export default function NewInvoicePage() {
 
                 {ration && (
                   <div style={{ marginTop: 6, display: 'grid', gap: 4, fontSize: 13 }}>
-                    <Row k="سرپرست" v={ration.holderName ?? '—'} />
+                    <Row k={t('roleMANAGER')} v={ration.holderName ?? '—'} />
                     <Row k="اعتبار موجود" v={fa(ration.balance)} />
                     {/* سهمِ این خرید از اعتبار — تا مشتری بداند چقدر
                         باید نقد بدهد، نه اینکه پای صندوق معلوم شود. */}

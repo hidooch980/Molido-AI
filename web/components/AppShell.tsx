@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { clearToken, getToken } from '../lib/api';
+import { clearMine } from '../lib/offline-queue';
 import { LANGS, type Lang } from '../lib/i18n';
 import { useI18n } from '../lib/i18n-context';
 import { companyName, loadCompany } from '../lib/company';
@@ -192,6 +193,15 @@ export default function AppShell({
   }
 
   function logout() {
+    // ⚠️ صفِ نرفته **پیش از** پاک شدن توکن خالی می‌شود.
+    //
+    //    `clearMine()` شناسهٔ کاربر را از خودِ توکن می‌خواند.  اگر
+    //    اول توکن پاک شود، صف صاحبش را گم می‌کند و رکوردها روی
+    //    دستگاه می‌مانند — تا ابد، چون هیچ‌کس دیگر مالکشان نیست.
+    //
+    //    صفِ کاربرانِ دیگر دست نمی‌خورد: ممکن است انباردارِ دیگری روی
+    //    همین دستگاه کارِ نیمه‌تمام داشته باشد.
+    void clearMine();
     clearToken();
     router.replace('/');
   }

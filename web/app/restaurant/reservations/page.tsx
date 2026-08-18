@@ -239,7 +239,7 @@ export default function ReservationsPage() {
   };
 
   return (
-    <AppShell title="رزرو">
+    <AppShell title={t('tableReserved')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -263,7 +263,7 @@ export default function ReservationsPage() {
                 placeholder="آقای رضایی"
               />
             </Field>
-            <Field label="تلفن">
+            <Field label={t('phone')}>
               <input
                 value={draft.phone}
                 onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
@@ -296,7 +296,7 @@ export default function ReservationsPage() {
                 inputMode="numeric"
               />
             </Field>
-            <Field label="میز">
+            <Field label={t('table')}>
               <select
                 value={draft.tableId}
                 onChange={(e) => setDraft({ ...draft, tableId: e.target.value })}
@@ -312,7 +312,7 @@ export default function ReservationsPage() {
                 ))}
               </select>
             </Field>
-            <Field label="یادداشت">
+            <Field label={t('note')}>
               <input
                 value={draft.note}
                 onChange={(e) => setDraft({ ...draft, note: e.target.value })}

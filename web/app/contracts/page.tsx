@@ -312,7 +312,7 @@ export default function ContractsPage() {
   const totalOverdue = list.reduce((s, c) => s + overdueOf(c), 0);
 
   return (
-    <AppShell title="قراردادها">
+    <AppShell title={t('menuContracts')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error ? (
           <div role="alert" style={ALERT}>
@@ -344,7 +344,7 @@ export default function ContractsPage() {
         <section style={CARD}>
           <h2 style={H2}>{t('ctrNew')}</h2>
           <form onSubmit={create} style={FORM}>
-            <Field label="شماره">
+            <Field label={t('colNumber')}>
               <input
                 value={draft.contractNo}
                 onChange={(e) => setDraft({ ...draft, contractNo: e.target.value })}
@@ -352,7 +352,7 @@ export default function ContractsPage() {
                 placeholder="C-1001"
               />
             </Field>
-            <Field label="عنوان">
+            <Field label={t('title')}>
               <input
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -360,7 +360,7 @@ export default function ContractsPage() {
                 placeholder="اجارهٔ مغازه"
               />
             </Field>
-            <Field label="نوع">
+            <Field label={t('returnType')}>
               <select
                 value={draft.type}
                 onChange={(e) => setDraft({ ...draft, type: e.target.value })}
@@ -380,7 +380,7 @@ export default function ContractsPage() {
                 style={INPUT}
               />
             </Field>
-            <Field label="تلفن">
+            <Field label={t('phone')}>
               <input
                 value={draft.partyPhone}
                 onChange={(e) => setDraft({ ...draft, partyPhone: e.target.value })}
@@ -396,7 +396,7 @@ export default function ContractsPage() {
                 inputMode="numeric"
               />
             </Field>
-            <Field label="از تاریخ">
+            <Field label={t('fromDate')}>
               <input
                 type="date"
                 value={draft.startDate}
@@ -404,7 +404,7 @@ export default function ContractsPage() {
                 style={INPUT}
               />
             </Field>
-            <Field label="تا تاریخ">
+            <Field label={t('toDate')}>
               <input
                 type="date"
                 value={draft.endDate}
@@ -627,7 +627,7 @@ export default function ContractsPage() {
                             inputMode="numeric"
                           />
                         </Field>
-                        <Field label="سررسید">
+                        <Field label={t('dueDate')}>
                           <input
                             type="date"
                             value={payDue}
@@ -635,7 +635,7 @@ export default function ContractsPage() {
                             style={INPUT}
                           />
                         </Field>
-                        <Field label="یادداشت">
+                        <Field label={t('note')}>
                           <input
                             value={payNote}
                             onChange={(e) => setPayNote(e.target.value)}

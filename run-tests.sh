@@ -181,6 +181,9 @@ node --experimental-strip-types web/scripts/verify-price-speech.mjs 2>&1 | tail 
 echo '--- phone ---'
 node --experimental-strip-types web/scripts/verify-phone.mjs 2>&1 | tail -2
 
+echo '--- offline queue ---'
+node --experimental-strip-types web/scripts/verify-offline-queue.mjs 2>&1 | tail -2
+
 echo '--- provider scope ---'
 node web/scripts/verify-provider-scope.mjs 2>&1 | tail -2
 

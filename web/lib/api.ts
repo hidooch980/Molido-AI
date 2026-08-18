@@ -118,7 +118,19 @@ export async function api<T = unknown>(
     //
     //    اینجا ترجمه می‌شود چون تنها جایی است که هم زبان را می‌داند و
     //    هم همهٔ درخواست‌ها از آن رد می‌شوند.
-    throw new Error(NETWORK_ERROR[getStoredLang()] ?? NETWORK_ERROR.fa);
+    // ⚠️ پرچمِ `isNetwork` روی خطا می‌نشیند، نه فقط متن.
+    //
+    //    صداکننده باید بتواند «شبکه نبود» را از «سرور رد کرد» جدا کند
+    //    — اولی در صفِ آفلاین می‌نشیند، دومی نه.
+    //
+    //    مقایسهٔ **متن** جواب نمی‌دهد: متن با زبانِ کاربر عوض می‌شود،
+    //    و کدی که به رشتهٔ فارسی تکیه کند، برای کاربر انگلیسی خاموش
+    //    می‌شکند.
+    const netErr = new Error(
+      NETWORK_ERROR[getStoredLang()] ?? NETWORK_ERROR.fa,
+    ) as Error & { isNetwork?: boolean };
+    netErr.isNetwork = true;
+    throw netErr;
   }
 
   if (!response.ok) {

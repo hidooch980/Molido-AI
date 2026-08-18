@@ -232,7 +232,7 @@ export default function SmsPage() {
 
   return (
     <AppShell
-      title="پیامک"
+      title={t('menuSms')}
       subtitle="ارسال گروهی، انصراف مشتری، تاریخچه و قالب"
       actions={
         <button type="button" className="btn-sm" onClick={() => void load()}>
@@ -248,11 +248,11 @@ export default function SmsPage() {
       ) : null}
 
       <div className="stats-grid">
-        <StatCard icon="check" label="ارسال‌شده" value={fa(stats?.sent ?? 0)} />
+        <StatCard icon="check" label={t('shipped')} value={fa(stats?.sent ?? 0)} />
         <StatCard icon="clock" label="۳۰ روز اخیر" value={fa(stats?.sent30d ?? 0)} />
         <StatCard
           icon="alert"
-          label="ناموفق"
+          label={t('taxFailed')}
           value={fa(stats?.failed ?? 0)}
           accent={Number(stats?.failed ?? 0) > 0 ? 'var(--warning)' : undefined}
         />

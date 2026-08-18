@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { type AiTaskStatus } from '@molido/database';
 import type { PublicAiAgent, PublicAiTask } from '@molido/types';
@@ -10,8 +21,8 @@ import {
   type AuthenticatedActor,
   type MolidoRequest,
 } from '../../common/request-context';
-import { AiService } from './ai.service';
-import { CreateAiTaskDto } from './dto/ai-task.dto';
+import { AiService, type PagedTasks } from './ai.service';
+import { CreateAiTaskDto, ListAiTasksDto } from './dto/ai-task.dto';
 
 export interface CreateAiTaskResponse {
   taskId: string;
@@ -59,19 +70,46 @@ export class AiController {
 
   @Get('tasks')
   @RequirePermissions('AI_TASK_READ')
-  @ApiOperation({ summary: 'List your AI tasks, newest first.' })
-  async listTasks(@Actor() actor: AuthenticatedActor): Promise<PublicAiTask[]> {
-    return this.ai.listTasks(actor);
+  @ApiOperation({ summary: 'List your AI tasks, newest first. Paginated.' })
+  async listTasks(
+    @Query() query: ListAiTasksDto,
+    @Actor() actor: AuthenticatedActor,
+  ): Promise<PagedTasks> {
+    return this.ai.listTasks(actor, { page: query.page, pageSize: query.pageSize });
   }
 
   @Get('tasks/:id')
   @RequirePermissions('AI_TASK_READ')
   @ApiOperation({ summary: 'Read one AI task.' })
   async getTask(
-    @Param('id') taskId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) taskId: string,
     @Actor() actor: AuthenticatedActor,
   ): Promise<PublicAiTask & { output: Record<string, unknown> | null }> {
     return this.ai.getTask(taskId, actor);
+  }
+
+  /**
+   * Cancel a task.
+   *
+   * Only PENDING and RUNNING tasks can be cancelled; anything finished is left
+   * as it is, and the response says whether the cancellation actually applied
+   * rather than reporting success either way.
+   */
+  @Post('tasks/:id/cancel')
+  @RequirePermissions('AI_TASK_CANCEL')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a pending or running task.' })
+  async cancelTask(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) taskId: string,
+    @Actor() actor: AuthenticatedActor,
+    @Req() request: MolidoRequest,
+  ): Promise<{ cancelled: boolean }> {
+    const cancelled = await this.ai.cancelTask(taskId, actor, {
+      ipAddress: clientIp(request),
+      userAgent: clientUserAgent(request),
+      requestId: request.requestId,
+    });
+    return { cancelled };
   }
 
   @Get('agents')

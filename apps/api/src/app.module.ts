@@ -11,16 +11,31 @@ import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { OversightModule } from './modules/oversight/oversight.module';
+import { FounderModule } from './modules/founder/founder.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { SystemModule } from './modules/system/system.module';
 
-/** Routes that accept credentials, and are therefore rate limited far harder. */
-const AUTH_ROUTE_PREFIX = '/api/v1/auth/';
+/**
+ * Routes that accept credentials, and are therefore rate limited far harder.
+ *
+ * Listed exactly rather than by prefix. `/auth/me` and `/auth/sessions` live
+ * under the same prefix but are ordinary authenticated reads — the app calls
+ * `/auth/me` on every page load, so sweeping them into a 10-per-minute ceiling
+ * would log active users out for using the product normally.
+ */
+const CREDENTIAL_ROUTES = [
+  '/api/v1/auth/register',
+  '/api/v1/auth/login',
+  '/api/v1/auth/refresh',
+] as const;
 
-function isAuthRoute(context: ExecutionContext): boolean {
+function isCredentialRoute(context: ExecutionContext): boolean {
   if (context.getType() !== 'http') return false;
   const request = context.switchToHttp().getRequest<{ url?: string }>();
-  return (request.url ?? '').startsWith(AUTH_ROUTE_PREFIX);
+  // Compare the path only; a query string must not defeat the match.
+  const path = (request.url ?? '').split('?')[0] ?? '';
+  return CREDENTIAL_ROUTES.some((route) => path === route);
 }
 
 @Module({
@@ -29,6 +44,7 @@ function isAuthRoute(context: ExecutionContext): boolean {
     PrismaModule,
     RedisModule,
     OversightModule,
+    SystemModule,
     ThrottlerModule.forRootAsync({
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => ({
@@ -41,7 +57,7 @@ function isAuthRoute(context: ExecutionContext): boolean {
             name: 'default',
             ttl: config.rateLimit.global.ttlSeconds * 1000,
             limit: config.rateLimit.global.limit,
-            skipIf: (context) => isAuthRoute(context),
+            skipIf: (context) => isCredentialRoute(context),
           },
           {
             // Credential-accepting routes only, where a generous ceiling would
@@ -49,7 +65,7 @@ function isAuthRoute(context: ExecutionContext): boolean {
             name: 'auth',
             ttl: config.rateLimit.auth.ttlSeconds * 1000,
             limit: config.rateLimit.auth.limit,
-            skipIf: (context) => !isAuthRoute(context),
+            skipIf: (context) => !isCredentialRoute(context),
           },
         ],
       }),
@@ -57,6 +73,7 @@ function isAuthRoute(context: ExecutionContext): boolean {
     AuthModule,
     HealthModule,
     AiModule,
+    FounderModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

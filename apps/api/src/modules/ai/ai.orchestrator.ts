@@ -1,5 +1,10 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AI_ERROR_CODE, AIProviderError, isAIProviderError } from '@molido/ai-core';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import {
   ActorType,
   AiAgentStatus,
@@ -7,14 +12,12 @@ import {
   AuditOutcome,
   UserStatus,
   type AiAgent,
-  type Prisma,
 } from '@molido/database';
 import type { Permission } from '@molido/types';
 import { AuditService } from '../oversight/audit.service';
+import { SystemStateService } from '../system/system-state.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiProviderService } from './ai.provider';
-import type { Agent, AgentContext } from './agents/agent.types';
-import { ResearchAgent } from './agents/research.agent';
+import { AiQueueService } from './ai-queue.service';
 
 export interface OrchestrationRequest {
   userId: string;
@@ -44,18 +47,29 @@ export interface OrchestrationResult {
 @Injectable()
 export class AiOrchestrator {
   private readonly logger = new Logger(AiOrchestrator.name);
-  private readonly agents: Map<string, Agent>;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly providers: AiProviderService,
     private readonly audit: AuditService,
-    researchAgent: ResearchAgent,
-  ) {
-    this.agents = new Map<string, Agent>([[researchAgent.key, researchAgent]]);
-  }
+    private readonly systemState: SystemStateService,
+    private readonly queue: AiQueueService,
+  ) {}
 
   async run(request: OrchestrationRequest): Promise<OrchestrationResult> {
+    // 0. Global mode. A paused platform refuses *new* work and says so
+    //    plainly. Tasks already queued or running are deliberately left
+    //    untouched — silently destroying a user's in-flight job would be a
+    //    worse failure than the one a pause is meant to contain.
+    const state = await this.systemState.current();
+    if (state.mode === 'PAUSED') {
+      await this.recordDenied(request, 'system paused');
+      throw new ServiceUnavailableException(
+        state.reason
+          ? `MOLIDO AI is paused: ${state.reason}`
+          : 'MOLIDO AI is paused. New AI tasks are not being accepted right now.',
+      );
+    }
+
     // 1. Permission. Checked here as well as at the route, because the
     //    orchestrator is the thing that must never execute an agent for an
     //    actor who is not entitled to one.
@@ -89,108 +103,90 @@ export class AiOrchestrator {
       );
     }
 
-    const implementation = this.agents.get(agentRecord.key);
-    if (!implementation) {
-      // Registered in the database but not wired up in code. A configuration
-      // fault, not a user error.
-      this.logger.error(`Agent ${agentRecord.key} is registered but has no implementation`);
-      throw new NotFoundException(`Unknown agent: ${request.agentKey}`);
-    }
-
     // 4. Throughput ceiling, enforced per agent.
     await this.assertWithinRateLimit(agentRecord);
 
-    // 5. Record the task before any work happens, so a crash mid-execution
-    //    still leaves a trace rather than a silent disappearance.
+    // 5. Record the task before any work happens, so a crash still leaves a
+    //    trace rather than a silent disappearance.
     const task = await this.prisma.aiTask.create({
       data: {
         userId: request.userId,
         agentId: agentRecord.id,
         goal: request.goal,
-        status: AiTaskStatus.RUNNING,
-        maxAttempts: 1,
-        attempts: 1,
-        startedAt: new Date(),
+        status: AiTaskStatus.PENDING,
+        maxAttempts: 3,
       },
     });
 
+    // 6. Hand it to the queue. Execution happens in the worker, so a slow model
+    //    cannot hold an HTTP request open, and a restart does not lose work.
     try {
-      const context: AgentContext = {
+      await this.queue.enqueue({
         taskId: task.id,
-        goal: request.goal,
-        configuration: (agentRecord.configuration as Record<string, unknown>) ?? {},
-        maxOutputTokens: agentRecord.maxTokensPerTask,
-      };
-
-      const result = await implementation.execute(this.providers.provider, context);
-
-      await this.prisma.aiTask.update({
-        where: { id: task.id },
-        data: {
-          status: AiTaskStatus.COMPLETED,
-          output: result.output as Prisma.InputJsonObject,
-          tokensUsed: result.tokensUsed,
-          completedAt: new Date(),
-        },
-      });
-
-      await this.audit.record({
-        actorType: ActorType.USER,
-        actorId: request.userId,
-        actorUserId: request.userId,
-        action: 'ai.task.execute',
-        resource: 'ai_task',
-        resourceId: task.id,
-        outcome: AuditOutcome.SUCCESS,
-        ipAddress: request.ipAddress,
-        userAgent: request.userAgent,
+        agentKey: agentRecord.key,
+        userId: request.userId,
         requestId: request.requestId,
-        metadata: {
-          agent: agentRecord.key,
-          tokensUsed: result.tokensUsed,
-          // The goal text is not copied into the audit row; the task row
-          // already holds it, and duplicating user content widens exposure.
-          goalChars: request.goal.length,
-        },
       });
-
-      return { taskId: task.id, status: AiTaskStatus.COMPLETED, output: result.output, error: null };
     } catch (error) {
-      const failure = toPublicFailure(error);
-
+      // A task recorded as PENDING that no worker will ever see is worse than
+      // an honest failure at submission time, so the row is marked FAILED and
+      // the caller is told.
+      this.logger.error(
+        `Failed to enqueue task ${task.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
       await this.prisma.aiTask.update({
         where: { id: task.id },
         data: {
           status: AiTaskStatus.FAILED,
-          // A redacted, user-safe summary. The full error goes to the log.
-          error: `${failure.code}: ${failure.message}`.slice(0, 2000),
+          error: 'QUEUE_UNAVAILABLE: the task could not be queued for processing',
           completedAt: new Date(),
         },
       });
-
       await this.audit.record({
         actorType: ActorType.USER,
         actorId: request.userId,
         actorUserId: request.userId,
-        action: 'ai.task.execute',
+        action: 'ai.task.enqueue',
         resource: 'ai_task',
         resourceId: task.id,
         outcome: AuditOutcome.FAILURE,
         ipAddress: request.ipAddress,
         userAgent: request.userAgent,
         requestId: request.requestId,
-        metadata: { agent: agentRecord.key, errorCode: failure.code },
       });
-
-      if (!isAIProviderError(error)) {
-        this.logger.error(
-          `Agent ${agentRecord.key} failed unexpectedly on task ${task.id}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-
-      return { taskId: task.id, status: AiTaskStatus.FAILED, output: null, error: failure };
+      return {
+        taskId: task.id,
+        status: AiTaskStatus.FAILED,
+        output: null,
+        error: {
+          code: 'QUEUE_UNAVAILABLE',
+          message: 'The task could not be queued for processing. Please try again.',
+          retryable: true,
+        },
+      };
     }
+
+    await this.audit.record({
+      actorType: ActorType.USER,
+      actorId: request.userId,
+      actorUserId: request.userId,
+      action: 'ai.task.create',
+      resource: 'ai_task',
+      resourceId: task.id,
+      outcome: AuditOutcome.SUCCESS,
+      ipAddress: request.ipAddress,
+      userAgent: request.userAgent,
+      requestId: request.requestId,
+      metadata: {
+        agent: agentRecord.key,
+        // The goal text is not copied here; the task row already holds it, and
+        // duplicating user content widens exposure for no benefit.
+        goalChars: request.goal.length,
+      },
+    });
+
+    return { taskId: task.id, status: AiTaskStatus.PENDING, output: null, error: null };
   }
 
   /** Agent-level throughput ceiling, counted over the trailing hour. */
@@ -221,21 +217,4 @@ export class AiOrchestrator {
       metadata: { reason, agent: request.agentKey },
     });
   }
-}
-
-/**
- * Reduce any thrown value to something safe to hand a client.
- *
- * A provider error keeps its code so the caller can distinguish "not
- * configured" from "try again". Anything else collapses to a generic code —
- * an unexpected exception's message can carry internals.
- */
-function toPublicFailure(error: unknown): { code: string; message: string; retryable: boolean } {
-  if (isAIProviderError(error)) return error.toPublicJSON();
-  if (error instanceof AIProviderError) return error.toPublicJSON();
-  return {
-    code: AI_ERROR_CODE.UNKNOWN,
-    message: 'The AI task could not be completed.',
-    retryable: false,
-  };
 }

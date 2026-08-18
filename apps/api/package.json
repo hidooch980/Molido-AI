@@ -21,6 +21,7 @@
     "@molido/config": "workspace:*",
     "@molido/database": "workspace:*",
     "@molido/logger": "workspace:*",
+    "@molido/queue": "workspace:*",
     "@molido/security": "workspace:*",
     "@molido/types": "workspace:*",
     "@nestjs/common": "^11.2.1",

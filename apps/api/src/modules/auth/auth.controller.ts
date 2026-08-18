@@ -27,10 +27,11 @@ import type { SessionContext } from './session.service';
 /**
  * Authentication endpoints.
  *
- * Every route under this controller is governed by the stricter `auth` rate
- * limiter, scoped by path in `AppModule` — so the tighter ceiling cannot be
- * forgotten on a route added later, and its value stays configurable rather
- * than baked into a decorator here.
+ * The credential-accepting routes — register, login and refresh — are governed
+ * by the stricter `auth` rate limiter, scoped by exact path in `AppModule`.
+ * The authenticated reads here (`me`, `sessions`) deliberately are not: the
+ * client calls `me` on every page load, and a password-guessing ceiling
+ * applied to it would throttle ordinary use.
  */
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })

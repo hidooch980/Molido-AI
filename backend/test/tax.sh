@@ -173,11 +173,27 @@ chk "respects the limit" "$(echo "$B" | P "'yes' if d['added'] <= 50 else 'no'")
 AFTER=$(curl -s "$A/tax/stats" -H "$AU" | P "d['notQueued']")
 chk "backlog shrank" "$([ "$AFTER" -lt "$BEFORE" ] && echo yes || echo no)" "yes"
 
-# تکرار تا تهی شدن؛ سقف حلقه برای اینکه یک باگ، آزمون را بی‌پایان نکند.
-for _ in 1 2 3 4 5 6 7 8 9 10; do
+# ⚠️ «تا وقتی پیشرفت هست»، نه «ده بار».
+#
+#    نسخهٔ اول ده بار × ۲۰۰ تا می‌فرستاد — یعنی سقفِ ۲۰۰۰.  در اجرای
+#    تنها کافی بود، ولی پس از اجرای کاملِ مجموعه، فروش‌های بقیهٔ
+#    آزمون‌ها انباشته می‌شدند و صف به ۲۱۰۰ می‌رسید.  آزمون با
+#    «۴۹ باقی مانده» می‌افتاد و شبیه اشکالِ کد به نظر می‌رسید، در
+#    حالی که سامانه دقیقاً همان کاری را می‌کرد که خواسته بودیم.
+#
+#    حالا شرطِ توقف **نبودِ پیشرفت** است نه شمارِ تکرار: اگر یک دور
+#    هیچ‌چیز کم نکند، یعنی واقعاً گیر کرده.  سقفِ ۵۰ فقط برای این است
+#    که یک باگ آزمون را بی‌پایان نکند.
+#
+#    ۵۰۰ سقفِ خودِ سرویس است؛ کمتر از آن گرفتن، فقط دورها را زیاد
+#    می‌کند.
+PREV=""
+for _ in $(seq 1 50); do
   LEFT=$(curl -s "$A/tax/stats" -H "$AU" | P "d['notQueued']")
   [ "$LEFT" = "0" ] && break
-  curl -s -X POST $A/tax/enqueue-pending -H "$AU" -H "$JS" -d '{"limit":200}' >/dev/null
+  [ "$LEFT" = "$PREV" ] && break   # یک دور بی‌پیشرفت: گیر کرده
+  PREV=$LEFT
+  curl -s -X POST $A/tax/enqueue-pending -H "$AU" -H "$JS" -d '{"limit":500}' >/dev/null
 done
 chk "drains completely" "$(curl -s "$A/tax/stats" -H "$AU" | P "d['notQueued']")" "0"
 

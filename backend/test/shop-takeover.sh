@@ -38,6 +38,30 @@ print($1)"; }
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
+# ⚠️ `request-code` سقفِ **۳ در دقیقه** دارد و این آزمون دقیقاً سه بار
+#    صدایش می‌زند — یعنی هیچ حاشیه‌ای ندارد.
+#
+#    اجرای دوباره در همان دقیقه، یا هر فراخوانیِ دستی پیش از آزمون،
+#    یکی از سهمیه‌ها را می‌خورد و سنجه‌ها با ۴۲۹ می‌افتند — با پیامی
+#    که شبیه اشکالِ کد به نظر می‌رسد.
+#
+#    راهِ درست پایین آوردنِ سقف نیست (آن سقف عمدی است: هر درخواست یک
+#    پیامک می‌فرستد).  راهش این است که آزمون با پنجرهٔ **تازه** شروع
+#    کند.
+wait_for_quota() {
+  local waited=0
+  while [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/shop/register/request-code" \
+             -H 'Content-Type: application/json' -d '{"phone":"09120000009"}')" = "429" ]; do
+    [ "$waited" -ge 90 ] && { echo "  ! سقف باز نشد؛ آزمون ادامه می‌دهد"; return; }
+    sleep 5
+    waited=$((waited + 5))
+  done
+  # آخرین فراخوانیِ موفقِ بالا خودش یک سهمیه خورد؛ پس تا پنجرهٔ بعدی
+  # صبر می‌کنیم تا آزمون با هر سه سهمیه شروع شود.
+  sleep 61
+}
+wait_for_quota
+
 VICTIM=09125557777
 FRESH=09126668888
 GHOST=09999999999
@@ -76,8 +100,19 @@ chk "شمارندهٔ تلاش بالا رفت" \
   "$(Q "SELECT COALESCE(max(attempts),0) FROM \"PhoneVerification\" WHERE phone='$VICTIM';")" "1"
 
 echo '--- ۳) کدِ درست می‌پذیرد و نامِ اصلی را نگه می‌دارد ---'
-CODE=$(Q "SELECT 'x';" >/dev/null; docker logs molido-store-backend-1 --tail 60 2>&1 \
-       | grep -oE '[0-9]{6}' | tail -1)
+# ⚠️ لنگرِ استخراج **شمارهٔ تلفن** است، نه متنِ پیام.
+#
+#    نسخهٔ اول `grep -oE '[0-9]{6}'` روی کلِ لاگ بود.  در اجرای تنها
+#    کار می‌کرد، ولی در اجرای کاملِ مجموعه لاگ پر از عددِ شش‌رقمی است
+#    — شناسه، مبلغ، زمان — و آخرینشان کدِ ما نبود.
+#
+#    تلاش دوم متنِ فارسیِ پیام را لنگر کرد و **بدتر شد**: `grep` با
+#    الگوی فارسی روی خروجیِ `docker logs` در این پوسته نمی‌خواند، و
+#    سه سنجهٔ دیگر هم افتاد.
+#
+#    شمارهٔ تلفن ASCII است، در همان خط می‌آید، و مختصِ همین آزمون است.
+CODE=$(docker logs molido-store-backend-1 --tail 200 2>&1 \
+       | grep "$VICTIM" | grep -oE '[0-9]{6}[^0-9]*$' | grep -oE '[0-9]{6}' | tail -1)
 if [ -n "$CODE" ]; then
   R=$(curl -s -X POST "$A/shop/register" -H 'Content-Type: application/json' \
      -d "{\"phone\":\"$VICTIM\",\"password\":\"Real#12345\",\"firstName\":\"Impostor\",\"code\":\"$CODE\"}")

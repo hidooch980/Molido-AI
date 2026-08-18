@@ -6,7 +6,7 @@
 >
 > نسخهٔ زندهٔ تعاملی: `http://localhost:3000/api-docs`
 
-**465 عملیات در 69 گروه**
+**466 عملیات در 69 گروه**
 
 همهٔ مسیرها جز `/auth/login` و `/shop/*` توکن می‌خواهند:
 `Authorization: Bearer <token>`
@@ -648,6 +648,7 @@
 | GET | `/shop/products` | `catalogue` |
 | GET | `/shop/products/{id}` | `product` |
 | POST | `/shop/register` | `register` |
+| POST | `/shop/register/request-code` | `requestCode` |
 | GET | `/shop/settings` | `settings` |
 
 ## قوانین تخفیف

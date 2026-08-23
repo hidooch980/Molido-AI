@@ -1026,6 +1026,11 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
     ar: 'إضافة بالصوت — مثلاً «عشرة كراتين حليب»',
   },
   heard: { fa: 'شنیده شد', en: 'Heard', ar: 'تم سماع' },
+  attachPhoto: {
+    fa: 'عکسِ کالا یا بارنامه',
+    en: 'Photo of goods or waybill',
+    ar: 'صورة البضاعة أو بوليصة الشحن',
+  },
   listening: { fa: 'بگویید…', en: 'Listening…', ar: 'جارٍ الاستماع…' },
   productNotFoundShort: { fa: 'کالا پیدا نشد', en: 'Product not found', ar: 'الصنف غير موجود' },
   takeOrder: { fa: 'سفارش‌گیری', en: 'Take order', ar: 'أخذ الطلب' },

@@ -9,8 +9,9 @@ import BarcodeScanner, {
 } from '../../../components/BarcodeScanner';
 import { Icon } from '../../../components/icons';
 import { NUM, ROW, TD, TOUCH } from '../../../components/ui';
-import { api } from '../../../lib/api';
+import { API_URL, api, getToken } from '../../../lib/api';
 import { useI18n } from '../../../lib/i18n-context';
+import { shrinkImage } from '../../../lib/image';
 import { isSpeechSupported, listenOnce, parseVoiceCommand } from '../../../lib/speech';
 
 type Supplier = { id: string; name: string };
@@ -64,6 +65,7 @@ export default function NewPurchasePage() {
   const [micReady, setMicReady] = useState(false);
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');
+  const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -186,6 +188,33 @@ export default function NewPurchasePage() {
     );
   }, [addByCode]);
 
+  /**
+   * عکسِ کالا/بارنامه را به فاکتورِ ساخته‌شده می‌چسباند.
+   *
+   * از `POST /uploads` موجود استفاده می‌کند — همان مسیری که صفحهٔ
+   * کالاها برای عکسِ محصول به‌کار می‌برد.  نقطهٔ تازه‌ای لازم نیست.
+   */
+  async function uploadPhotos(purchaseId: string) {
+    for (const photo of photos) {
+      try {
+        const small = await shrinkImage(photo);
+
+        const form = new FormData();
+        form.append('file', small);
+        form.append('entityType', 'PURCHASE');
+        form.append('entityId', purchaseId);
+
+        await fetch(`${API_URL}/uploads`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+          body: form,
+        });
+      } catch {
+        /* عکس نرفت — فاکتور سرِ جایش است */
+      }
+    }
+  }
+
   function updateLine(productId: string, patch: Partial<Line>) {
     setLines((prev) =>
       prev
@@ -224,6 +253,19 @@ export default function NewPurchasePage() {
           body: {},
         });
       }
+
+      // ⚠️ عکس‌ها **پس از** ساخته شدنِ فاکتور آپلود می‌شوند.
+      //
+      //    `entityId` پیش از آن وجود ندارد.  نگه داشتنشان در حافظه و
+      //    فرستادنِ بعدی، تنها ترتیبی است که بدونِ نقطهٔ تازه در
+      //    بک‌اند کار می‌کند.
+      //
+      // ⚠️ شکستِ آپلود، ثبتِ فاکتور را برنمی‌گرداند.
+      //
+      //    فاکتور و سندِ حسابداری همین حالا ثبت شده‌اند؛ خطا دادن در
+      //    این مرحله به انباردار می‌گوید «ذخیره نشد» در حالی که شده —
+      //    و او دوباره ثبت می‌کند.  عکس سند است، نه خودِ معامله.
+      await uploadPhotos(purchase.id);
 
       router.push('/purchases');
     } catch (err) {
@@ -353,6 +395,27 @@ export default function NewPurchasePage() {
           </button>
         ) : null}
 
+        {/* عکسِ کالا یا بارنامه — سندِ تحویل.
+            `capture="environment"` روی گوشی مستقیم دوربینِ پشت را باز
+            می‌کند؛ روی دسکتاپ به انتخابِ فایل برمی‌گردد. */}
+        <label className="ghost" style={{ ...TOUCH, cursor: 'pointer' }}>
+          <Icon name="camera" size={20} />
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            hidden
+            onChange={(e) => {
+              const picked = Array.from(e.target.files ?? []);
+              if (picked.length) setPhotos((prev) => [...prev, ...picked]);
+              // بدونِ این، همان عکس بارِ دوم رویدادی نمی‌سازد.
+              e.target.value = '';
+            }}
+            aria-label={t('attachPhoto')}
+          />
+        </label>
+
         {micReady ? (
           <button
             type="button"
@@ -385,6 +448,42 @@ export default function NewPurchasePage() {
         >
           {listening ? t('listening') : `${t('heard')}: «${heard}»`}
         </p>
+      ) : null}
+
+      {/* عکس‌های پیوست — با امکانِ حذف پیش از ثبت */}
+      {photos.length ? (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            margin: '0 0 14px',
+          }}
+        >
+          {photos.map((photo, index) => (
+            <span
+              key={`${photo.name}-${index}`}
+              className="badge"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Icon name="camera" size={14} />
+              {photo.name.length > 18
+                ? `${photo.name.slice(0, 16)}…`
+                : photo.name}
+              <button
+                type="button"
+                className="ghost"
+                style={{ padding: 2, lineHeight: 1 }}
+                onClick={() =>
+                  setPhotos((prev) => prev.filter((_, i) => i !== index))
+                }
+                aria-label={t('remove')}
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
       ) : null}
 
       {/* اقلام */}

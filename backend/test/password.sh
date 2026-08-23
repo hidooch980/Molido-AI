@@ -41,10 +41,30 @@ except ValueError:
     print('<<پاسخ-JSON-نبود: %d نویسه: %s>>' % (len(raw), safe)); sys.exit(0)
 print($1)"; }
 
+# ⚠️ صبور در برابر ۴۲۹ — مثل `code_of` پایین‌تر.
+#
+#    این تنها جای مانده بود که سقفِ نرخ را شکست حساب می‌کرد.
+#    `code_of` از اول منتظر می‌ماند، ولی `login` نه — و نتیجه‌اش این
+#    بود که در اجرای کامل، بندِ ۶ می‌نوشت:
+#
+#      FAIL ورود با رمز تازه (got=no want=yes)
+#
+#    که شبیه «تغییر رمز کار نکرد» است، در حالی که تغییر رمز درست کار
+#    کرده و فقط ورودِ بعدی به سقف خورده.
+#
+#    و این مجموعه ذاتاً پرورود است: هشت ورود در چند ثانیه، روی سقفِ
+#    ده در دقیقه.  به‌تنهایی جا می‌شود؛ در اجرای کامل — که اجراکننده
+#    مجموعهٔ افتاده را یک بار دیگر هم اجرا می‌کند — نه.
 login() {
-  curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
-    -d "{\"email\":\"admin@molido.ai\",\"password\":\"$1\"}" \
-    | P "d.get('accessToken','')"
+  local out
+  for _ in $(seq 1 14); do
+    out=$(curl -s -w ' %{http_code}' -X POST $A/auth/login \
+      -H 'Content-Type: application/json' \
+      -d "{\"email\":\"admin@molido.ai\",\"password\":\"$1\"}")
+    [ "${out##* }" = "429" ] || break
+    sleep 5
+  done
+  printf '%s' "${out% *}" | P "d.get('accessToken','')"
 }
 
 # کد وضعیت، نه فقط بود و نبودِ توکن.
@@ -83,29 +103,82 @@ code_of() {
   printf '%s' "$c"
 }
 
+# ⚠️ `/auth/change-password` هم سقف دارد: ده در دقیقه.
+#
+#    این مجموعه شش بار صدایش می‌زند و به‌تنهایی جا می‌شود.  ولی وقتی
+#    اجراکننده مجموعه را **دوباره** اجرا می‌کند، دوازده فراخوانی در یک
+#    پنجره جمع می‌شود و از بندِ پنجم به بعد ۴۲۹ می‌گیرد.
+#
+#    آن‌وقت `d.get('changed')` مقدارِ None می‌دهد و گزارش می‌نویسد
+#    «تغییر انجام شد (got=None want=True)» — که شبیه اشکالِ منطقیِ
+#    تغییر رمز است، در حالی که درخواست اصلاً به سرویس نرسیده.
+#
+#    سقف، پاسخِ درستِ سامانه است؛ آزمون باید منتظرش بماند نه اینکه
+#    شکستش بشمارد.
+CURL() {
+  local raw code
+  for _ in $(seq 1 12); do
+    raw=$(curl -s -w ' %{http_code}' "$@")
+    code=${raw##* }
+    [ "$code" = "429" ] || { printf '%s' "${raw% *}"; return 0; }
+    sleep 8
+  done
+  printf '%s' "${raw% *}"
+}
+CCODE() {
+  local raw
+  for _ in $(seq 1 12); do
+    raw=$(curl -s -o /dev/null -w '%{http_code}' "$@")
+    [ "$raw" = "429" ] || { printf '%s' "$raw"; return 0; }
+    sleep 8
+  done
+  printf '%s' "$raw"
+}
+
+# ⚠️ این مجموعه عمداً چند ورودِ **ناموفق** با حسابِ مدیر می‌سازد
+#    (بند ۷: «رمز قدیمی دیگر کار نمی‌کند»).
+#
+#    تا دیروز بی‌خطر بود.  از امروز ورودهای ناموفق شمرده می‌شوند و پس
+#    از ده تلاش در پانزده دقیقه، حساب **قفل** می‌شود — یعنی همین
+#    مجموعه، حسابِ مدیر را قفل می‌کند و رها می‌رود.
+#
+#    اندازه‌گیری‌شده: پس از یک اجرا، `lockedUntil` روی ده دقیقهٔ آینده
+#    ماند و هر مجموعه‌ای که بعدش آمد «رمز نادرست» گرفت — پیامی که
+#    مستقیماً به رمز اشاره می‌کند در حالی که رمز درست است.
+#
+#    قفل درست کار می‌کند؛ مسئله این است که این مجموعه باید بعد از
+#    خودش تمیز کند.  `trap` تضمین می‌کند حتی اگر وسطِ کار بمیرد هم
+#    قفل را باز بگذارد.
+unlock_admin() {
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c     "UPDATE \"User\" SET \"lockedUntil\" = NULL WHERE email='admin@molido.ai';" >/dev/null 2>&1
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c     "DELETE FROM \"LoginAttempt\" WHERE email='admin@molido.ai';" >/dev/null 2>&1
+}
+unlock_admin
+trap unlock_admin EXIT
+
 T=$(login "$ORIG")
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
 
 echo '--- 1) بدون توکن رد می‌شود ---'
-chk "ناشناس رد می‌شود" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/auth/change-password \
+chk "ناشناس رد می‌شود" "$(CCODE -X POST $A/auth/change-password \
   -H "$JS" -d "{\"currentPassword\":\"$ORIG\",\"newPassword\":\"$TEMP\"}")" "401"
 
 echo '--- 2) رمز فعلیِ غلط رد می‌شود ---'
 # مهم‌ترین بند: بدون این، هر نشستِ باز مانده روی صندوق کافی است تا کسی
 # رمز صاحب فروشگاه را عوض کند و خودش را بیرون بیندازد.
-chk "رمز فعلی غلط" "$(curl -s -X POST $A/auth/change-password -H "$AU" -H "$JS" \
+chk "رمز فعلی غلط" "$(CURL -X POST $A/auth/change-password -H "$AU" -H "$JS" \
   -d "{\"currentPassword\":\"totally-wrong\",\"newPassword\":\"$TEMP\"}" | P "d.get('statusCode')")" "401"
 
 echo '--- 3) رمز کوتاه رد می‌شود ---'
-chk "کمتر از ۸ نویسه" "$(curl -s -X POST $A/auth/change-password -H "$AU" -H "$JS" \
+chk "کمتر از ۸ نویسه" "$(CURL -X POST $A/auth/change-password -H "$AU" -H "$JS" \
   -d "{\"currentPassword\":\"$ORIG\",\"newPassword\":\"kotah\"}" | P "d.get('statusCode')")" "400"
 
 echo '--- 4) رمز تکراری رد می‌شود ---'
-chk "همان رمز فعلی" "$(curl -s -X POST $A/auth/change-password -H "$AU" -H "$JS" \
+chk "همان رمز فعلی" "$(CURL -X POST $A/auth/change-password -H "$AU" -H "$JS" \
   -d "{\"currentPassword\":\"$ORIG\",\"newPassword\":\"$ORIG\"}" | P "d.get('statusCode')")" "400"
 
 echo '--- 5) تغییر موفق ---'
-chk "تغییر انجام شد" "$(curl -s -X POST $A/auth/change-password -H "$AU" -H "$JS" \
+chk "تغییر انجام شد" "$(CURL -X POST $A/auth/change-password -H "$AU" -H "$JS" \
   -d "{\"currentPassword\":\"$ORIG\",\"newPassword\":\"$TEMP\"}" | P "d.get('changed')")" "True"
 
 echo '--- 6) رمز تازه کار می‌کند ---'
@@ -116,7 +189,7 @@ echo '--- 7) رمز قدیمی دیگر کار نمی‌کند ---'
 chk "رمز قدیمی ۴۰۱ می‌گیرد" "$(code_of "$ORIG")" "401"
 
 echo '--- 8) بازگرداندن رمز اصلی ---'
-chk "بازگشت به رمز اولیه" "$(curl -s -X POST $A/auth/change-password \
+chk "بازگشت به رمز اولیه" "$(CURL -X POST $A/auth/change-password \
   -H "Authorization: Bearer $NEW_T" -H "$JS" \
   -d "{\"currentPassword\":\"$TEMP\",\"newPassword\":\"$ORIG\"}" | P "d.get('changed')")" "True"
 

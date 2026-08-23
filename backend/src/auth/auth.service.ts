@@ -25,6 +25,10 @@ type UserRow = {
   avatar: string | null;
   companyId: string | null;
   createdAt: Date;
+  /** تا این لحظه ورود پذیرفته نمی‌شود؛ تهی = قفل نیست. */
+  lockedUntil: Date | null;
+  /** دیرترینِ «تغییر رمز» و «خروج از همهٔ دستگاه‌ها»؛ تهی = هرگز. */
+  validFrom: Date | null;
 };
 
 @Injectable()
@@ -70,18 +74,154 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async login(dto: LoginDto) {
-    const user = await this.findUser('email', dto.email);
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+  /**
+   * پنجرهٔ شمارشِ تلاش‌های ناموفق، و مدتِ قفل.
+   *
+   * ⚠️ قفل **موقت** است، نه دائمی.
+   *
+   *    قفلِ دائمی یعنی مهاجم می‌تواند با چند تلاشِ عمداً غلط، حسابِ
+   *    هر کسی را ببندد — یعنی خودش می‌شود ابزارِ حمله.
+   *
+   *    پانزده دقیقه، حدسِ رمز را غیرعملی می‌کند (۱۰ تلاش در ربع
+   *    ساعت) بی‌آنکه سلاحِ آزار شود.
+   */
+  private static readonly LOCK_WINDOW_MIN = 15;
+  private static readonly LOCK_THRESHOLD = 10;
+  private static readonly LOCK_MINUTES = 15;
+
+  /**
+   * تلاشِ ورود را ثبت می‌کند.
+   *
+   * ⚠️ خطایش **بلعیده** می‌شود.
+   *
+   *    ثبتِ رویداد نباید ورود را بشکند: اگر جدولِ لاگ پر شد یا قفل
+   *    خورد، کاربر باید بتواند وارد شود.  امنیت نباید به قیمتِ
+   *    از کار افتادنِ سامانه باشد.
+   */
+  private async recordAttempt(
+    email: string,
+    success: boolean,
+    reason?: string,
+    meta?: { ip?: string; userAgent?: string },
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        `INSERT INTO "LoginAttempt" (id, email, ip, "userAgent", success, reason)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          randomUUID(),
+          email.slice(0, 200),
+          meta?.ip ?? null,
+          meta?.userAgent?.slice(0, 300) ?? null,
+          success,
+          reason ?? null,
+        ],
+      );
+    } catch {
+      /* ثبت نشد — ورود نباید بشکند */
+    }
+  }
+
+  async login(dto: LoginDto, meta?: { ip?: string; userAgent?: string }) {
+    const email = String(dto.email ?? '');
+    const user = await this.findUser('email', email);
+
+    // ⚠️ قفل **پیش از** بررسی رمز سنجیده می‌شود.
+    //
+    //    وگرنه مهاجم می‌فهمد رمزش درست بوده یا نه، حتی وقتی حساب قفل
+    //    است — و قفل فقط تأخیر می‌شود، نه محافظت.
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      await this.recordAttempt(email, false, 'LOCKED', meta);
+      // پیام همان پیامِ رمزِ غلط است: گفتنِ «قفل است» به مهاجم
+      // می‌گوید این ایمیل وجود دارد.
       throw new UnauthorizedException('Invalid email or password');
     }
-    if (user.status !== 'ACTIVE') throw new UnauthorizedException('User account is inactive');
+
+    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+      await this.recordAttempt(email, false, user ? 'BAD_PASSWORD' : 'NO_USER', meta);
+      await this.maybeLock(user?.id, email);
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      await this.recordAttempt(email, false, 'INACTIVE', meta);
+      throw new UnauthorizedException('User account is inactive');
+    }
+
+    await this.recordAttempt(email, true, undefined, meta);
+
+    // ورودِ موفق قفل را برمی‌دارد — کسی که رمز را می‌داند، نباید
+    // به‌خاطر تلاش‌های مهاجم بیرون بماند.
+    if (user.lockedUntil) {
+      await this.db
+        .query('UPDATE "User" SET "lockedUntil" = NULL WHERE id = $1', [user.id])
+        .catch(() => undefined);
+    }
+
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * اگر تلاش‌های ناموفقِ اخیر از حد گذشت، حساب را موقتاً قفل می‌کند.
+   *
+   * ⚠️ فقط برای کاربرِ **موجود**.
+   *
+   *    ایمیلِ ناشناس چیزی برای قفل کردن ندارد؛ تلاشش ثبت می‌شود ولی
+   *    قفلی در کار نیست.  سقفِ نرخ آنجا کار می‌کند.
+   */
+  private async maybeLock(userId: string | undefined, email: string): Promise<void> {
+    if (!userId) return;
+    try {
+      const rows = await this.db.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM "LoginAttempt"
+          WHERE email = $1 AND success = false
+            AND "createdAt" > now() - ($2 || ' minutes')::interval`,
+        [email, String(AuthService.LOCK_WINDOW_MIN)],
+      );
+      if (Number(rows[0]?.n ?? 0) < AuthService.LOCK_THRESHOLD) return;
+
+      await this.db.query(
+        `UPDATE "User" SET "lockedUntil" = now() + ($1 || ' minutes')::interval
+          WHERE id = $2`,
+        [String(AuthService.LOCK_MINUTES), userId],
+      );
+    } catch {
+      /* قفل نشد — ورود همچنان با سقفِ نرخ محافظت می‌شود */
+    }
+  }
+
+  /**
+   * خروج از همهٔ دستگاه‌ها.
+   *
+   * ⚠️ ستونِ جدا از `passwordChangedAt` دارد، عمداً.
+   *
+   *    «رمزم را عوض کردم» و «می‌خواهم همه‌جا خارج شوم» دو کارند.
+   *    یکی کردنشان یعنی کاربری که فقط گوشی‌اش را جا گذاشته، مجبور
+   *    شود رمزِ تازه‌ای بسازد و به خاطر بسپارد — بی‌هیچ دلیلی.
+   */
+  async revokeAllSessions(userId: string) {
+    await this.db.query(
+      'UPDATE "User" SET "sessionsRevokedAt" = now() WHERE id = $1',
+      [userId],
+    );
+    return { revoked: true };
+  }
+
+  /** تاریخچهٔ تلاش‌های ورودِ یک ایمیل — برای بررسیِ مدیر. */
+  async loginHistory(email: string, limit = 50) {
+    return this.db.query(
+      `SELECT email, ip, "userAgent", success, reason, "createdAt"
+         FROM "LoginAttempt"
+        WHERE email = $1
+        ORDER BY "createdAt" DESC
+        LIMIT $2`,
+      [email, Math.min(Math.max(Number(limit) || 50, 1), 200)],
+    );
   }
 
   async refresh(refreshToken: string) {
     if (!refreshToken) throw new UnauthorizedException('Refresh token is required');
-    let payload: { sub: string };
+    let payload: { sub: string; iat: number; iatMs?: number };
     try {
       payload = await this.jwtService.verifyAsync(refreshToken, { secret: this.refreshSecret() });
     } catch {
@@ -89,6 +229,26 @@ export class AuthService {
     }
     const user = await this.findUser('id', payload.sub);
     if (!user || user.status !== 'ACTIVE') throw new UnauthorizedException('User not found or inactive');
+
+    // ⚠️ نوسازی هم باید مُهرِ ابطال را بسنجد — وگرنه «خروج از همهٔ
+    //    دستگاه‌ها» فقط **نیمی** از کار را می‌کند.
+    //
+    //    نگهبانِ JWT توکنِ دسترسی را می‌کشد، ولی این مسیر تا امروز فقط
+    //    امضا و وضعیت را می‌سنجید.  یعنی مهاجمی که توکنِ نوسازی را
+    //    دزدیده بود، **پس از** کلیکِ کاربر روی «خروج از همه‌جا» هم
+    //    می‌توانست توکنِ دسترسیِ تازه بگیرد — و از آن به بعد هر بار
+    //    دوباره، چون هر نوسازی توکنِ نوسازیِ تازه هم می‌دهد.
+    //
+    //    توکنِ نوسازی **سی روز** عمر دارد، نه هفت.  یعنی این حفره از
+    //    آنکه در توکنِ دسترسی بستیم بزرگ‌تر بود، و دقیقاً همان دکمه‌ای
+    //    را بی‌اثر می‌کرد که کاربر برای نجاتِ حسابش می‌زند.
+    if (user.validFrom) {
+      const issuedMs = payload.iatMs ?? (payload.iat + 1) * 1000;
+      if (issuedMs < user.validFrom.getTime()) {
+        throw new UnauthorizedException('نشست باطل شده — دوباره وارد شوید');
+      }
+    }
+
     return this.buildAuthResponse(user);
   }
 
@@ -127,17 +287,43 @@ export class AuthService {
       throw new BadRequestException('رمز تازه با رمز فعلی یکی است');
     }
 
-    await this.db.query('UPDATE "User" SET password = $1, "updatedAt" = now() WHERE id = $2', [
-      await bcrypt.hash(dto.newPassword, 10),
-      userId,
-    ]);
+    // ⚠️ `passwordChangedAt` همراه رمز نوشته می‌شود، در همان دستور.
+    //
+    //    نگهبانِ JWT این ستون را با `iat` توکن می‌سنجد و هر توکنِ
+    //    قدیمی‌تر را رد می‌کند.  بدونش، تغییر رمز فقط جلوی **ورودِ
+    //    تازه** را می‌گرفت و نشست‌های باز — از جمله نشستِ مهاجم — تا
+    //    هفت روز زنده می‌ماندند.
+    await this.db.query(
+      `UPDATE "User"
+          SET password = $1, "passwordChangedAt" = now(), "updatedAt" = now()
+        WHERE id = $2`,
+      [await bcrypt.hash(dto.newPassword, 10), userId],
+    );
 
-    return { changed: true };
+    // ⚠️ توکنِ تازه برگردانده می‌شود، عمداً.
+    //
+    //    نگهبان هر توکنِ صادرشده پیش از `passwordChangedAt` را باطل
+    //    می‌کند — از جمله توکنِ خودِ همین درخواست.  بدون توکنِ تازه،
+    //    کاربر لحظه‌ای پس از عوض کردنِ رمز از سامانه بیرون می‌افتاد.
+    //
+    //    نسخهٔ اول به‌جای این، در نگهبان یک ثانیه ارفاق می‌داد — و
+    //    همان یک ثانیه یک حفره بود: توکنی که ۰٫۴۹ ثانیه پیش از
+    //    «خروج از همهٔ دستگاه‌ها» صادر شده بود، زنده می‌ماند.
+    //
+    //    امنیت را نباید با ارفاقِ زمانی درست کرد؛ باید علتِ نیاز به
+    //    ارفاق را برداشت.
+    const fresh = await this.findUser('id', userId);
+    return {
+      changed: true,
+      ...(fresh ? this.buildAuthResponse(fresh) : {}),
+    };
   }
 
   private async findUser(field: 'id' | 'email', value: string): Promise<UserRow | undefined> {
     const rows = await this.db.query<UserRow>(
-      `SELECT id, "firstName", "lastName", email, phone, password, role, status, avatar, "companyId", "createdAt"
+      `SELECT id, "firstName", "lastName", email, phone, password, role, status, avatar,
+              "companyId", "createdAt", "lockedUntil",
+              GREATEST("passwordChangedAt", "sessionsRevokedAt") AS "validFrom"
        FROM "User" WHERE ${field === 'id' ? 'id' : 'email'} = $1`,
       [value],
     );
@@ -153,7 +339,34 @@ export class AuthService {
   }
 
   private buildAuthResponse(user: Pick<UserRow, 'id' | 'firstName' | 'lastName' | 'email' | 'role' | 'companyId'>) {
-    const payload = { sub: user.id, email: user.email, role: user.role, companyId: user.companyId };
+    // ⚠️ `iatMs` — لحظهٔ صدور با دقتِ **میلی‌ثانیه**.
+    //
+    //    `iat` استانداردِ JWT رزولوشنِ **ثانیه** دارد، ولی
+    //    `passwordChangedAt` و `sessionsRevokedAt` میلی‌ثانیه‌اند.
+    //    مقایسهٔ این دو با هم یک اشکالِ زمان‌وابسته می‌سازد که فقط
+    //    گاهی دیده می‌شود:
+    //
+    //      تغییر رمز در ۱۰:۰۰:۰۵٫۷۰۰
+    //      ورودِ بلافاصله بعدش -> iat = ۱۰:۰۰:۰۵  (بریده شده)
+    //      سنجش: ۰۵٫۰۰۰ < ۰۵٫۷۰۰  ->  توکنِ **سالم** باطل اعلام شد
+    //
+    //    یعنی کاربری که رمزش را عوض می‌کرد، گاهی بلافاصله بیرون
+    //    انداخته می‌شد — و گاهی نه، بسته به کسرِ ثانیه.  در آزمونِ
+    //    سه‌دوره فقط دورِ دوم می‌افتاد.
+    //
+    //    نسخهٔ اول این را با یک ثانیه ارفاق پوشانده بود، که خودش
+    //    حفره بود: توکنی که ۰٫۴۹ ثانیه **پیش از** ابطال صادر شده
+    //    بود، با ارفاق زنده می‌ماند.
+    //
+    //    درمانِ درست پوشاندن نیست — برداشتنِ حدس است.  توکن را خودمان
+    //    امضا می‌کنیم، پس دقتِ لازم را خودمان می‌گذاریم.
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      iatMs: Date.now(),
+    };
     return {
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, {

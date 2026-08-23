@@ -49,6 +49,29 @@ print($1)"; }
 Q() { $C exec -T postgres psql -U postgres -d molido_ai -t -c "$1" | tr -d ' \r\n'; }
 
 pass=0; fail=0
+# ⚠️ ۴۲۹ شکست نیست؛ «هنوز نه» است.
+#
+#    `/shop/register` و `/shop/login` هر کدام ده در دقیقه سقف دارند و
+#    این مجموعه چند مشتری می‌سازد.  به‌تنهایی جا می‌شود، ولی وقتی
+#    اجراکننده مجموعه‌ای را که یک بار افتاده **دوباره** اجرا می‌کند،
+#    فراخوانی‌ها در همان پنجرهٔ یک‌دقیقه‌ای جمع می‌شوند و سقف پر می‌شود.
+#
+#    آن‌وقت `d.get('token','')` تهی برمی‌گردد و سنجهٔ بعدی
+#    «order isolated (got=401 want=404)» می‌نویسد — پیامی که به
+#    جداسازیِ سفارش اشاره می‌کند در حالی که مشکل ثبت‌نام است.
+#
+#    یعنی خودِ سازوکارِ «یک بار دیگر امتحان کن» شکست می‌ساخت.
+CURL() {
+  local raw code
+  for _ in $(seq 1 12); do
+    raw=$(curl -s -w ' %{http_code}' "$@")
+    code=${raw##* }
+    [ "$code" = "429" ] || { printf '%s' "${raw% *}"; return 0; }
+    sleep 8
+  done
+  printf '%s' "${raw% *}"
+}
+
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
 # آزمون باید از هر وضعیتی اجرا شود.  هر دو مشتری آزمون و همهٔ سفارش‌ها و
@@ -81,7 +104,7 @@ echo '--- 4) offline product hidden ---'
 chk "offline hidden" "$(curl -s "$A/shop/products" | P "len([p for p in d if p['id']=='seed-p2'])")" "0"
 
 echo '--- 5) register ---'
-R=$(curl -s -X POST $A/shop/register -H "$JS" \
+R=$(CURL -X POST $A/shop/register -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"secret123\",\"firstName\":\"Reza\",\"lastName\":\"Ahmadi\"}")
 CID=$(echo "$R" | P "d.get('id','')")
 TOK=$(echo "$R" | P "d.get('token','')")
@@ -91,23 +114,23 @@ chk "token issued" "$([ -n "$TOK" ] && echo yes || echo no)" "yes"
 chk "customer registered" "$(echo "$R" | P "'yes' if d.get('id') else 'no'")" "yes"
 
 echo '--- 6) weak password rejected ---'
-chk "short password rejected" "$(curl -s -X POST $A/shop/register -H "$JS" \
+chk "short password rejected" "$(CURL -X POST $A/shop/register -H "$JS" \
   -d '{"phone":"09120000002","password":"12","firstName":"X"}' | P "d.get('statusCode')")" "400"
 
 echo '--- 7) bad phone rejected ---'
-chk "bad phone rejected" "$(curl -s -X POST $A/shop/register -H "$JS" \
+chk "bad phone rejected" "$(CURL -X POST $A/shop/register -H "$JS" \
   -d '{"phone":"123","password":"secret123","firstName":"X"}' | P "d.get('statusCode')")" "400"
 
 echo '--- 8) duplicate registration rejected ---'
-chk "duplicate rejected" "$(curl -s -X POST $A/shop/register -H "$JS" \
+chk "duplicate rejected" "$(CURL -X POST $A/shop/register -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"secret123\",\"firstName\":\"Reza\"}" | P "d.get('statusCode')")" "400"
 
 echo '--- 9) login ---'
-chk "login ok" "$(curl -s -X POST $A/shop/login -H "$JS" \
+chk "login ok" "$(CURL -X POST $A/shop/login -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"secret123\"}" | P "'yes' if d.get('id') else 'no'")" "yes"
 
 echo '--- 10) wrong password rejected ---'
-chk "wrong password" "$(curl -s -X POST $A/shop/login -H "$JS" \
+chk "wrong password" "$(CURL -X POST $A/shop/login -H "$JS" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"nope\"}" | P "d.get('statusCode')")" "401"
 
 echo '--- 11) add to cart ---'
@@ -152,7 +175,7 @@ echo '--- 19c) staff token rejected on shop ---'
 chk "staff token rejected" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders" -H "$AU")" "401"
 
 echo '--- 19d) another customer cannot see the order ---'
-TOK2=$(curl -s -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE2\",\"password\":\"secret123\",\"firstName\":\"Other\"}" | P "d.get('token','')")
+TOK2=$(CURL -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE2\",\"password\":\"secret123\",\"firstName\":\"Other\"}" | P "d.get('token','')")
 chk "order isolated" "$(curl -s -o /dev/null -w '%{http_code}' "$A/shop/my-orders/$OID" -H "Authorization: Bearer $TOK2")" "404"
 
 echo '--- 19e) guest cart merges on login ---'
@@ -166,8 +189,8 @@ $C exec -T postgres psql -U postgres -d molido_ai -q -c "
 curl -s -X POST $A/shop/cart/items -H "$JS" -H "x-guest-token: $GUEST"   -d '{"productId":"seed-p1","qty":2}' >/dev/null
 
 # ثبت‌نام و ورود با همان کلید مهمان
-curl -s -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\",\"firstName\":\"Guest\"}" >/dev/null
-TOK3=$(curl -s -X POST $A/shop/login -H "$JS" -H "x-guest-token: $GUEST"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\"}" | P "d.get('token','')")
+CURL -X POST $A/shop/register -H "$JS"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\",\"firstName\":\"Guest\"}" >/dev/null
+TOK3=$(CURL -X POST $A/shop/login -H "$JS" -H "x-guest-token: $GUEST"   -d "{\"phone\":\"$PHONE3\",\"password\":\"secret123\"}" | P "d.get('token','')")
 
 chk "guest cart carried over" "$(curl -s "$A/shop/cart" -H "Authorization: Bearer $TOK3" | P "len(d.get('items',[]))")" "1"
 

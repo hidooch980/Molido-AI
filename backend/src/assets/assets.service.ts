@@ -104,7 +104,20 @@ export class AssetsService {
         dto.purchaseDate ?? new Date(),
         dto.purchasePrice ?? 0,
         dto.salvageValue ?? 0,
-        dto.usefulLifeYears ?? null,
+        // ⚠️ ۱۰، نه NULL.
+        //
+        //    ستون `usefulLifeYears` در پایگاه داده
+        //    `INTEGER NOT NULL DEFAULT 10` است
+        //    (`002_core_schema.sql`).  ولی NULLِ **صریح** پیش‌فرضِ
+        //    ستون را پر نمی‌کند — فقط **نبودِ** ستون در INSERT آن را
+        //    فعال می‌کند.  یک تلهٔ کلاسیکِ SQL.
+        //
+        //    نتیجه‌اش این بود که ساخت دارایی بدون عمرِ مفید با ۴۰۰ و
+        //    پیامِ «یکی از مقدارهای الزامی خالی است» رد می‌شد — پیامی
+        //    که نمی‌گوید کدام مقدار، چون عمداً نام ستون را بیرون
+        //    نمی‌دهد.  یعنی کاربر ۴۰۰ می‌گرفت بی‌آنکه بفهمد چه کم است،
+        //    در حالی که خودِ پایگاه داده جوابش را داشت.
+        dto.usefulLifeYears ?? 10,
         dto.description ?? null,
         dto.depreciationMethod ?? 'STRAIGHT_LINE',
         dto.inServiceDate ?? dto.purchaseDate ?? new Date(),
@@ -265,10 +278,45 @@ export class AssetsService {
       // یک سند برای کل دوره، نه یک سند به‌ازای هر دارایی: دفتر روزنامه با
       // صدها سند تک‌قلمی عملاً غیرقابل مرور می‌شود.
       if (total > 0) {
+        // ⚠️ سندِ **مکمل**، نه سندِ تکراری.
+        //
+        //    `JournalEntry_source_key` روی
+        //    (companyId, sourceType, sourceId) یکتاست.  با
+        //    `sourceId = periodDate` ثابت، استهلاکِ هر دوره فقط یک بار
+        //    در کلِ عمر قابل ثبت بود.
+        //
+        //    و این سناریوی نادری نیست، بلکه عادی است:
+        //
+        //      استهلاک فروردین اجرا می‌شود        → سند ثبت شد
+        //      داراییِ تازه‌ای وارد می‌شود
+        //      استهلاک فروردین دوباره اجرا می‌شود → **۴۰۹**
+        //
+        //    و ۴۰۹ فقط «این مقدار قبلاً ثبت شده است» می‌گفت.  بدتر از
+        //    پیامِ مبهم این بود که **کل تراکنش برمی‌گشت**: ردیفِ
+        //    استهلاکِ داراییِ تازه هم پاک می‌شد.  یعنی آن دارایی هرگز
+        //    مستهلک نمی‌شد و هیچ‌کس نمی‌فهمید.
+        //
+        //    اجرای واقعاً تکراری به اینجا نمی‌رسد: `ON CONFLICT DO
+        //    NOTHING` روی (assetId, period) همهٔ ردیف‌ها را رد می‌کند،
+        //    `total` صفر می‌ماند و این بلوک اجرا نمی‌شود.  پس رسیدن به
+        //    اینجا برای بارِ دوم یعنی مبلغِ **تازه‌ای** هست — و مبلغِ
+        //    تازه سندِ خودش را می‌خواهد.  همان کاری که حسابدار با دست
+        //    می‌کند.
+        const prior = await tx.query<{ n: string }>(
+          `SELECT count(*) AS n FROM "JournalEntry"
+            WHERE "companyId" = $1 AND "sourceType" = 'AssetDepreciation'
+              AND "sourceId" LIKE $2 || '%' AND status <> 'REVERSED'`,
+          [companyId, periodDate],
+        );
+        const seq = Number(prior.rows[0]?.n ?? 0);
+
         await this.posting.postAuto(tx, companyId, {
           sourceType: 'AssetDepreciation',
-          sourceId: periodDate,
-          description: `استهلاک دورهٔ ${periodDate.slice(0, 7)}`,
+          sourceId: seq === 0 ? periodDate : `${periodDate}#${seq + 1}`,
+          description:
+            seq === 0
+              ? `استهلاک دورهٔ ${periodDate.slice(0, 7)}`
+              : `استهلاک دورهٔ ${periodDate.slice(0, 7)} — مکمل ${seq + 1}`,
           userId,
           entryDate: new Date(periodDate),
           lines: depreciationEntry(total),

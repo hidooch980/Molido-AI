@@ -19,6 +19,26 @@ pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
 # توکن مشترک — ورودِ اضافی همان سقفی را می‌خورد که قرار است سنجیده شود.
+# ⚠️ این مجموعه در حلقه با رمزِ **غلط** به حسابِ مدیر می‌کوبد
+#    (سنجهٔ «سقف ورود») — و از امروز هر تلاشِ ناموفق شمرده می‌شود.
+#
+#    ده تلاش در پانزده دقیقه یعنی حساب **قفل** می‌شود.  یعنی همین
+#    مجموعه، حسابِ مدیر را قفل می‌کند و می‌رود؛ هر مجموعه‌ای که بعدش
+#    بیاید «رمز نادرست است» می‌گیرد — پیامی که مستقیماً به رمز اشاره
+#    می‌کند در حالی که رمز درست است و حساب قفل است.
+#
+#    اندازه‌گیری‌شده: اجرای بعدی از سنجهٔ فروش افتاد و شش شکست داد که
+#    هیچ‌کدام ربطی به فروش نداشت.
+#
+#    قفل درست کار می‌کند — سنجه باید بعد از خودش تمیز کند.  `trap`
+#    تضمین می‌کند حتی مرگِ وسطِ کار هم قفل را جا نگذارد.
+unlock_admin() {
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c     "UPDATE \"User\" SET \"lockedUntil\" = NULL WHERE email='admin@molido.ai';" >/dev/null 2>&1
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c     "DELETE FROM \"LoginAttempt\" WHERE email='admin@molido.ai';" >/dev/null 2>&1
+}
+unlock_admin
+trap unlock_admin EXIT
+
 T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"admin@molido.ai","password":"'"$PW"'"}' \
   | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)}

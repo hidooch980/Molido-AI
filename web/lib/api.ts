@@ -85,12 +85,61 @@ function getStoredLang(): string {
   return stored === 'en' || stored === 'ar' ? stored : 'fa';
 }
 
+/**
+ * نوسازیِ توکنِ دسترسی با کوکیِ `httpOnly`.
+ *
+ * ⚠️ توکنِ نوسازی **هرگز** به جاوااسکریپت نمی‌رسد.
+ *
+ *    در کوکیِ `httpOnly` می‌نشیند؛ اینجا فقط `credentials:'include'`
+ *    می‌گوید «کوکی را بفرست».  خودِ مقدارش خوانده نمی‌شود و پاسخ هم
+ *    آن را برنمی‌گرداند — عمداً، تا اسکریپتی که در صفحه اجرا شود
+ *    نتواند از همین مسیر به توکنِ سی‌روزه برسد.
+ *
+ * ⚠️ فقط **یک** نوسازیِ همزمان.
+ *
+ *    یک صفحه ممکن است ده درخواست موازی بفرستد و هر ده تا ۴۰۱ بگیرند.
+ *    بدون این قفل، ده نوسازیِ همزمان می‌رفت — که هم سقفِ ۲۰ در دقیقه
+ *    را می‌خورد و هم نُه توکنِ دورانداختنی می‌ساخت.  همه منتظر همان
+ *    یکی می‌مانند.
+ */
+let refreshing: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshing) return refreshing;
+
+  refreshing = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // بدنهٔ خالی، نه بدونِ بدنه: سرور JSON انتظار دارد.
+        body: '{}',
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { accessToken?: string };
+      if (!data?.accessToken) return null;
+      setToken(data.accessToken);
+      return data.accessToken;
+    } catch {
+      // شبکه نبود — این نوسازی نیست که شکسته، اتصال است.
+      return null;
+    } finally {
+      refreshing = null;
+    }
+  })();
+
+  return refreshing;
+}
+
 export async function api<T = unknown>(
   path: string,
   options?: {
     method?: string;
     body?: unknown;
   },
+  /** درخواستِ دوباره پس از نوسازی — جلوی حلقهٔ بی‌پایان را می‌گیرد. */
+  isRetry = false,
 ): Promise<T> {
   const token = getToken();
 
@@ -131,6 +180,20 @@ export async function api<T = unknown>(
     ) as Error & { isNetwork?: boolean };
     netErr.isNetwork = true;
     throw netErr;
+  }
+
+  // ⚠️ ۴۰۱ یعنی «توکنت مرده»، نه لزوماً «برو بیرون».
+  //
+  //    عمرِ توکنِ دسترسی عمداً کوتاه است تا توکنِ دزدیده‌شده زود بی‌ارزش
+  //    شود.  ولی اگر هر انقضا کاربر را به صفحهٔ ورود بیندازد، کوتاهیِ
+  //    عمر به اصطکاکِ روزمره بدل می‌شود و کسی تحملش نمی‌کند — و در
+  //    عمل یعنی برگشتن به توکنِ هفت‌روزه.
+  //
+  //    پس یک بار — و فقط یک بار — با کوکی نوسازی می‌شود و همان درخواست
+  //    دوباره می‌رود.  اگر نوسازی هم نشد، نشست واقعاً تمام است.
+  if (response.status === 401 && !isRetry && token) {
+    const fresh = await refreshAccessToken();
+    if (fresh) return api<T>(path, options, true);
   }
 
   if (!response.ok) {

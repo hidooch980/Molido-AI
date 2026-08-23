@@ -14,10 +14,20 @@ cd "$(dirname "$0")" || exit 1
 #
 # ولی «اینجا اجرا نمی‌شود» نباید یعنی «هیچ‌جا اجرا نمی‌شود».  رگرسیون
 # رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
-SUITES="e2e-cycles integration shop shop-filter shop-takeover count-app upload-security pricing pos-pricing pos-workflow invoice accounts
+SUITES="e2e-cycles integration shop shop-filter shop-takeover customer-status count-app upload-security pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
-        product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice
-        password ratelimit bundle apidocs untested records roles restore"
+        product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice treasury-assets
+        password login-hardening session-revocation refresh-revocation refresh-cookie ratelimit bundle apidocs untested records roles restore"
+
+# ⚠️ سه مجموعهٔ احراز هویت (`password`, `login-hardening`,
+#    `session-revocation`) عمداً **آخر** فهرست‌اند.
+#
+#    هر سه سقفِ `/auth/login` را مصرف می‌کنند (ده در دقیقه) و اگر اول
+#    بیایند، سهمیه را می‌خورند و مجموعه‌های بعدی با ۴۲۹ می‌افتند —
+#    با پیام‌هایی که هیچ ربطی به علت ندارند.
+#
+#    خودشان در برابر ۴۲۹ صبورند و منتظرِ باز شدنِ پنجره می‌مانند، پس
+#    آخر بودنشان فقط کندشان می‌کند، نه قرمزشان.
 
 [ $# -gt 0 ] && SUITES="$*"
 
@@ -94,6 +104,32 @@ wait_for_quota() {
   return 1
 }
 
+# ⚠️ توکنِ مشترک می‌تواند **وسطِ اجرا بمیرد**.
+#
+#    `password.sh` عمداً رمزِ مدیر را عوض می‌کند و برمی‌گرداند — و از
+#    وقتی تغییر رمز نشست‌ها را باطل می‌کند، همان لحظه توکنِ مشترک
+#    می‌میرد.  هر مجموعه‌ای که بعدش بیاید ۴۰۱ می‌گیرد.
+#
+#    اندازه‌گیری‌شده: یک اجرای کامل با ۸۹ شکست، که ۴۰ تایشان
+#    `got=401` بودند و بقیه پیامدِ همان — هیچ‌کدام اشکالِ واقعی
+#    نبودند.  و هیچ‌کدام هم نمی‌گفتند علت چیست.
+#
+#    پیش از این بی‌خطر بود، چون توکن تا هفت روز زنده می‌ماند هرچه هم
+#    که اتفاق می‌افتاد.  یعنی رفعِ امنیتی، این شکنندگی را **آشکار**
+#    کرد، نه ایجاد.
+#
+#    راهش این نیست که `password.sh` را بی‌خطر کنیم — آن مجموعه عمداً
+#    حسابِ واقعیِ مدیر را می‌آزماید و بخشِ seed‌اش هم به همان نیاز
+#    دارد.  راهش این است که اجراکننده بفهمد توکن مرده و تازه‌اش کند.
+ensure_token() {
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10         "${MOLIDO_API:-http://localhost:3000}/auth/me"         -H "Authorization: Bearer $MOLIDO_TOKEN")" = "200" ] && return 0
+  printf '  … توکن مشترک باطل شده؛ ورود دوباره
+' >&2
+  wait_for_quota
+  MOLIDO_TOKEN=$(curl -s -X POST "${MOLIDO_API:-http://localhost:3000}/auth/login"     -H 'Content-Type: application/json'     -d "{\"email\":\"admin@molido.ai\",\"password\":\"$MOLIDO_ADMIN_PASSWORD\"}"     | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)
+  export MOLIDO_TOKEN
+}
+
 for suite in $SUITES; do
   file="backend/test/$suite.sh"
   if [ ! -f "$file" ]; then
@@ -103,6 +139,7 @@ for suite in $SUITES; do
   fi
 
   wait_for_quota
+  ensure_token
   out=$(bash "$file" 2>&1)
 
   # ─── تفکیک شکستِ گذرا از واقعی ───
@@ -115,6 +152,7 @@ for suite in $SUITES; do
   if printf '%s' "$out" | grep -q 'FAIL'; then
     printf '  %-15s شکست داشت؛ یک بار دیگر…\n' "$suite"
     wait_for_quota
+    ensure_token
     retry=$(bash "$file" 2>&1)
     if ! printf '%s' "$retry" | grep -q 'FAIL'; then
       printf '  %-15s ⚠️  شکستِ گذرا بود — بار دوم سبز شد\n' "$suite"

@@ -153,8 +153,36 @@ unlock_admin() {
   $C exec -T postgres psql -U postgres -d molido_ai -q -c     "UPDATE \"User\" SET \"lockedUntil\" = NULL WHERE email='admin@molido.ai';" >/dev/null 2>&1
   $C exec -T postgres psql -U postgres -d molido_ai -q -c     "DELETE FROM \"LoginAttempt\" WHERE email='admin@molido.ai';" >/dev/null 2>&1
 }
+
+# ⚠️ رمز هم باید در `trap` برگردد، نه در یک خطِ عادی در انتها.
+#
+#    این مجموعه عمداً رمزِ مدیر را به `$TEMP` عوض می‌کند و در گامِ ۸
+#    برمی‌گرداند.  ولی اگر وسطِ راه بمیرد — قطعِ اتصال، سقفِ نرخ،
+#    Ctrl-C — آن گام هرگز اجرا نمی‌شود و رمزِ مدیر روی مقدارِ موقت
+#    گیر می‌کند، بی‌هیچ پیامی.
+#
+#    دقیقاً همین رخ داد: پس از یک اجرای ناتمام، رمزِ محیطِ محلی روی
+#    `$TEMP` ماند و هر مجموعهٔ بعدی «رمز نادرست» گرفت — در حالی که
+#    `.env` می‌گفت رمز چیزِ دیگری است.  ساعت‌ها صرفِ چیزی شد که اصلاً
+#    خراب نبود.
+restore_password() {
+  # اگر رمزِ اصلی کار می‌کند، کاری لازم نیست.
+  [ -n "$(login "$ORIG")" ] && return 0
+  local t
+  t=$(login "$TEMP")
+  [ -z "$t" ] && return 0   # روی هیچ‌کدام نیست؛ دستِ ما نیست
+  CURL -X POST $A/auth/change-password \
+    -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+    -d "{\"currentPassword\":\"$TEMP\",\"newPassword\":\"$ORIG\"}" >/dev/null 2>&1
+  [ -z "$(login "$ORIG")" ] &&
+    printf '\n  ⚠️  رمز مدیر روی «%s» ماند — دستی برگردانید.\n' "$TEMP"
+  return 0
+}
+
+cleanup() { restore_password; unlock_admin; }
+
 unlock_admin
-trap unlock_admin EXIT
+trap cleanup EXIT
 
 T=$(login "$ORIG")
 AU="Authorization: Bearer $T"; JS="Content-Type: application/json"

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -126,8 +127,80 @@ export class PurchasesService {
     };
   }
 
-  /** ثبت فاکتور خرید (وضعیت اولیه: PENDING) */
-  async create(dto: CreatePurchaseDto, companyId: string) {
+  /**
+   * ثبتِ فاکتور خرید — با یکتاسازی و دریافتِ اختیاری.
+   *
+   * ⚠️ کلیدِ یکتاسازی **پیش از** هر کاری ثبت می‌شود، نه بعدش.
+   *
+   *    اگر بعد ثبت می‌شد، دو تلاشِ هم‌زمان هر دو از بررسی رد می‌شدند و
+   *    دو فاکتور می‌ساختند — دقیقاً همان چیزی که قرار بود جلویش
+   *    گرفته شود.  `ON CONFLICT DO NOTHING` این مسابقه را در خودِ
+   *    پایگاه داده حل می‌کند، نه در کدِ ما.
+   */
+  async create(
+    dto: CreatePurchaseDto,
+    companyId: string,
+  ): Promise<Awaited<ReturnType<PurchasesService['createInner']>>> {
+    type Created = Awaited<ReturnType<PurchasesService['createInner']>>;
+
+    const key = dto.idempotencyKey?.trim();
+    if (!key) return this.createInner(dto, companyId);
+
+    const claimed = await this.db.query<{ id: string }>(
+      `INSERT INTO "IdempotencyKey" (id, "companyId", key, endpoint)
+       VALUES ($1, $2, $3, 'POST /purchases')
+       ON CONFLICT ("companyId", key) DO NOTHING
+       RETURNING id`,
+      [randomUUID(), companyId, key],
+    );
+
+    if (!claimed[0]) {
+      // کلید از قبل هست: یا کار تمام شده و پاسخ ذخیره شده، یا هنوز
+      // در جریان است.
+      const rows = await this.db.query<{ response: unknown }>(
+        `SELECT response FROM "IdempotencyKey"
+          WHERE "companyId" = $1 AND key = $2`,
+        [companyId, key],
+      );
+
+      // پاسخِ ذخیره‌شده همان چیزی است که اولین بار برگشت — عیناً
+      // برگردانده می‌شود تا کلاینت فرقی بین بارِ اول و تلاشِ دوباره نبیند.
+      const stored = rows[0]?.response;
+      if (stored) return stored as Created;
+
+      // ⚠️ ۴۰۹ می‌دهیم، نه اینکه دوباره بسازیم.
+      //
+      //    تلاشِ هم‌زمان با همان کلید یعنی همان کار در حال انجام است.
+      //    ساختنِ دوباره‌اش همان فاکتورِ تکراری است.
+      throw new ConflictException('همین درخواست در حال انجام است');
+    }
+
+    try {
+      const created = await this.createInner(dto, companyId);
+
+      await this.db.query(
+        `UPDATE "IdempotencyKey" SET response = $1
+          WHERE "companyId" = $2 AND key = $3`,
+        [JSON.stringify(created), companyId, key],
+      );
+
+      return created;
+    } catch (err) {
+      // ⚠️ کلیدِ ناموفق آزاد می‌شود.
+      //
+      //    وگرنه فاکتوری که به‌خاطر یک خطای گذرا نشست، برای همیشه با
+      //    همان کلید قابلِ ثبت نبود — و صف تا ابد ۴۰۹ می‌گرفت.
+      await this.db
+        .query('DELETE FROM "IdempotencyKey" WHERE "companyId" = $1 AND key = $2', [
+          companyId,
+          key,
+        ])
+        .catch(() => undefined);
+      throw err;
+    }
+  }
+
+  private async createInner(dto: CreatePurchaseDto, companyId: string) {
     const [suppliers, warehouses] = await Promise.all([
       this.db.query<{ id: string }>(
         'SELECT id FROM "Supplier" WHERE id = $1 AND "companyId" = $2',
@@ -172,8 +245,8 @@ export class PurchasesService {
     const tax = dto.tax ?? 0;
     const total = subtotal - discount + tax;
 
-    return this.db.transaction(async (tx) => {
-      const created = await tx.query<Purchase>(
+    const created = await this.db.transaction(async (tx) => {
+      const inserted = await tx.query<Purchase>(
         `INSERT INTO "Purchase"
            (id, "companyId", "supplierId", "warehouseId", "purchaseNo", status,
             subtotal, discount, tax, total, note,
@@ -197,7 +270,7 @@ export class PurchasesService {
           dto.capitalizeFreight ?? true,
         ],
       );
-      const purchase = created.rows[0];
+      const purchase = inserted.rows[0];
 
       const items: PurchaseItem[] = [];
       for (const item of itemsData) {
@@ -223,6 +296,20 @@ export class PurchasesService {
 
       return { ...purchase, items };
     });
+
+    // ⚠️ دریافت **پس از** تراکنشِ ساخت انجام می‌شود، نه داخلش.
+    //
+    //    `receive` خودش تراکنشی است و `FOR UPDATE` می‌زند؛ تودرتو
+    //    کردنش یعنی بازنویسیِ مسیرِ مالی‌ای که از قبل آزموده شده.
+    //
+    //    اگر بینِ این دو چیزی بشکند، فاکتورِ ثبت‌شدهٔ دریافت‌نشده
+    //    می‌ماند — حالتی که کاربر با یک کلیک جبرانش می‌کند.  برخلافِ
+    //    فاکتورِ تکراری، این حالت داده را خراب نمی‌کند.
+    if (dto.receive) {
+      return this.receive(created.id, companyId);
+    }
+
+    return created;
   }
 
   /** دریافت کالا: افزایش خودکار موجودی انبار (تراکنشی) */

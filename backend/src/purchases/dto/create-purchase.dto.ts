@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -90,4 +91,33 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsBoolean()
   capitalizeFreight?: boolean;
+
+  /**
+   * ثبت و دریافت در یک درخواست.
+   *
+   * ⚠️ برای صفِ آفلاین لازم است، نه راحتی.
+   *
+   *    مسیرِ عادی دو درخواست است: `POST /purchases` و سپس
+   *    `PATCH /purchases/:id/receive`.  صفِ آفلاین نمی‌تواند این
+   *    زنجیره را اجرا کند، چون شناسهٔ فاکتور تا رسیدنِ پاسخِ اول
+   *    وجود ندارد.
+   *
+   *    مسیرِ دومرحله‌ای دست‌نخورده می‌ماند: فاکتور همچنان ممکن است
+   *    پیش از رسیدنِ کالا ثبت شود.
+   */
+  @IsOptional()
+  @IsBoolean()
+  receive?: boolean;
+
+  /**
+   * کلیدِ یکتاسازی — کلاینت پیش از رفتن به صف می‌سازدش.
+   *
+   * ⚠️ بدونِ این، تلاشِ دوبارهٔ صف فاکتورِ دوم می‌سازد: دو برابر
+   *    موجودی و دو سندِ حسابداری.  توضیح کامل در
+   *    `sql/migrations/045_idempotency.sql`.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  idempotencyKey?: string;
 }

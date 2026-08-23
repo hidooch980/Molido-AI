@@ -14,6 +14,8 @@
 export type IconName =
   | 'home'
   | 'pos'
+  | 'mic'
+  | 'camera'
   | 'restaurant'
   | 'package'
   | 'warehouse'
@@ -89,6 +91,9 @@ const PATHS: Record<IconName, string> = {
   refresh: 'M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5',
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3',
   plus: 'M12 5v14M5 12h14',
+  mic: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM19 12a7 7 0 0 1-14 0M12 19v3M8 22h8',
+  camera:
+    'M3 8a2 2 0 0 1 2-2h2.2l1.3-2h6.9l1.3 2H21a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
   check: 'M20 6 9 17l-5-5',
   x: 'M18 6 6 18M6 6l12 12',
   alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',

@@ -11,6 +11,7 @@ import { Icon } from '../../../components/icons';
 import { NUM, ROW, TD, TOUCH } from '../../../components/ui';
 import { api } from '../../../lib/api';
 import { useI18n } from '../../../lib/i18n-context';
+import { isSpeechSupported, listenOnce, parseVoiceCommand } from '../../../lib/speech';
 
 type Supplier = { id: string; name: string };
 type Warehouse = { id: string; name: string };
@@ -60,6 +61,9 @@ export default function NewPurchasePage() {
   const [capitalize, setCapitalize] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [micReady, setMicReady] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -70,6 +74,7 @@ export default function NewPurchasePage() {
 
   useEffect(() => {
     setCameraReady(isScannerSupported());
+    setMicReady(isSpeechSupported());
 
     void (async () => {
       try {
@@ -96,7 +101,7 @@ export default function NewPurchasePage() {
 
   /** کالا را با بارکد یا کد پیدا می‌کند و به فهرست می‌افزاید. */
   const addByCode = useCallback(
-    async (input: string) => {
+    async (input: string, qty = 1) => {
       const value = input.trim();
       if (!value) return;
 
@@ -121,7 +126,7 @@ export default function NewPurchasePage() {
           if (existing) {
             return prev.map((line) =>
               line.productId === product.id
-                ? { ...line, quantity: line.quantity + 1 }
+                ? { ...line, quantity: line.quantity + qty }
                 : line,
             );
           }
@@ -132,7 +137,7 @@ export default function NewPurchasePage() {
               productId: product.id,
               name: product.name,
               unit: product.unit,
-              quantity: 1,
+              quantity: qty,
               purchasePrice: Number(product.purchasePrice ?? 0),
             },
           ];
@@ -145,6 +150,41 @@ export default function NewPurchasePage() {
     },
     [t],
   );
+
+  /**
+   * افزودن با صدا — «ده کارتن شیر».
+   *
+   * ⚠️ دستِ انباردار پُر است.
+   *
+   *    کارتن در بغل، پالت جلوی پا.  تایپ کردن یعنی زمین گذاشتنِ بار،
+   *    و اسکن یعنی پیدا کردنِ بارکد روی کارتنی که پشتش به بالاست.
+   *    گفتن، تنها راهی است که دست را آزاد نگه می‌دارد.
+   *
+   * ⚠️ مقدار **قبل از** نام گفته می‌شود و همان‌جا اعمال می‌شود.
+   *
+   *    «ده کارتن شیر» یعنی ده تا، نه اینکه ده بار بگویی «شیر».
+   *    `parseVoiceCommand` همین را جدا می‌کند و از قبل در `pos`
+   *    استفاده و آزموده شده — دوباره نوشتنش یعنی دو رفتارِ متفاوت
+   *    برای یک جمله.
+   */
+  const addByVoice = useCallback(() => {
+    setError('');
+    setListening(true);
+    listenOnce(
+      (text) => {
+        setListening(false);
+        const { qty, term } = parseVoiceCommand(text);
+        setHeard(text);
+        if (!term) return;
+        // مقدارِ نگفته یعنی یکی — همان رفتارِ اسکن.
+        void addByCode(term, qty ?? 1);
+      },
+      (message) => {
+        setListening(false);
+        setError(message);
+      },
+    );
+  }, [addByCode]);
 
   function updateLine(productId: string, patch: Partial<Line>) {
     setLines((prev) =>
@@ -312,7 +352,40 @@ export default function NewPurchasePage() {
             <Icon name="pos" size={20} />
           </button>
         ) : null}
+
+        {micReady ? (
+          <button
+            type="button"
+            className="ghost"
+            style={{
+              ...TOUCH,
+              // شنیدن باید دیده شود: بدونش کاربر حرف می‌زند و
+              // نمی‌داند گوش داده می‌شود یا نه.
+              borderColor: listening ? 'var(--accent)' : undefined,
+              color: listening ? 'var(--accent)' : undefined,
+            }}
+            onClick={addByVoice}
+            disabled={listening}
+            aria-label={t('addByVoice')}
+            aria-pressed={listening}
+          >
+            <Icon name="mic" size={20} />
+          </button>
+        ) : null}
       </form>
+
+      {/* آنچه شنیده شد — تا اگر اشتباه شنید، کاربر بفهمد چرا.
+          بدونِ این، «کالا پیدا نشد» گیج‌کننده است: کاربر نمی‌داند
+          نامش در انبار نیست یا موتور چیزِ دیگری شنیده. */}
+      {listening || heard ? (
+        <p
+          className="muted"
+          style={{ margin: '-8px 0 12px', fontSize: 13 }}
+          aria-live="polite"
+        >
+          {listening ? t('listening') : `${t('heard')}: «${heard}»`}
+        </p>
+      ) : null}
 
       {/* اقلام */}
       <div className="card">
@@ -320,7 +393,7 @@ export default function NewPurchasePage() {
           <p className="muted">{t('noItemsYet')}</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr style={{ color: 'var(--text-dim)' }}>
                   <th style={{ padding: 8, textAlign: 'right' }}>{t('colProduct')}</th>
@@ -333,13 +406,13 @@ export default function NewPurchasePage() {
               <tbody>
                 {lines.map((line) => (
                   <tr key={line.productId} style={ROW}>
-                    <td style={TD}>
+                    <td style={TD} data-primary>
                       {line.name}
                       {line.unit ? (
                         <span className="muted"> ({line.unit})</span>
                       ) : null}
                     </td>
-                    <td style={TD}>
+                    <td style={TD} data-label={t('quantity')}>
                       <input
                         type="number"
                         min={0}
@@ -353,7 +426,7 @@ export default function NewPurchasePage() {
                         style={{ ...TOUCH, width: 90 }}
                       />
                     </td>
-                    <td style={TD}>
+                    <td style={TD} data-label={t('unitCost')}>
                       <input
                         type="number"
                         min={0}
@@ -366,10 +439,10 @@ export default function NewPurchasePage() {
                         style={{ ...TOUCH, width: 130 }}
                       />
                     </td>
-                    <td style={{ ...NUM, fontWeight: 700 }}>
+                    <td style={{ ...NUM, fontWeight: 700 }} data-label={t('total')}>
                       {fa(line.quantity * line.purchasePrice)}
                     </td>
-                    <td style={TD}>
+                    <td style={TD} data-label={t('actions')}>
                       <button
                         type="button"
                         className="ghost"

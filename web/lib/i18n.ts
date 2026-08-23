@@ -1020,6 +1020,13 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   pickWarehouse: { fa: 'انبار را انتخاب کنید', en: 'Pick a warehouse', ar: 'اختر مستودعاً' },
   unitCost: { fa: 'بهای واحد', en: 'Unit cost', ar: 'تكلفة الوحدة' },
   scanCamera: { fa: 'اسکن با دوربین', en: 'Scan with camera', ar: 'مسح بالكاميرا' },
+  addByVoice: {
+    fa: 'افزودن با صدا — مثلاً «ده کارتن شیر»',
+    en: 'Add by voice — e.g. "ten cartons of milk"',
+    ar: 'إضافة بالصوت — مثلاً «عشرة كراتين حليب»',
+  },
+  heard: { fa: 'شنیده شد', en: 'Heard', ar: 'تم سماع' },
+  listening: { fa: 'بگویید…', en: 'Listening…', ar: 'جارٍ الاستماع…' },
   productNotFoundShort: { fa: 'کالا پیدا نشد', en: 'Product not found', ar: 'الصنف غير موجود' },
   takeOrder: { fa: 'سفارش‌گیری', en: 'Take order', ar: 'أخذ الطلب' },
   newTableOrder: { fa: 'سفارش میز', en: 'Table order', ar: 'طلب طاولة' },

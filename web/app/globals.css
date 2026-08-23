@@ -1417,6 +1417,86 @@ td.qty span {
 }
 
 /* ============================================================
+   جدولِ کارت‌شونده — روی گوشی هر ردیف یک کارت می‌شود
+   ============================================================
+
+   ⚠️ چرا لازم بود؟
+
+      انباردار گوشی را با یک دست گرفته و کارتن در دست دیگرش است.
+      جدولِ پنج‌ستونی روی صفحهٔ ۳۷۵ پیکسلی افقی اسکرول می‌شود — یعنی
+      برای اصلاح مقدار باید اول افقی اسکرول کند، که با یک دست عملاً
+      ممکن نیست.
+
+   ⚠️ عنوانِ هر سلول از `data-label` می‌آید، نه از تکرارِ JSX.
+
+      ساختنِ یک نسخهٔ جدا برای موبایل یعنی دو جای مختلف که باید
+      هم‌زمان نگه داشته شوند — و همیشه یکی‌شان عقب می‌ماند. */
+
+@media (max-width: 640px) {
+  .stack-table thead {
+    /* `display: none` صرف، سرستون‌ها را از صفحه‌خوان هم می‌گیرد. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .stack-table,
+  .stack-table tbody,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .stack-table tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2, var(--surface));
+  }
+
+  .stack-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .stack-table td::before {
+    content: attr(data-label);
+    color: var(--text-dim);
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
+
+  /* نامِ کالا تیترِ کارت است، نه یک ردیفِ برچسب‌دار. */
+  .stack-table td[data-primary]::before {
+    content: none;
+  }
+
+  .stack-table td[data-primary] {
+    display: block;
+    font-weight: 700;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ورودی‌ها تا انتهای کارت کشیده شوند — هدفِ لمسیِ بزرگ‌تر. */
+  .stack-table td input {
+    width: 100% !important;
+    max-width: 180px;
+  }
+}
+
+/* ============================================================
    پالت فرمان — Ctrl+K
    ============================================================ */
 

@@ -22,9 +22,19 @@
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SRC = 'D:\\aziz\\molido-ai\\Molido-AI-main\\backend\\src';
+// ⚠️ مسیر **نسبی**، نه مطلق.
+//
+//    نسخهٔ قبلی مسیرِ کاملِ ویندوز را سخت‌کد كرده بود.  یعنی روی
+//    سرور، CI، یا ماشینِ هر همکارِ دیگری، `readdirSync` خطا می‌داد و
+//    نگهبان اصلاً اجرا نمی‌شد.
+//
+//    نگهبانی که فقط روی یک ماشین اجرا می‌شود، روی بقیه محافظتی
+//    نیست — و بدتر، باورِ محافظت می‌سازد.
+const here = dirname(fileURLToPath(import.meta.url));
+const SRC = join(here, '..', '..', 'backend', 'src');
 
 function walk(d) {
   const out = [];
@@ -38,10 +48,44 @@ function walk(d) {
 
 const bad = [];
 let checked = 0;
+const unguarded = [];
+
+/**
+ * مسیرهایی که عمداً بی‌احراز هویت‌اند — با دلیلشان.
+ *
+ * `app.controller.ts`     ریشه: فقط نام و نسخه، برای سنجشِ زنده بودن
+ * `health/liveness`       healthz/readyz — بالانسر باید بی‌توکن بپرسد
+ * `n8n/n8n.controller`    با `x-molido-secret` و مقایسهٔ زمان‌ثابت
+ *                         محافظت می‌شود، نه با JWT: n8n کاربر نیست
+ * `shop/shop.controller`  فروشگاه اینترنتی: مشتری توکنِ کارمند ندارد و
+ *                         نگهبانِ خودش (`CustomerAuthGuard`) را دارد
+ */
+const PUBLIC_OK = new Set([
+  'app.controller.ts',
+  'health/liveness.controller.ts',
+  'n8n/n8n.controller.ts',
+  'shop/shop.controller.ts',
+]);
 
 for (const file of walk(SRC)) {
   const text = readFileSync(file, 'utf8');
   const rel = file.slice(SRC.length + 1);
+
+  // ─── سنجهٔ دوم: کنترلری که اصلاً محافظت ندارد ───
+  //
+  // ⚠️ این از ممیزی آمد، نه از اشکالی که رخ داده باشد.
+  //
+  //    امروز هر ۹۳ کنترلر پوشیده‌اند.  ریسک **فردا**ست: کنترلرِ تازه‌ای
+  //    که کسی `@UseGuards` یادش برود.  چون هیچ نگهبانِ سراسری‌ای نیست،
+  //    آن مسیر **باز** بالا می‌آید و هیچ‌چیز اعتراض نمی‌کند.
+  //
+  //    فهرست سفید صریح است: هر مسیرِ عمومی باید آنجا نوشته شود، با
+  //    دلیلش.  افزودنِ نام به آن فهرست کارِ آگاهانه‌ای است که در
+  //    بازبینیِ کد دیده می‌شود — برخلاف فراموش کردنِ نگهبان.
+  if (!/@UseGuards\(/.test(text)) {
+    if (!PUBLIC_OK.has(rel.split(sep).join('/'))) unguarded.push(rel);
+    continue;
+  }
 
   const usesRoles = /@Roles\(/.test(text);
   const usesPermission = /@Permission\(/.test(text);
@@ -71,6 +115,17 @@ for (const file of walk(SRC)) {
 
 console.log(`  کنترلرِ دارای دکوراتورِ مجوز: ${checked}`);
 console.log();
+
+if (unguarded.length > 0) {
+  console.log(`  FAIL ${unguarded.length} کنترلرِ بدون هیچ نگهبانی:`);
+  for (const u of unguarded) console.log(`       ${u}`);
+  console.log();
+  console.log('  اگر عمدی است، نامش را با دلیل به PUBLIC_OK اضافه کنید.');
+  console.log();
+  console.log('   PASS: 0   FAIL: 1');
+  process.exit(1);
+}
+
 
 if (bad.length === 0) {
   console.log('  OK   هر دکوراتورِ مجوز، نگهبانی دارد که بخواندش');

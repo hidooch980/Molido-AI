@@ -49,6 +49,32 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   signIn: { fa: 'ورود', en: 'Sign in', ar: 'دخول' },
   signingIn: { fa: 'در حال ورود…', en: 'Signing in…', ar: 'جارٍ الدخول…' },
   loginError: { fa: 'خطا در ورود', en: 'Login failed', ar: 'فشل تسجيل الدخول' },
+
+  /* مرحلهٔ دومِ ورود — رمزِ یک‌بارمصرف */
+  mfaTitle: {
+    fa: 'تأیید دومرحله‌ای',
+    en: 'Two-step verification',
+    ar: 'التحقق بخطوتين',
+  },
+  mfaSubtitle: {
+    fa: 'کدِ شش‌رقمیِ برنامهٔ احرازکننده را وارد کنید',
+    en: 'Enter the 6-digit code from your authenticator app',
+    ar: 'أدخل الرمز المكوّن من ٦ أرقام من تطبيق المصادقة',
+  },
+  mfaCode: { fa: 'کد تأیید', en: 'Verification code', ar: 'رمز التحقق' },
+  mfaRecoveryHint: {
+    fa: 'به گوشی‌تان دسترسی ندارید؟ یکی از کدهای بازیابی را وارد کنید.',
+    en: "No access to your phone? Enter one of your recovery codes.",
+    ar: 'لا يمكنك الوصول إلى هاتفك؟ أدخل أحد رموز الاسترداد.',
+  },
+  mfaVerify: { fa: 'تأیید', en: 'Verify', ar: 'تحقق' },
+  mfaVerifying: { fa: 'در حال تأیید…', en: 'Verifying…', ar: 'جارٍ التحقق…' },
+  mfaBack: { fa: 'بازگشت به ورود', en: 'Back to sign in', ar: 'العودة لتسجيل الدخول' },
+  mfaExpired: {
+    fa: 'مهلتِ تأیید تمام شد — دوباره وارد شوید',
+    en: 'Verification timed out — please sign in again',
+    ar: 'انتهت مهلة التحقق — الرجاء تسجيل الدخول مجدداً',
+  },
   /**
    * فقط برای نصب نمایشی — با NEXT_PUBLIC_SHOW_DEMO_LOGIN=1 دیده می‌شود.
    *

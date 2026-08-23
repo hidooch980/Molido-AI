@@ -12,6 +12,12 @@ import { DatabaseService } from '../database/database.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import {
+  generateRecoveryCodes,
+  generateSecret,
+  otpauthUrl,
+  verifyCode,
+} from './totp';
 
 type UserRow = {
   id: string;
@@ -29,6 +35,10 @@ type UserRow = {
   lockedUntil: Date | null;
   /** دیرترینِ «تغییر رمز» و «خروج از همهٔ دستگاه‌ها»؛ تهی = هرگز. */
   validFrom: Date | null;
+  /** رازِ TOTP به قالب base32؛ تهی = راه‌اندازی نشده. */
+  mfaSecret: string | null;
+  /** لحظهٔ تأییدِ اولین کدِ درست؛ تهی = راز هست ولی فعال نیست. */
+  mfaEnabledAt: Date | null;
 };
 
 @Injectable()
@@ -148,7 +158,58 @@ export class AuthService {
       throw new UnauthorizedException('User account is inactive');
     }
 
-    await this.recordAttempt(email, true, undefined, meta);
+    // ⚠️ MFA فعال یعنی رمزِ درست **کافی نیست**.
+    //
+    //    اینجا توکنِ دسترسی صادر نمی‌شود.  یک «توکنِ چالش» با عمرِ پنج
+    //    دقیقه برمی‌گردد که فقط یک کار می‌کند: اثباتِ اینکه مرحلهٔ اولِ
+    //    ورود گذشته است.
+    //
+    //    چالش عمداً با کلیدِ **جدا** امضا می‌شود.  با کلیدِ مشترک، همان
+    //    رشته یک توکنِ دسترسیِ معتبر می‌شد: `JwtStrategy` امضا را درست
+    //    می‌دید، `sub` را می‌خواند و کاربر را داخل می‌فرستاد — بی‌آنکه
+    //    هرگز کدی خواسته شود.  یعنی MFA فقط ظاهرِ محافظت می‌شد.
+    if (user.mfaEnabledAt) {
+      // ⚠️ اینجا **موفقیت ثبت نمی‌شود** و قفل هم برداشته نمی‌شود.
+      //
+      //    پیش‌تر هر دو همین‌جا رخ می‌داد و دو حفره می‌ساخت:
+      //
+      //    ۱) مهاجمی که فقط رمز را داشت و هرگز از مرحلهٔ دوم رد
+      //       نمی‌شد، در تاریخچه یک ردیفِ «ورودِ موفق» جا می‌گذاشت.
+      //       تاریخچه‌ای که مدیر می‌بیند دروغ می‌گفت.
+      //
+      //    ۲) همان مهاجم می‌توانست بی‌نهایت بار قفلِ حساب را باز کند —
+      //       یعنی برای حساب‌های MFA‌دار قفل عملاً بی‌اثر بود.
+      //
+      //    ردِ مرحلهٔ اول با `success = false` ثبت می‌شود تا هم دیده
+      //    شود و هم در شمارشِ `maybeLock` بیاید: تکرارِ مرحلهٔ اول
+      //    بدونِ گذر از مرحلهٔ دوم دقیقاً همان الگویی است که باید به
+      //    قفل برسد.
+      await this.recordAttempt(email, false, 'MFA_PENDING', meta);
+      return {
+        mfaRequired: true,
+        challenge: this.jwtService.sign(
+          { sub: user.id, stage: 'mfa' },
+          { secret: this.mfaChallengeSecret(), expiresIn: '5m' },
+        ),
+      };
+    }
+
+    return this.finalizeLogin(user, meta);
+  }
+
+  /**
+   * پایانِ **واقعی**ِ ورود: ثبتِ موفقیت، برداشتنِ قفل، صدورِ توکن.
+   *
+   * ⚠️ فقط از جایی صدا زده می‌شود که همهٔ عامل‌ها گذشته باشند.
+   *
+   *    برای حسابِ بدونِ MFA یعنی پس از رمز؛ برای حسابِ MFA‌دار یعنی
+   *    پس از کدِ درست یا کدِ بازیابی — نه پیش از آن.
+   */
+  private async finalizeLogin(
+    user: UserRow,
+    meta?: { ip?: string; userAgent?: string },
+  ) {
+    await this.recordAttempt(user.email, true, undefined, meta);
 
     // ورودِ موفق قفل را برمی‌دارد — کسی که رمز را می‌داند، نباید
     // به‌خاطر تلاش‌های مهاجم بیرون بماند.
@@ -159,6 +220,18 @@ export class AuthService {
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * کلیدِ امضای توکنِ چالش — جدا از توکنِ دسترسی.
+   *
+   * ⚠️ جدا بودنش تمامِ محافظت است.  با کلیدِ مشترک، مرحلهٔ دوم قابل
+   *    دور زدن بود.
+   */
+  private mfaChallengeSecret(): string {
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    if (!jwtSecret) throw new Error('JWT_SECRET is required');
+    return `${jwtSecret}_mfa_challenge`;
   }
 
   /**
@@ -173,9 +246,22 @@ export class AuthService {
     if (!userId) return;
     try {
       const rows = await this.db.query<{ n: string }>(
+        // ⚠️ فقط شکست‌های **پس از آخرین ورودِ موفق** شمرده می‌شوند.
+        //
+        //    وگرنه ورودِ موفق شمارنده را صفر نمی‌کرد و شکست‌های کهنه
+        //    روی هم می‌ماندند: کاربری که دیروز چند بار رمز را اشتباه
+        //    زده و بعد وارد شده، با یک اشتباهِ تازه قفل می‌شد.
+        //
+        //    از وقتی مرحلهٔ اولِ MFA ردِ `MFA_PENDING` می‌گذارد این
+        //    لازم‌تر هم شد: بدونش، کاربرِ MFA‌داری که ده بار وارد شده
+        //    بود — همه با موفقیت — قفل می‌شد.
         `SELECT count(*)::text AS n FROM "LoginAttempt"
           WHERE email = $1 AND success = false
-            AND "createdAt" > now() - ($2 || ' minutes')::interval`,
+            AND "createdAt" > now() - ($2 || ' minutes')::interval
+            AND "createdAt" > COALESCE(
+                  (SELECT max("createdAt") FROM "LoginAttempt"
+                    WHERE email = $1 AND success = true),
+                  'epoch'::timestamptz)`,
         [email, String(AuthService.LOCK_WINDOW_MIN)],
       );
       if (Number(rows[0]?.n ?? 0) < AuthService.LOCK_THRESHOLD) return;
@@ -205,6 +291,214 @@ export class AuthService {
       [userId],
     );
     return { revoked: true };
+  }
+
+  // ══════════════════════════════════════════════ رمز دومرحله‌ای
+
+  /**
+   * مرحلهٔ یک: ساختِ راز و نمایشِ QR.
+   *
+   * ⚠️ اینجا MFA **فعال نمی‌شود**.
+   *
+   *    فقط راز ساخته و ذخیره می‌شود.  اگر همین‌جا فعال می‌شد، کاربری
+   *    که QR را دید و پنجره را بست، دفعهٔ بعد نمی‌توانست وارد شود:
+   *    سامانه کد می‌خواست و هیچ برنامه‌ای راز را نداشت.
+   *
+   *    یعنی خودِ سخت‌سازی، کاربر را از حسابش بیرون می‌انداخت.
+   */
+  async mfaSetup(userId: string) {
+    const user = await this.findUser('id', userId);
+    if (!user) throw new UnauthorizedException('حساب کاربری یافت نشد');
+    if (user.mfaEnabledAt) {
+      throw new BadRequestException('رمز دومرحله‌ای از قبل فعال است');
+    }
+
+    const secret = generateSecret();
+    await this.db.execute(
+      'UPDATE "User" SET "mfaSecret" = $1, "updatedAt" = now() WHERE id = $2',
+      [secret, userId],
+    );
+
+    // ⚠️ راز فقط همین یک بار برمی‌گردد و دیگر هرگز خوانده نمی‌شود.
+    return { secret, otpauth: otpauthUrl(secret, user.email) };
+  }
+
+  /**
+   * مرحلهٔ دو: تأییدِ اولین کد و فعال‌سازی.
+   *
+   * ⚠️ کدهای بازیابی همین‌جا و فقط یک بار داده می‌شوند.
+   *
+   *    بدونشان، گم شدنِ گوشی یعنی از دست رفتنِ حساب — و برای مدیرِ یک
+   *    فروشگاه یعنی کلِ کسب‌وکار خوابیده.  MFA بدون راهِ بازیابی،
+   *    امنیت نیست؛ خطرِ عملیاتی است.
+   */
+  async mfaConfirm(userId: string, code: string) {
+    const user = await this.findUser('id', userId);
+    if (!user?.mfaSecret) {
+      throw new BadRequestException('ابتدا رمز دومرحله‌ای را راه‌اندازی کنید');
+    }
+    if (user.mfaEnabledAt) {
+      throw new BadRequestException('رمز دومرحله‌ای از قبل فعال است');
+    }
+    if (!verifyCode(user.mfaSecret, code, Date.now())) {
+      throw new UnauthorizedException('کد نادرست است');
+    }
+
+    const codes = generateRecoveryCodes();
+    const hashes = await Promise.all(codes.map((c) => bcrypt.hash(c, 10)));
+
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        'UPDATE "User" SET "mfaEnabledAt" = now(), "updatedAt" = now() WHERE id = $1',
+        [userId],
+      );
+      // راه‌اندازیِ دوباره نباید کدهای قدیمی را زنده نگه دارد.
+      await tx.query('DELETE FROM "MfaRecoveryCode" WHERE "userId" = $1', [userId]);
+      for (const hash of hashes) {
+        await tx.query(
+          'INSERT INTO "MfaRecoveryCode" (id, "userId", "codeHash") VALUES ($1,$2,$3)',
+          [randomUUID(), userId, hash],
+        );
+      }
+    });
+
+    return { enabled: true, recoveryCodes: codes };
+  }
+
+  /**
+   * مرحلهٔ دومِ ورود: چالش + کد ← توکنِ واقعی.
+   *
+   * ⚠️ کدِ بازیابی هم پذیرفته می‌شود، ولی فقط یک بار.
+   */
+  async mfaVerify(challenge: string, code: string) {
+    let payload: { sub: string; stage?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(challenge, {
+        secret: this.mfaChallengeSecret(),
+      });
+    } catch {
+      throw new UnauthorizedException('چالش منقضی شده — دوباره وارد شوید');
+    }
+
+    // ⚠️ `stage` سنجیده می‌شود، نه فقط امضا.
+    //
+    //    کلید جداست، ولی اگر روزی توکنِ دیگری با همین کلید امضا شود،
+    //    این بررسی جلوی استفادهٔ متقابلش را می‌گیرد.
+    if (payload?.stage !== 'mfa') {
+      throw new UnauthorizedException('چالش نامعتبر است');
+    }
+
+    const user = await this.findUser('id', payload.sub);
+    if (!user || user.status !== 'ACTIVE' || !user.mfaEnabledAt || !user.mfaSecret) {
+      throw new UnauthorizedException('حساب کاربری معتبر نیست');
+    }
+
+    if (verifyCode(user.mfaSecret, code, Date.now())) {
+      return this.finalizeLogin(user);
+    }
+
+    if (await this.consumeRecoveryCode(user.id, code)) {
+      return this.finalizeLogin(user);
+    }
+
+    // ⚠️ تلاشِ ناموفقِ مرحلهٔ دوم هم ثبت می‌شود.
+    //
+    //    وگرنه حدسِ کدِ شش‌رقمی هیچ ردی نمی‌گذاشت — همان نقصی که برای
+    //    مرحلهٔ اول رفعش کردیم، برای مرحلهٔ دوم باز می‌ماند.
+    await this.recordAttempt(user.email, false, 'BAD_MFA');
+
+    // ⚠️ مرحلهٔ دوم هم باید به قفل برسد، مثل مرحلهٔ اول.
+    //
+    //    پیش‌تر تنها سدّ، سقفِ نرخِ ده‌تا-در-دقیقه روی کنترلر بود —
+    //    یعنی حدس زدن کند می‌شد ولی هرگز متوقف نمی‌شد.  مرحلهٔ اول
+    //    پس از ده شکست قفل می‌شد و مرحلهٔ دوم نمی‌شد؛ همان درِ پشتی
+    //    که MFA قرار بود ببندد.
+    await this.maybeLock(user.id, user.email);
+    throw new UnauthorizedException('کد نادرست است');
+  }
+
+  /**
+   * مصرفِ کدِ بازیابی — یک بار و تمام.
+   *
+   * ⚠️ کدها هش‌شده‌اند، پس باید یکی‌یکی مقایسه شوند.
+   *
+   *    هزینه‌اش هشت مقایسهٔ bcrypt است و فقط وقتی رخ می‌دهد که کدِ
+   *    TOTP جواب نداده باشد — یعنی مسیرِ نادر.  ذخیرهٔ خام برای
+   *    سریع‌تر شدن، همان چیزی را نابود می‌کرد که MFA برایش هست.
+   */
+  private async consumeRecoveryCode(userId: string, entered: string): Promise<boolean> {
+    const clean = (entered ?? '').trim().toUpperCase();
+    if (!clean) return false;
+
+    const rows = await this.db.query<{ id: string; codeHash: string }>(
+      'SELECT id, "codeHash" FROM "MfaRecoveryCode" WHERE "userId" = $1 AND "usedAt" IS NULL',
+      [userId],
+    );
+
+    for (const row of rows) {
+      if (await bcrypt.compare(clean, row.codeHash)) {
+        // ⚠️ شرطِ `"usedAt" IS NULL` در خودِ UPDATE تکرار شده.
+        //
+        //    دو درخواستِ هم‌زمان با یک کد می‌توانستند هر دو از حلقهٔ
+        //    بالا رد شوند.  این شرط یکی‌شان را قطعاً بی‌اثر می‌کند.
+        const done = await this.db.execute(
+          'UPDATE "MfaRecoveryCode" SET "usedAt" = now() WHERE id = $1 AND "usedAt" IS NULL',
+          [row.id],
+        );
+        return done > 0;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * خاموش کردنِ MFA — رمز **و** کد، هر دو.
+   *
+   * ⚠️ فقط توکنِ معتبر کافی نیست.
+   *
+   *    توکن ممکن است دزدیده شده باشد؛ اگر با آن بشود MFA را خاموش
+   *    کرد، مهاجم اولین کاری که می‌کند همین است و از آن پس محافظتی
+   *    نیست.  خواستنِ رمز و کد یعنی مهاجم باید هر دو عامل را داشته
+   *    باشد — که اگر داشت، اصلاً به MFA نیازی نبود.
+   */
+  async mfaDisable(userId: string, password: string, code: string) {
+    const user = await this.findUser('id', userId);
+    if (!user?.mfaEnabledAt || !user.mfaSecret) {
+      throw new BadRequestException('رمز دومرحله‌ای فعال نیست');
+    }
+    if (!(await bcrypt.compare(password ?? '', user.password))) {
+      throw new UnauthorizedException('رمز عبور نادرست است');
+    }
+    if (
+      !verifyCode(user.mfaSecret, code, Date.now()) &&
+      !(await this.consumeRecoveryCode(userId, code))
+    ) {
+      throw new UnauthorizedException('کد نادرست است');
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        'UPDATE "User" SET "mfaSecret" = NULL, "mfaEnabledAt" = NULL, "updatedAt" = now() WHERE id = $1',
+        [userId],
+      );
+      await tx.query('DELETE FROM "MfaRecoveryCode" WHERE "userId" = $1', [userId]);
+    });
+
+    return { disabled: true };
+  }
+
+  /** وضعیتِ MFA برای نمایش در رابط. */
+  async mfaStatus(userId: string) {
+    const user = await this.findUser('id', userId);
+    const left = await this.db.query<{ n: string }>(
+      'SELECT count(*) AS n FROM "MfaRecoveryCode" WHERE "userId" = $1 AND "usedAt" IS NULL',
+      [userId],
+    );
+    return {
+      enabled: Boolean(user?.mfaEnabledAt),
+      pending: Boolean(user?.mfaSecret && !user?.mfaEnabledAt),
+      recoveryCodesLeft: Number(left[0]?.n ?? 0),
+    };
   }
 
   /** تاریخچهٔ تلاش‌های ورودِ یک ایمیل — برای بررسیِ مدیر. */
@@ -322,7 +616,7 @@ export class AuthService {
   private async findUser(field: 'id' | 'email', value: string): Promise<UserRow | undefined> {
     const rows = await this.db.query<UserRow>(
       `SELECT id, "firstName", "lastName", email, phone, password, role, status, avatar,
-              "companyId", "createdAt", "lockedUntil",
+              "companyId", "createdAt", "lockedUntil", "mfaSecret", "mfaEnabledAt",
               GREATEST("passwordChangedAt", "sessionsRevokedAt") AS "validFrom"
        FROM "User" WHERE ${field === 'id' ? 'id' : 'email'} = $1`,
       [value],

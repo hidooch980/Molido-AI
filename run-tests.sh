@@ -16,8 +16,8 @@ cd "$(dirname "$0")" || exit 1
 # رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
 SUITES="e2e-cycles integration shop shop-filter shop-takeover customer-status count-app upload-security pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
-        product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice treasury-assets
-        password login-hardening session-revocation refresh-revocation refresh-cookie ratelimit bundle apidocs untested records roles restore"
+        product-media operations hr crm freight sms ration audit-fixes quick-keys purchasing voice treasury-assets ai-roles
+        password mfa login-hardening session-revocation refresh-revocation refresh-cookie ratelimit bundle apidocs untested records roles restore"
 
 # ⚠️ سه مجموعهٔ احراز هویت (`password`, `login-hardening`,
 #    `session-revocation`) عمداً **آخر** فهرست‌اند.

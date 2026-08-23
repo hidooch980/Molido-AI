@@ -12,10 +12,20 @@ import {
   type Lang,
 } from '../lib/i18n';
 
-type LoginResponse = {
-  accessToken: string;
-  user: { firstName: string; lastName: string };
-};
+/**
+ * پاسخِ ورود **دو شکل** دارد.
+ *
+ * ⚠️ پیش‌تر فقط شکلِ اول فرض می‌شد و مستقیم `accessToken` خوانده
+ *    می‌شد.  برای حسابِ MFA‌دار آن کلید اصلاً وجود ندارد، پس
+ *    `setToken(undefined)` اجرا می‌شد و کاربر بی‌هیچ پیامی بیرون
+ *    می‌ماند — یعنی روشن کردن MFA ورود از وب را کاملاً می‌شکست.
+ */
+type LoginResponse =
+  | { accessToken: string; user: { firstName: string; lastName: string } }
+  | { mfaRequired: true; challenge: string };
+
+/** عمرِ توکنِ چالش در سرور پنج دقیقه است. */
+const MFA_CHALLENGE_MS = 5 * 60 * 1000;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +34,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ⚠️ چالش فقط در state می‌ماند، نه در localStorage.
+  //
+  //    نوشتنش روی دیسک یعنی نیمهٔ گذشتهٔ ورود روی دستگاه باقی می‌ماند
+  //    و هر اسکریپتی می‌تواند بخواندش — درست همان چیزی که مرحلهٔ دوم
+  //    برای جلوگیری از آن هست.
+  const [challenge, setChallenge] = useState('');
+  const [code, setCode] = useState('');
 
   useEffect(() => {
     setLang(getLang());
@@ -50,10 +68,65 @@ export default function LoginPage() {
         body: { email, password },
       });
 
+      // رمزِ درست کافی نبود: حساب MFA دارد و باید کد بدهد.
+      if ('mfaRequired' in result) {
+        setChallenge(result.challenge);
+        setCode('');
+        return;
+      }
+
       setToken(result.accessToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginError', lang));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /** بازگشت به گامِ اول — چالش دور ریخته می‌شود. */
+  function resetToPassword(message = '') {
+    setChallenge('');
+    setCode('');
+    setPassword('');
+    setError(message);
+  }
+
+  /**
+   * مهلتِ چالش را همین‌جا می‌شماریم.
+   *
+   * ⚠️ عمداً به متنِ خطای سرور تکیه نمی‌کنیم.
+   *
+   *    پیام‌های سرور با هدر `x-lang` ترجمه می‌شوند، پس مقایسهٔ رشته‌ای
+   *    برای کاربرِ انگلیسی یا عربی خاموش می‌شکست.  «کد غلط» و «چالشِ
+   *    منقضی» هر دو ۴۰۱‌اند و از روی وضعیت هم جدا نمی‌شوند.
+   */
+  useEffect(() => {
+    if (!challenge) return;
+    const timer = setTimeout(
+      () => resetToPassword(t('mfaExpired', lang)),
+      MFA_CHALLENGE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [challenge, lang]);
+
+  async function handleMfaSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const result = await api<{ accessToken: string }>('/auth/mfa/verify', {
+        method: 'POST',
+        body: { challenge, code: code.trim() },
+      });
+
+      setToken(result.accessToken);
+      router.push('/dashboard');
+    } catch (err) {
+      // پیامِ سرور از قبل ترجمه‌شده می‌آید؛ همان نشان داده می‌شود.
+      setError(err instanceof Error ? err.message : t('loginError', lang));
+      setCode('');
     } finally {
       setLoading(false);
     }
@@ -77,11 +150,52 @@ export default function LoginPage() {
 
         <div className="card">
           <div className="brand-logo">M</div>
-          <div className="brand-title">{t('appName', lang)}</div>
-          <p className="brand-subtitle">{t('loginSubtitle', lang)}</p>
+          <div className="brand-title">
+            {challenge ? t('mfaTitle', lang) : t('appName', lang)}
+          </div>
+          <p className="brand-subtitle">
+            {challenge ? t('mfaSubtitle', lang) : t('loginSubtitle', lang)}
+          </p>
 
           {error ? <div className="error">{error}</div> : null}
 
+          {challenge ? (
+            <form onSubmit={handleMfaSubmit} style={{ textAlign: 'start' }}>
+              <label htmlFor="mfa-code">{t('mfaCode', lang)}</label>
+              <input
+                id="mfa-code"
+                // ⚠️ `maxLength` هشت است، نه شش: کدِ بازیابی هم از همین
+                //    خانه وارد می‌شود و کوتاه‌تر بودنِ سقف، عملاً راهِ
+                //    بازیابی را می‌بست.
+                maxLength={8}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                dir="ltr"
+                placeholder="••••••"
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                required
+              />
+
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                {t('mfaRecoveryHint', lang)}
+              </p>
+
+              <button type="submit" disabled={loading} style={{ width: '100%' }}>
+                {loading ? t('mfaVerifying', lang) : t('mfaVerify', lang)}
+              </button>
+
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => resetToPassword()}
+                style={{ width: '100%', marginTop: 10 }}
+              >
+                {t('mfaBack', lang)}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} style={{ textAlign: 'start' }}>
             <label htmlFor="email">{t('email', lang)}</label>
             <input
@@ -107,6 +221,7 @@ export default function LoginPage() {
               {loading ? t('signingIn', lang) : t('signIn', lang)}
             </button>
           </form>
+          )}
 
           {/*
             رمز مدیر روی صفحهٔ ورود چاپ نمی‌شود.
@@ -114,7 +229,7 @@ export default function LoginPage() {
             لو می‌داد هم رمزش را — و پس از عوض شدن رمز، همان خط فقط
             کاربر را گمراه می‌کرد.  فقط نصب نمایشی آن را روشن می‌کند.
           */}
-          {process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === '1' ? (
+          {!challenge && process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === '1' ? (
             <p className="muted" style={{ marginTop: 18, fontSize: 12.5 }}>
               {t('demoHint', lang)}
             </p>

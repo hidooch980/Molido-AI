@@ -39,7 +39,25 @@ type ResMeta = {
   getHeader?: (name: string) => string | string[] | number | undefined;
 };
 
-type AuthPayload = { accessToken?: string; refreshToken?: string };
+/**
+ * دو شکلِ ممکنِ پاسخِ ورود.
+ *
+ * ⚠️ پاسخِ چالشِ MFA عمداً `refreshToken` ندارد.
+ *
+ *    `withRefreshCookie` فقط وقتی کوکی می‌نشاند که توکنِ نوسازی در
+ *    پاسخ باشد.  یعنی کاربری که هنوز مرحلهٔ دوم را نگذشته، هیچ کوکیِ
+ *    سی‌روزه‌ای نمی‌گیرد — و این دقیقاً همان چیزی است که باید باشد:
+ *    نیمهٔ اولِ ورود نباید هیچ چیزِ ماندگاری به دست بدهد.
+ *
+ *    نوعِ اتحادی این را در زمانِ کامپایل نگه می‌دارد؛ اگر روزی کسی
+ *    چالش را با توکن برگرداند، همین‌جا خطا می‌گیرد.
+ */
+type AuthPayload = {
+  accessToken?: string;
+  refreshToken?: string;
+  mfaRequired?: boolean;
+  challenge?: string;
+};
 
 /**
  * توکنِ نوسازی را از بدنه به کوکیِ `httpOnly` منتقل می‌کند.
@@ -248,6 +266,93 @@ export class AuthController {
     //    «نوسازیِ ناموفق» می‌اندازد.  «خروج» یعنی خروج.
     clearRefreshCookie(res);
     return this.authService.revokeAllSessions(user.userId);
+  }
+
+  // ══════════════════════════════════════════════ رمز دومرحله‌ای
+
+  /** وضعیت فعلی — برای نمایش در تنظیمات. */
+  @Get('mfa/status')
+  @UseGuards(JwtAuthGuard)
+  mfaStatus(@CurrentUser() user: AuthUser) {
+    return this.authService.mfaStatus(user.userId);
+  }
+
+  /**
+   * مرحلهٔ یک: ساختِ راز و QR.
+   *
+   * ⚠️ سقفِ سخت، چون پاسخ **راز** را برمی‌گرداند.
+   *
+   *    هر فراخوانی رازِ تازه‌ای می‌سازد و قبلی را دور می‌اندازد.  بدون
+   *    سقف، کسی با توکنِ دزدیده‌شده می‌توانست بی‌پایان راز عوض کند و
+   *    راه‌اندازیِ کاربرِ واقعی را برای همیشه بشکند.
+   */
+  @Post('mfa/setup')
+  @Throttle({ long: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  mfaSetup(@CurrentUser() user: AuthUser) {
+    return this.authService.mfaSetup(user.userId);
+  }
+
+  /** مرحلهٔ دو: تأییدِ اولین کد و گرفتنِ کدهای بازیابی. */
+  @Post('mfa/confirm')
+  @Throttle({ long: { ttl: 60000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  mfaConfirm(@CurrentUser() user: AuthUser, @Body() body: { code?: string }) {
+    return this.authService.mfaConfirm(user.userId, String(body?.code ?? ''));
+  }
+
+  /**
+   * مرحلهٔ دومِ ورود: چالش + کد ← توکنِ واقعی.
+   *
+   * ⚠️ این مسیر **بی‌احراز هویت** است، عمداً.
+   *
+   *    کاربر هنوز توکنِ دسترسی ندارد — اگر داشت، مرحلهٔ دوم بی‌معنی
+   *    بود.  چیزی که هویتش را ثابت می‌کند، خودِ توکنِ چالش است.
+   *
+   * ⚠️ سقفِ ۱۰ در دقیقه حیاتی است.
+   *
+   *    کدِ شش‌رقمی یک میلیون حالت دارد.  بدون سقف، مهاجمی که رمز را
+   *    می‌داند (پس چالش می‌گیرد) می‌تواند در چند ساعت کد را حدس بزند —
+   *    و آن‌وقت MFA فقط تأخیر بوده، نه محافظت.
+   *
+   *    عمرِ پنج‌دقیقه‌ای چالش هم همین را تنگ‌تر می‌کند: مهاجم باید هر
+   *    پنج دقیقه دوباره رمز بزند، که خودش در `LoginAttempt` ثبت
+   *    می‌شود و به قفلِ حساب می‌رسد.
+   */
+  @Post('mfa/verify')
+  @Throttle({ long: { ttl: 60000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  async mfaVerify(
+    @Body() body: { challenge?: string; code?: string },
+    @Req() req: ReqMeta,
+    @Res({ passthrough: true }) res: ResMeta,
+  ) {
+    return withRefreshCookie(
+      req,
+      res,
+      await this.authService.mfaVerify(
+        String(body?.challenge ?? ''),
+        String(body?.code ?? ''),
+      ),
+    );
+  }
+
+  /** خاموش کردن — رمز **و** کد، هر دو لازم است. */
+  @Post('mfa/disable')
+  @Throttle({ long: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  mfaDisable(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { password?: string; code?: string },
+  ) {
+    return this.authService.mfaDisable(
+      user.userId,
+      String(body?.password ?? ''),
+      String(body?.code ?? ''),
+    );
   }
 
   /**

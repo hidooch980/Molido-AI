@@ -6,7 +6,7 @@
 >
 > نسخهٔ زندهٔ تعاملی: `http://localhost:3000/api-docs`
 
-**468 عملیات در 69 گروه**
+**473 عملیات در 69 گروه**
 
 همهٔ مسیرها جز `/auth/login` و `/shop/*` توکن می‌خواهند:
 `Authorization: Bearer <token>`
@@ -52,6 +52,11 @@
 | POST | `/auth/login` | `login` |
 | GET | `/auth/login-history` | `loginHistory` |
 | GET | `/auth/me` | `me` |
+| POST | `/auth/mfa/confirm` | `mfaConfirm` |
+| POST | `/auth/mfa/disable` | `mfaDisable` |
+| POST | `/auth/mfa/setup` | `mfaSetup` |
+| GET | `/auth/mfa/status` | `mfaStatus` |
+| POST | `/auth/mfa/verify` | `mfaVerify` |
 | POST | `/auth/refresh` | `refresh` |
 | POST | `/auth/register` | `register` |
 | POST | `/auth/revoke-sessions` | `revokeSessions` |

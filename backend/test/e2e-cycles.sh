@@ -77,10 +77,20 @@ DELETE FROM "SupplierCall" WHERE "supplierId" IN (SELECT id FROM "Supplier" WHER
 DELETE FROM "PurchaseInquiryItem" WHERE "productId" IN (SELECT id FROM "Product" WHERE sku LIKE 'E2E-%');
 DELETE FROM "PurchaseInquiry" WHERE id NOT IN (SELECT DISTINCT "inquiryId" FROM "PurchaseInquiryItem");
 DELETE FROM "Supplier" WHERE name LIKE 'E2E-%';
-DELETE FROM "Customer" WHERE "firstName" LIKE 'E2E-%';
+-- ⚠️ بر اساس شماره هم پاک می‌شود، نه فقط نام.
+--
+--    اگر اجرای قبلی نیمه‌کاره مانده باشد، مشتری ساخته شده ولی نامش
+--    ثبت نشده؛ آن‌وقت ساختِ دوباره ۴۰۹ می‌گیرد، شناسه خالی می‌ماند و
+--    فروش با خطای کلید خارجی می‌افتد — شکستی که هیچ ربطی به کد ندارد.
+DELETE FROM "Customer" WHERE "firstName" LIKE 'E2E-%' OR phone = '09127770001';
 SQL
 }
 cleanup
+# ⚠️ `trap` لازم است، نه فقط فراخوانیِ پایانی.
+#
+#    اگر اسکریپت وسطِ راه بیفتد — خطای شبکه، ۴۲۹، Ctrl+C — فراخوانیِ
+#    پایانی هرگز اجرا نمی‌شود و داده‌اش برای مجموعه‌های بعدی می‌ماند.
+trap cleanup EXIT
 
 # ═══════════════════════════════════════════════════════════════
 echo '━━━ چرخهٔ ۱: کالا وارد می‌شود ━━━'
@@ -136,7 +146,7 @@ echo '━━━ چرخهٔ ۳: فروش — انبار کم می‌شود و پ�
 # ═══════════════════════════════════════════════════════════════
 
 CUST=$(curl -s -X POST $A/customers -H "$AU" -H "$JS" \
-  -d '{"firstName":"E2E-Customer","phone":"09120000001"}' | P "d.get('id','')")
+  -d '{"firstName":"E2E-Customer","phone":"09127770001"}' | P "d.get('id','')")
 
 SALE=$(curl -s -X POST $A/sales -H "$AU" -H "$JS" -d "{
   \"customerId\":\"$CUST\",\"warehouseId\":\"$WH\",\"note\":\"E2E-sale\",
@@ -274,7 +284,7 @@ chk "کالا شرکت دارد" "$(Q "SELECT count(*) FROM \"Product\" WHERE sk
 chk "فروش شرکت دارد" "$(Q "SELECT count(*) FROM \"Sale\" WHERE note='E2E-sale' AND \"companyId\" IS NULL")" "0"
 chk "خرید شرکت دارد" "$(Q "SELECT count(*) FROM \"Purchase\" WHERE note LIKE 'E2E-%' AND \"companyId\" IS NULL")" "0"
 
-cleanup
+# پاک‌سازی را `trap` انجام می‌دهد.
 
 echo
 printf '   PASS: %s   FAIL: %s\n' "$pass" "$fail"

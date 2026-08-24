@@ -79,13 +79,29 @@ chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; el
 # هم می‌شمرد و شکست‌های زنجیره‌ای می‌ساخت که هیچ‌کدام باگ نیستند.
 PHONE=09120000001
 PHONE2=09120000009
-$C exec -T postgres psql -U postgres -d molido_ai -q -c "
-  DELETE FROM \"OnlineOrder\" WHERE \"customerId\" IN
-    (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
-  DELETE FROM \"Cart\" WHERE \"customerId\" IN
-    (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
-  DELETE FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2');
-" >/dev/null 2>&1
+
+# ⚠️ پاک‌سازی هم در **آغاز** و هم در **پایان** لازم است.
+#
+#    تا امروز فقط آغاز بود، یعنی این مجموعه هر بار دو مشتری‌اش را
+#    برای همیشه جا می‌گذاشت.  و چون `e2e-cycles` هم همان شماره‌ها را
+#    می‌خواست، ساختِ مشتری‌اش ۴۰۹ می‌گرفت، شناسه خالی می‌ماند و شش
+#    سنجه‌اش با خطای کلید خارجی می‌افتاد — شکستی که هیچ ربطی به کد
+#    نداشت و وقتِ زیادی صرفِ عیب‌یابی‌اش شد.
+#
+#    (`e2e-cycles` حالا شمارهٔ اختصاصیِ خودش را دارد، ولی جا گذاشتنِ
+#    داده به‌هرحال غلط است: مجموعهٔ بعدی هرچه باشد نباید میراثِ این
+#    یکی را ببیند.)
+cleanup() {
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c "
+    DELETE FROM \"OnlineOrder\" WHERE \"customerId\" IN
+      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
+    DELETE FROM \"Cart\" WHERE \"customerId\" IN
+      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
+    DELETE FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2');
+  " >/dev/null 2>&1
+}
+cleanup
+trap cleanup EXIT
 
 echo '--- 1) shop settings + warehouse ---'
 curl -s -X POST $A/shop-admin/settings -H "$AU" -H "$JS" \

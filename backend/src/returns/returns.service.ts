@@ -164,12 +164,14 @@ export class ReturnsService {
           discount: string;
           quantity: string;
           taxAmount: string;
+          /** بهای لحظهٔ فروش؛ تهی برای فاکتورهای پیش از مهاجرت ۰۴۸. */
+          unitCost: string | null;
         }>(
           `UPDATE "SaleItem"
               SET "returnedQty" = "returnedQty" + $1::numeric
             WHERE id = $2 AND "saleId" = $3
               AND "returnedQty" + $1::numeric <= quantity
-            RETURNING "productId", price, discount, quantity, "taxAmount"`,
+            RETURNING "productId", price, discount, quantity, "taxAmount", "unitCost"`,
           [qty, line.sourceItemId, dto.saleId],
         );
 
@@ -225,16 +227,47 @@ export class ReturnsService {
         returnedTax += (Number(item.taxAmount ?? 0) * qty) / lineQty;
 
         subtotal += total;
-        cost += Number(product?.purchasePrice ?? 0) * qty;
+
+        // ⚠️ بهای برگشتی از **همان سطرِ فروش** می‌آید، نه از بهای امروز.
+        //
+        //    تا پیش از این `Product."purchasePrice"` خوانده می‌شد.  از
+        //    وقتی فروش با میانگین موزون خرج می‌خورد، اگر بینِ فروش و
+        //    مرجوعی یک خریدِ گران ثبت شده باشد، برگشت با عددِ دیگری
+        //    می‌خورد و اختلاف **برای همیشه** در دفتر کل می‌ماند.
+        //
+        //    عقب‌گرد فقط برای فاکتورهای پیش از مهاجرت ۰۴۸ است که
+        //    `unitCost` ندارند.
+        cost +=
+          item.unitCost !== null && item.unitCost !== undefined
+            ? Number(item.unitCost) * qty
+            : Number(product?.purchasePrice ?? 0) * qty;
 
         if (product?.trackInventory) {
-          await applyStockDelta(tx, sale.warehouseId, item.productId, qty, {
-            companyId,
-            reason: 'RETURN',
-            refType: 'RETURN',
-            refId: returnId,
-            userId,
-          });
+          // ⚠️ کالای برگشتی با **همان بهایی** که رفته بود برمی‌گردد.
+          //
+          //    اگر بها پاس نمی‌شد، `avgCost` دست‌نخورده می‌ماند ولی
+          //    مقدار بالا می‌رفت — یعنی ارزشِ کلِ موجودی بی‌سروصدا
+          //    عوض می‌شد.  با بهای امروز هم غلط بود: کالایی که به
+          //    ۱۵۰۰ فروخته شده، به ۲۰۰۰ برنمی‌گردد.
+          const back =
+            item.unitCost !== null && item.unitCost !== undefined
+              ? Number(item.unitCost)
+              : Number(product?.purchasePrice ?? 0);
+
+          await applyStockDelta(
+            tx,
+            sale.warehouseId,
+            item.productId,
+            qty,
+            {
+              companyId,
+              reason: 'RETURN',
+              refType: 'RETURN',
+              refId: returnId,
+              userId,
+            },
+            back,
+          );
         }
 
         lines.push({

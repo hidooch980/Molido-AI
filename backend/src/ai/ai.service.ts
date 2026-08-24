@@ -471,12 +471,20 @@ export class AiService {
       unit: string;
       onHand: string;
       purchasePrice: string;
+      avgCost: string | null;
       lastSoldAt: Date | null;
     }>(
       `SELECT p.id AS "productId", p.name, p.sku, p.unit, p."purchasePrice",
               COALESCE((SELECT sum(i.quantity) FROM "Inventory" i
                         JOIN "Warehouse" w ON w.id = i."warehouseId"
                         WHERE i."productId" = p.id AND w."companyId" = $1), 0) AS "onHand",
+              -- میانگینِ موزونِ وزنی روی انبارها؛ ارزشِ واقعیِ خوابیده.
+              (SELECT CASE WHEN sum(i.quantity) > 0
+                           THEN sum(i.quantity * COALESCE(i."avgCost", p."purchasePrice"))
+                                / sum(i.quantity) END
+                 FROM "Inventory" i
+                 JOIN "Warehouse" w ON w.id = i."warehouseId"
+                WHERE i."productId" = p.id AND w."companyId" = $1) AS "avgCost",
               (SELECT max(s."createdAt") FROM "SaleItem" si
                JOIN "Sale" s ON s.id = si."saleId"
                WHERE si."productId" = p.id AND s."companyId" = $1
@@ -501,7 +509,9 @@ export class AiService {
           sku: row.sku,
           unit: row.unit,
           onHand,
-          tiedUpCapital: Math.round(onHand * Number(row.purchasePrice)),
+          // سرمایهٔ خوابیده = ارزشِ واقعیِ موجودی، پس میانگین موزون
+          // درست است نه آخرین بهای خرید.
+          tiedUpCapital: Math.round(onHand * Number(row.avgCost ?? row.purchasePrice)),
           lastSoldAt: row.lastSoldAt,
           daysSinceLastSale: row.lastSoldAt
             ? Math.floor((now - new Date(row.lastSoldAt).getTime()) / 86_400_000)

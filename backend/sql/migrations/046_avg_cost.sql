@@ -54,7 +54,7 @@ ALTER TABLE "Inventory"
 --    نداریم — ولی از تهی بهتر است و رفتار را با قبل یکی می‌کند،
 --    پس مهاجرت هیچ عددی را ناگهان تغییر نمی‌دهد.
 UPDATE "Inventory" i
-   SET "avgCost" = p."purchasePrice"
+   SET "avgCost" = round(p."purchasePrice", 6)
   FROM "Product" p
  WHERE p.id = i."productId"
    AND i."avgCost" IS NULL

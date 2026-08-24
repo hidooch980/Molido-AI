@@ -83,6 +83,11 @@ export async function applyStockDelta(
     //    شرط‌ها به ترتیبِ اهمیت:
     //    • `$5` تهی ⇒ دست نزن (انتقال، اصلاح، انبارگردانی).
     //    • `$4 <= 0` ⇒ دست نزن؛ خروجی میانگین را عوض نمی‌کند.
+    //    • `round(..., 6)` لازم است: تقسیمِ numeric در پستگرس مقیاسِ
+    //      نامحدود می‌دهد.  بدونش `avgCost` با ۵۰ رقمِ اعشار ذخیره
+    //      می‌شد و `stockValue` در پاسخِ API به شکلِ
+    //      «۶۸۷۱۴۳۶۳۹۵.۱۷۴۹۷۶۸۳۲۶۱۳۶...» برمی‌گشت.  شش رقم برای
+    //      بهای واحد بیش از کافی است.
     //    • میانگینِ قبلی تهی یا موجودیِ قبلی صفر ⇒ همان بهای وارده،
     //      چون چیزی برای میانگین گرفتن نیست.  بدون این شرط، تقسیم بر
     //      صفر یا آلوده شدنِ بها با صفرِ ساختگی رخ می‌داد.
@@ -92,8 +97,9 @@ export async function applyStockDelta(
          "avgCost" = CASE
            WHEN $5::numeric IS NULL OR $4::numeric <= 0 THEN "avgCost"
            WHEN "avgCost" IS NULL OR quantity <= 0 THEN $5::numeric
-           ELSE (quantity * "avgCost" + $4::numeric * $5::numeric)
-                / (quantity + $4::numeric)
+           ELSE round(
+                  (quantity * "avgCost" + $4::numeric * $5::numeric)
+                  / (quantity + $4::numeric), 6)
          END,
          "updatedAt" = now()
        WHERE "warehouseId" = $2 AND "productId" = $3 AND quantity + $4::numeric >= 0
@@ -112,9 +118,10 @@ export async function applyStockDelta(
            WHEN $5::numeric IS NULL OR $4::numeric <= 0 THEN "Inventory"."avgCost"
            WHEN "Inventory"."avgCost" IS NULL OR "Inventory".quantity <= 0
              THEN $5::numeric
-           ELSE ("Inventory".quantity * "Inventory"."avgCost"
-                 + $4::numeric * $5::numeric)
-                / ("Inventory".quantity + $4::numeric)
+           ELSE round(
+                  ("Inventory".quantity * "Inventory"."avgCost"
+                   + $4::numeric * $5::numeric)
+                  / ("Inventory".quantity + $4::numeric), 6)
          END,
          "updatedAt" = now()
        RETURNING *
@@ -229,6 +236,25 @@ export class InventoryService {
       // یک شناسه برای هر دو سرِ انتقال تا در کاردکس به هم وصل باشند.
       const transferId = randomUUID();
 
+      // ⚠️ بها باید **همراهِ کالا** جابه‌جا شود.
+      //
+      //    اگر پاس نشود، کالا با بهای انبارِ مبدأ خارج می‌شود ولی در
+      //    مقصد میانگینِ آنجا را عوض نمی‌کند — یعنی ارزشِ کلِ موجودیِ
+      //    شرکت بی‌سروصدا کم یا زیاد می‌شود، بی‌آنکه چیزی خریده یا
+      //    فروخته شده باشد.
+      //
+      //    پیش از خروج خوانده می‌شود: پس از آن ممکن است ردیف صفر شده
+      //    باشد.
+      const source = await tx.query<{ avgCost: string | null }>(
+        `SELECT "avgCost" FROM "Inventory"
+          WHERE "warehouseId" = $1 AND "productId" = $2`,
+        [data.fromWarehouseId, data.productId],
+      );
+      const movingCost =
+        source.rows[0]?.avgCost !== null && source.rows[0]?.avgCost !== undefined
+          ? Number(source.rows[0].avgCost)
+          : null;
+
       const debited = await applyStockDelta(
         tx,
         data.fromWarehouseId,
@@ -256,6 +282,8 @@ export class InventoryService {
           refId: transferId,
           userId: data.userId ?? null,
         },
+        // بهای مبدأ با کالا می‌آید و در میانگینِ مقصد می‌نشیند.
+        movingCost,
       );
     });
   }

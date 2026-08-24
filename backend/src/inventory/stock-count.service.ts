@@ -224,6 +224,12 @@ export class StockCountService {
         const delta = Number(line.countedQty) - Number(line.systemQty);
         if (delta === 0) continue;
 
+        // ⚠️ بهایی پاس نمی‌شود — عمداً.
+        //
+        //    اضافیِ انبارگردانی کالای تازه‌خریده نیست؛ همان کالاست که
+        //    فیزیکاً بوده و ثبت نشده.  پس باید بهای موجودِ همان قفسه
+        //    را بگیرد، نه بهای تازه.  `null` یعنی «میانگین را دست
+        //    نزن» و دقیقاً همین را می‌دهد.
         const row = await applyStockDelta(
           tx,
           warehouseId,

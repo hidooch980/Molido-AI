@@ -81,7 +81,8 @@ export class WarehousesService extends BaseCrudService<WarehouseRow> {
       `SELECT w.*,
               (SELECT COUNT(*) FROM "Inventory" i
                 WHERE i."warehouseId" = w.id AND i.quantity <> 0) AS "skuCount",
-              COALESCE((SELECT SUM(i.quantity * COALESCE(p."purchasePrice", 0))
+              -- ارزش با میانگین موزون؛ عقب‌گرد فقط برای ردیف‌های پیش از ۰۴۶.
+              COALESCE((SELECT SUM(i.quantity * COALESCE(i."avgCost", p."purchasePrice", 0))
                           FROM "Inventory" i
                           JOIN "Product" p ON p.id = i."productId"
                          WHERE i."warehouseId" = w.id), 0) AS "stockValue"
@@ -99,7 +100,7 @@ export class WarehousesService extends BaseCrudService<WarehouseRow> {
     return this.db.query(
       `SELECT i."productId", i.quantity, p.name, p.sku, p.unit,
               p."purchasePrice", p."salePrice",
-              (i.quantity * COALESCE(p."purchasePrice", 0)) AS value
+              (i.quantity * COALESCE(i."avgCost", p."purchasePrice", 0)) AS value
          FROM "Inventory" i
          JOIN "Product" p ON p.id = i."productId"
         WHERE i."warehouseId" = $1 AND i.quantity <> 0

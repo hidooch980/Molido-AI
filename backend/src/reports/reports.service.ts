@@ -62,7 +62,9 @@ export class ReportsService {
             JOIN "Product" p ON p.id = i."productId"
             JOIN "Warehouse" w ON w.id = i."warehouseId"
           WHERE w."companyId" = $1 AND i.quantity <= p."minStock") AS low_stock_count,
-         (SELECT COALESCE(sum(i.quantity * p."purchasePrice"), 0)::text FROM "Inventory" i
+         -- ارزشِ موجودی با میانگین موزون؛ عقب‌گرد به آخرین بهای خرید
+         -- فقط برای ردیف‌های پیش از مهاجرت ۰۴۶.
+         (SELECT COALESCE(sum(i.quantity * COALESCE(i."avgCost", p."purchasePrice")), 0)::text FROM "Inventory" i
             JOIN "Product" p ON p.id = i."productId"
             JOIN "Warehouse" w ON w.id = i."warehouseId"
           WHERE w."companyId" = $1) AS inventory_value`,
@@ -121,7 +123,9 @@ export class ReportsService {
 
     const rows = await this.db.query<{ revenue: string; cost: string }>(
       `SELECT COALESCE(sum(i.total), 0)::text AS revenue,
-              COALESCE(sum(i.quantity * p."purchasePrice"), 0)::text AS cost
+              -- بهای **لحظهٔ فروش**، نه بهای امروز: سودِ فروشِ پارسال
+              -- با قیمتِ امروزِ خرید غلط است.
+              COALESCE(sum(i.quantity * COALESCE(i."unitCost", p."purchasePrice")), 0)::text AS cost
        FROM "SaleItem" i
        JOIN "Sale" s ON s.id = i."saleId"
        JOIN "Product" p ON p.id = i."productId"
@@ -346,8 +350,8 @@ export class ReportsService {
           `SELECT pr.id AS "productId", pr.name, pr.sku,
                   SUM(si.quantity) AS quantity,
                   SUM(si.total) AS revenue,
-                  SUM(si.quantity * pr."purchasePrice") AS cost,
-                  SUM(si.total) - SUM(si.quantity * pr."purchasePrice") AS profit
+                  SUM(si.quantity * COALESCE(si."unitCost", pr."purchasePrice")) AS cost,
+                  SUM(si.total) - SUM(si.quantity * COALESCE(si."unitCost", pr."purchasePrice")) AS profit
              FROM "SaleItem" si
              JOIN "Sale" s ON s.id = si."saleId"
              JOIN "Product" pr ON pr.id = si."productId"

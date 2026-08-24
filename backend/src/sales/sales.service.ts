@@ -414,6 +414,31 @@ export class SalesService {
         }
       }
 
+      // ⚠️ بهای تمام‌شده **همین‌جا** قفل می‌شود، پیش از ثبتِ سطرها.
+      //
+      //    همین یک عدد در سه جا به‌کار می‌رود: `SaleItem."unitCost"`،
+      //    سندِ `SaleCogs`، و بعداً مرجوعی.  اگر هر کدام جدا حساب
+      //    می‌شد، خریدِ بعدی میانگین را عوض می‌کرد و اعداد از هم
+      //    فاصله می‌گرفتند — همان نشتی که مرجوعی داشت.
+      //
+      //    خواندن پس از `applyStockDelta` است ولی مقدارش همان است:
+      //    خروج میانگین را تغییر نمی‌دهد.
+      const costRows = await tx.query<{ productId: string; avgCost: string | null }>(
+        `SELECT "productId", "avgCost" FROM "Inventory"
+          WHERE "warehouseId" = $1 AND "productId" = ANY($2)`,
+        [dto.warehouseId, itemsData.map((line) => line.productId)],
+      );
+      const avgByProduct = new Map(
+        costRows.rows.map((row) => [row.productId, row.avgCost]),
+      );
+
+      /** بهای واحد؛ عقب‌گرد به آخرین بهای خرید وقتی میانگینی نیست. */
+      const unitCostOf = (productId: string): number => {
+        const avg = avgByProduct.get(productId);
+        if (avg !== null && avg !== undefined) return Number(avg);
+        return Number(productMap.get(productId)?.purchasePrice ?? 0);
+      };
+
       // تسویه یا چندبخشی است یا شکل قدیمی تک‌روشی؛ هر دو به یک لیست تبدیل
       // می‌شوند تا مسیر ثبت پرداخت یکی بماند.
       const tenders =
@@ -548,8 +573,8 @@ export class SalesService {
       const items: SaleItem[] = [];
       for (const item of itemsData) {
         const row = await tx.query<SaleItem>(
-          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total, "manualDiscount", note, "taxRate", "taxAmount", serial)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total, "manualDiscount", note, "taxRate", "taxAmount", serial, "unitCost")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
           [
             randomUUID(),
             sale.id,
@@ -563,6 +588,9 @@ export class SalesService {
             item.taxRate,
             item.taxAmount,
             item.serial?.trim() || null,
+            // بهایی که این فاکتور واقعاً با آن خرج خورد — مرجوعی و
+            // گزارشِ سود به همین نگاه می‌کنند، نه به بهای امروز.
+            unitCostOf(item.productId),
           ],
         );
         items.push(row.rows[0]);
@@ -623,39 +651,15 @@ export class SalesService {
 
       // بهای تمام‌شده جدا صادر می‌شود تا در گزارش مستقل دیده شود.
       //
-      // ⚠️ از میانگین موزونِ **همان انبار** خوانده می‌شود، نه از
-      //    `Product."purchasePrice"`.
+      // ⚠️ از همان `unitCostOf` استفاده می‌شود که در سطرها ثبت شد.
       //
-      //    آن عدد با هر دریافتِ خرید بازنویسی می‌شد، پس بهای همهٔ
-      //    واحدهای فروخته‌شده با قیمتِ آخرین خرید حساب می‌شد.  صد
-      //    کارتن به ۱۰۰۰ و ده کارتنِ تازه به ۲۰۰۰ ⇒ فروشِ بعدی
-      //    ۲۰۰۰ خرج می‌خورد و سودِ ناخالص کمتر از واقع گزارش می‌شد.
-      //
-      // ⚠️ خواندن **پس از** `applyStockDelta` انجام می‌شود.
-      //
-      //    میانگین با خروج عوض نمی‌شود، پس مقدارش همان است؛ ولی خواندن
-      //    در همان تراکنش تضمین می‌کند بهایی که خرج می‌زنیم دقیقاً همانی
-      //    است که موجودی با آن کم شد.
-      const costRows = await tx.query<{ productId: string; avgCost: string | null }>(
-        `SELECT "productId", "avgCost" FROM "Inventory"
-          WHERE "warehouseId" = $1 AND "productId" = ANY($2)`,
-        [dto.warehouseId, itemsData.map((item) => item.productId)],
+      //    محاسبهٔ دوبارهٔ اینجا یعنی سندِ حسابداری و ستونِ
+      //    `SaleItem."unitCost"` می‌توانستند از هم فاصله بگیرند — و
+      //    آن‌وقت مرجوعی هم با هیچ‌کدام جور درنمی‌آمد.
+      const cost = itemsData.reduce(
+        (sum, item) => sum + unitCostOf(item.productId) * item.quantity,
+        0,
       );
-      const avgByProduct = new Map(
-        costRows.rows.map((row) => [row.productId, row.avgCost]),
-      );
-
-      const cost = itemsData.reduce((sum, item) => {
-        const product = productMap.get(item.productId)!;
-        const avg = avgByProduct.get(item.productId);
-        // عقب‌گرد به آخرین بهای خرید فقط وقتی میانگینی ثبت نشده —
-        // کالای بی‌ردیفِ موجودی (خدمات) یا موجودیِ پیش از این تغییر.
-        const unit =
-          avg !== null && avg !== undefined
-            ? Number(avg)
-            : Number(product.purchasePrice ?? 0);
-        return sum + unit * item.quantity;
-      }, 0);
 
       await this.posting.postAuto(tx, companyId, {
         sourceType: 'SaleCogs',

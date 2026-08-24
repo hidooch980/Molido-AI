@@ -82,12 +82,15 @@ cleanup() {
     DELETE FROM \"JournalEntry\" WHERE \"sourceId\" IN
       (SELECT id FROM \"Sale\" WHERE note='AVGCOST-sale'
        UNION SELECT id FROM \"Purchase\" WHERE note LIKE 'AVGCOST%');
+    DELETE FROM \"ProductReturnItem\" WHERE \"productId\"='$PROD';
+    DELETE FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%';
     DELETE FROM \"StockMovement\" WHERE \"productId\"='$PROD';
     DELETE FROM \"SaleItem\" WHERE \"productId\"='$PROD';
     DELETE FROM \"Sale\" WHERE note='AVGCOST-sale';
     DELETE FROM \"PurchaseItem\" WHERE \"productId\"='$PROD';
     DELETE FROM \"Purchase\" WHERE note LIKE 'AVGCOST%';
     DELETE FROM \"Inventory\" WHERE \"productId\"='$PROD';
+    DELETE FROM \"Warehouse\" WHERE id='avgcost-wh2';
     DELETE FROM \"Product\" WHERE id='$PROD';" >/dev/null 2>&1
 }
 cleanup
@@ -169,6 +172,64 @@ chk "بهای منفی رد شد" \
   "$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c \
      "UPDATE \"Inventory\" SET \"avgCost\"=-1 WHERE \"productId\"='$PROD';" 2>&1 \
      | grep -c 'violates check constraint')" "1"
+
+echo '--- ۷) مرجوعی با بهای لحظهٔ فروش برمی‌گردد، نه بهای امروز ---'
+#
+# ⚠️ تنها سنجه‌ای که نشتِ دفتر کل را می‌گیرد.
+#
+#    فروشِ بخشِ ۳ با میانگینِ ۱۵۰۰ خرج خورد.  حالا عمداً یک خریدِ گران
+#    ثبت می‌کنیم تا میانگین بالا برود، بعد همان قلم را برمی‌گردانیم.
+#
+#    اگر مرجوعی بهای *امروز* را بخواند، بدهکارِ فروش و بستانکارِ
+#    برگشت برابر نمی‌شوند و اختلاف **برای همیشه** در دفتر کل می‌ماند —
+#    بی‌آنکه تراز آزمایشی بهم بخورد، چون هر دو سند خودشان تراز‌ند.
+buy 200 3000 0 >/dev/null
+chk "میانگین بالا رفت" "$([ "$(avg)" != "1500.00" ] && echo yes || echo no)" "yes"
+
+SITEM=$(Q "SELECT id FROM \"SaleItem\" WHERE \"saleId\"='$SID' LIMIT 1;")
+chk "بهای ثبت‌شدهٔ سطر ۱۵۰۰ مانده" \
+  "$(Q "SELECT round(\"unitCost\")::int FROM \"SaleItem\" WHERE id='$SITEM';")" "1500"
+
+RET=$(curl -s -X POST $A/returns/sale -H "$AU" -H "$JS" -d "{
+  \"saleId\":\"$SID\",\"reason\":\"AVGCOST-ret\",\"refundMethod\":\"NONE\",
+  \"items\":[{\"sourceItemId\":\"$SITEM\",\"qty\":10}]}")
+RID=$(echo "$RET" | P "d.get('id','')")
+chk "مرجوعی ثبت شد" "$([ -n "$RID" ] && echo yes || echo no)" "yes"
+
+# بهای برگشتی باید همان ۱۵۰۰×۱۰ باشد، نه بهای امروز.
+chk "برگشت با ۱۵۰۰۰ خورد" \
+  "$(Q "SELECT COALESCE(round(SUM(l.credit)),0)::int
+        FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+        WHERE e.\"sourceId\"='$RID' AND l.credit>0
+          AND l.\"accountId\" IN (SELECT l2.\"accountId\" FROM \"JournalLine\" l2
+            JOIN \"JournalEntry\" e2 ON e2.id=l2.\"entryId\"
+            WHERE e2.\"sourceType\"='SaleCogs' AND e2.\"sourceId\"='$SID' AND l2.debit>0);")" "15000"
+
+echo '--- ۸) انتقال بین انبارها ارزش نمی‌سازد و نمی‌خورد ---'
+#
+# ⚠️ اگر بها همراه کالا نرود، ارزشِ کلِ موجودیِ شرکت بی‌سروصدا عوض
+#    می‌شود بی‌آنکه چیزی خریده یا فروخته شده باشد.
+# ⚠️ انبارِ دوم را خودمان می‌سازیم، نه اینکه اگر نبود از بخش بگذریم.
+#
+#    گذشتن از یک بخش یعنی سبز شدنِ آزمون بدونِ آزمودنِ چیزی — و
+#    بدتر از قرمز است، چون کسی متوجه نمی‌شود.
+WH2="avgcost-wh2"
+$C exec -T postgres psql -U postgres -d molido_ai -q -c "
+  INSERT INTO \"Warehouse\" (id, \"companyId\", name, code)
+  VALUES ('$WH2','$CO','AvgCost WH2','AVGCOST-W2')
+  ON CONFLICT (id) DO NOTHING;" >/dev/null 2>&1
+if [ -n "$WH2" ]; then
+  V1=$(Q "SELECT round(COALESCE(SUM(quantity*\"avgCost\"),0))::int FROM \"Inventory\" WHERE \"productId\"='$PROD';")
+  curl -s -X POST $A/inventory/transfer -H "$AU" -H "$JS" -d "{
+    \"productId\":\"$PROD\",\"fromWarehouseId\":\"$WH\",\"toWarehouseId\":\"$WH2\",
+    \"quantity\":50}" >/dev/null
+  V2=$(Q "SELECT round(COALESCE(SUM(quantity*\"avgCost\"),0))::int FROM \"Inventory\" WHERE \"productId\"='$PROD';")
+  chk "ارزشِ کل پیش و پس از انتقال یکی است" "$V2" "$V1"
+  chk "بها به انبار مقصد رسید" \
+    "$(Q "SELECT CASE WHEN \"avgCost\" IS NULL THEN 'tohi' ELSE 'darad' END FROM \"Inventory\" WHERE \"productId\"='$PROD' AND \"warehouseId\"='$WH2';")" "darad"
+else
+  echo '  (انبار دومی نیست — از این بخش گذشتیم)'
+fi
 
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"

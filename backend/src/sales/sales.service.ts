@@ -622,11 +622,39 @@ export class SalesService {
       });
 
       // بهای تمام‌شده جدا صادر می‌شود تا در گزارش مستقل دیده شود.
-      // فعلاً از قیمت خرید لحظه‌ای کالا مشتق می‌شود؛ با پیاده‌سازی میانگین
-      // موزون باید به لایه‌های واقعی موجودی تکیه کند.
+      //
+      // ⚠️ از میانگین موزونِ **همان انبار** خوانده می‌شود، نه از
+      //    `Product."purchasePrice"`.
+      //
+      //    آن عدد با هر دریافتِ خرید بازنویسی می‌شد، پس بهای همهٔ
+      //    واحدهای فروخته‌شده با قیمتِ آخرین خرید حساب می‌شد.  صد
+      //    کارتن به ۱۰۰۰ و ده کارتنِ تازه به ۲۰۰۰ ⇒ فروشِ بعدی
+      //    ۲۰۰۰ خرج می‌خورد و سودِ ناخالص کمتر از واقع گزارش می‌شد.
+      //
+      // ⚠️ خواندن **پس از** `applyStockDelta` انجام می‌شود.
+      //
+      //    میانگین با خروج عوض نمی‌شود، پس مقدارش همان است؛ ولی خواندن
+      //    در همان تراکنش تضمین می‌کند بهایی که خرج می‌زنیم دقیقاً همانی
+      //    است که موجودی با آن کم شد.
+      const costRows = await tx.query<{ productId: string; avgCost: string | null }>(
+        `SELECT "productId", "avgCost" FROM "Inventory"
+          WHERE "warehouseId" = $1 AND "productId" = ANY($2)`,
+        [dto.warehouseId, itemsData.map((item) => item.productId)],
+      );
+      const avgByProduct = new Map(
+        costRows.rows.map((row) => [row.productId, row.avgCost]),
+      );
+
       const cost = itemsData.reduce((sum, item) => {
         const product = productMap.get(item.productId)!;
-        return sum + Number(product.purchasePrice ?? 0) * item.quantity;
+        const avg = avgByProduct.get(item.productId);
+        // عقب‌گرد به آخرین بهای خرید فقط وقتی میانگینی ثبت نشده —
+        // کالای بی‌ردیفِ موجودی (خدمات) یا موجودیِ پیش از این تغییر.
+        const unit =
+          avg !== null && avg !== undefined
+            ? Number(avg)
+            : Number(product.purchasePrice ?? 0);
+        return sum + unit * item.quantity;
       }, 0);
 
       await this.posting.postAuto(tx, companyId, {

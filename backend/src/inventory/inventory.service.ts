@@ -7,7 +7,12 @@ import {
 import { PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service';
 
-type InventoryRow = Record<string, unknown> & { id: string; quantity: string };
+type InventoryRow = Record<string, unknown> & {
+  id: string;
+  quantity: string;
+  /** میانگین موزون؛ تهی یعنی هنوز بهایی ثبت نشده. */
+  avgCost?: string | null;
+};
 
 /** Joins the product and warehouse columns the API has always returned. */
 const WITH_RELATIONS = `
@@ -36,6 +41,21 @@ export type StockContext = {
   note?: string | null;
 };
 
+/**
+ * میانگین موزون را در همان دستورِ تغییرِ موجودی نگه می‌دارد.
+ *
+ * ⚠️ چرا داخلِ همان SQL و نه یک `UPDATE` جدا؟
+ *
+ *    میانگینِ تازه به موجودیِ **پیش از** این حرکت وابسته است.  اگر
+ *    جدا محاسبه شود، دو دریافتِ هم‌زمان هر دو موجودیِ قدیمی را
+ *    می‌خوانند و یکی از دو بها گم می‌شود — بی‌آنکه چیزی خطا بدهد.
+ *
+ * ⚠️ فقط ورودی میانگین را عوض می‌کند، نه خروجی.
+ *
+ *    فروش از موجودی کم می‌کند ولی بهای واحد را تغییر نمی‌دهد؛ این
+ *    تعریفِ میانگین موزون است.  اگر خروجی هم اثر می‌گذاشت، فروشِ
+ *    زیانده بهای بقیهٔ موجودی را هم پایین می‌کشید.
+ */
 export async function applyStockDelta(
   tx: PoolClient,
   warehouseId: string,
@@ -44,6 +64,9 @@ export async function applyStockDelta(
   // اختیاری است تا فراخوان‌های قدیمی نشکنند، ولی بدون آن حرکت ثبت نمی‌شود؛
   // هر مسیر تازه باید حتماً آن را بدهد.
   context?: StockContext,
+  // بهای واحدِ کالای وارده.  فقط برای delta مثبت معنا دارد؛ نبودنش
+  // یعنی «میانگین را دست نزن» (مثلاً انتقال بین انبارها).
+  unitCost?: number | null,
 ): Promise<InventoryRow | null> {
   const result = await tx.query<InventoryRow>(
     // The SELECT guard keeps a negative delta from creating a negative row when
@@ -52,23 +75,52 @@ export async function applyStockDelta(
     // a non-negative delta may create a row, and neither branch may drive the
     // quantity below zero.  $4 is cast explicitly because it appears both as a
     // column value and inside arithmetic, which defeats type inference.
+    // ⚠️ فرمولِ میانگین موزون، در همان دستور:
+    //
+    //      میانگینِ تازه = (موجودیِ قبلی × میانگینِ قبلی + مقدارِ وارده × بهای وارده)
+    //                     ÷ (موجودیِ قبلی + مقدارِ وارده)
+    //
+    //    شرط‌ها به ترتیبِ اهمیت:
+    //    • `$5` تهی ⇒ دست نزن (انتقال، اصلاح، انبارگردانی).
+    //    • `$4 <= 0` ⇒ دست نزن؛ خروجی میانگین را عوض نمی‌کند.
+    //    • میانگینِ قبلی تهی یا موجودیِ قبلی صفر ⇒ همان بهای وارده،
+    //      چون چیزی برای میانگین گرفتن نیست.  بدون این شرط، تقسیم بر
+    //      صفر یا آلوده شدنِ بها با صفرِ ساختگی رخ می‌داد.
     `WITH updated AS (
-       UPDATE "Inventory" SET quantity = quantity + $4::numeric, "updatedAt" = now()
+       UPDATE "Inventory" SET
+         quantity = quantity + $4::numeric,
+         "avgCost" = CASE
+           WHEN $5::numeric IS NULL OR $4::numeric <= 0 THEN "avgCost"
+           WHEN "avgCost" IS NULL OR quantity <= 0 THEN $5::numeric
+           ELSE (quantity * "avgCost" + $4::numeric * $5::numeric)
+                / (quantity + $4::numeric)
+         END,
+         "updatedAt" = now()
        WHERE "warehouseId" = $2 AND "productId" = $3 AND quantity + $4::numeric >= 0
        RETURNING *
      ), inserted AS (
-       INSERT INTO "Inventory" (id, "warehouseId", "productId", quantity)
-       SELECT $1, $2, $3, $4::numeric
+       INSERT INTO "Inventory" (id, "warehouseId", "productId", quantity, "avgCost")
+       SELECT $1, $2, $3, $4::numeric, $5::numeric
        WHERE $4::numeric >= 0
          AND NOT EXISTS (
            SELECT 1 FROM "Inventory" WHERE "warehouseId" = $2 AND "productId" = $3
          )
        ON CONFLICT ("warehouseId", "productId")
-       DO UPDATE SET quantity = "Inventory".quantity + $4::numeric, "updatedAt" = now()
+       DO UPDATE SET
+         quantity = "Inventory".quantity + $4::numeric,
+         "avgCost" = CASE
+           WHEN $5::numeric IS NULL OR $4::numeric <= 0 THEN "Inventory"."avgCost"
+           WHEN "Inventory"."avgCost" IS NULL OR "Inventory".quantity <= 0
+             THEN $5::numeric
+           ELSE ("Inventory".quantity * "Inventory"."avgCost"
+                 + $4::numeric * $5::numeric)
+                / ("Inventory".quantity + $4::numeric)
+         END,
+         "updatedAt" = now()
        RETURNING *
      )
      SELECT * FROM updated UNION ALL SELECT * FROM inserted`,
-    [randomUUID(), warehouseId, productId, delta],
+    [randomUUID(), warehouseId, productId, delta, unitCost ?? null],
   );
   const row = result.rows[0] ?? null;
 

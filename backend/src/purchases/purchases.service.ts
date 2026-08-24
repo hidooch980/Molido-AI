@@ -348,13 +348,20 @@ export class PurchasesService {
             )
           : items.rows.map(() => 0);
 
+      // ⚠️ بهای تمام‌شدهٔ رسیده برای **همهٔ** اقلام حساب می‌شود، نه فقط
+      //    آن‌هایی که سهمِ کرایه دارند.
+      //
+      //    پیش‌تر `if (share === 0) continue` بود، یعنی خریدِ بدونِ
+      //    کرایه هیچ بهایی ثبت نمی‌کرد — و `landedUnitCost` تهی
+      //    می‌ماند.  حالا که میانگین موزون به این عدد تکیه دارد،
+      //    تهی بودنش یعنی بهای آن محموله اصلاً وارد میانگین نمی‌شد.
+      const landedById = new Map<string, number>();
       for (const [index, row] of items.rows.entries()) {
         const share = shares[index] ?? 0;
-        if (share === 0) continue;
-
         const qty = Number(row.quantity) || 1;
         const landed =
           Math.round((Number(row.purchasePrice) + share / qty) * 100) / 100;
+        landedById.set(row.productId, landed);
 
         await tx.query(
           `UPDATE "PurchaseItem"
@@ -363,8 +370,12 @@ export class PurchasesService {
           [share, landed, row.id],
         );
 
-        // بهای خرید کالا با بهای تمام‌شدهٔ رسیده به‌روز می‌شود تا بهای
-        // تمام‌شدهٔ فروش هم کرایه را در بر بگیرد.
+        // ⚠️ `purchasePrice` همچنان به‌روز می‌شود، ولی دیگر مبنای
+        //    بهای تمام‌شدهٔ فروش نیست.
+        //
+        //    نقشش حالا «آخرین بهای خرید» است — برای پیشنهادِ قیمت در
+        //    فرمِ خرید و مقایسهٔ استعلام‌ها.  بهای فروش از میانگین
+        //    موزونِ همان انبار می‌آید.
         await tx.query(
           'UPDATE "Product" SET "purchasePrice" = $1::numeric WHERE id = $2',
           [landed, row.productId],
@@ -378,6 +389,8 @@ export class PurchasesService {
           item.productId,
           Number(item.quantity),
           { companyId, reason: 'PURCHASE', refType: 'PURCHASE', refId: id },
+          // بهای واقعیِ این محموله وارد میانگین می‌شود — با کرایه.
+          landedById.get(item.productId) ?? null,
         );
 
         // محموله فقط وقتی ثبت می‌شود که سری یا تاریخ انقضا داشته باشد؛

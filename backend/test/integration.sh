@@ -49,6 +49,49 @@ except ValueError:
 print($1)"; }
 
 pass=0; fail=0
+
+# ⚠️ این مجموعه تا امروز هیچ پاک‌سازی‌ای نداشت.
+#
+#    بخشِ ۳ دو واحد از `seed-p3` می‌فروشد و بخشِ ۵ یکی را برمی‌گرداند
+#    — یعنی هر اجرا **یک واحد** موجودی و **۳۱۰۰۰۰** صندوق را برای
+#    همیشه جابه‌جا می‌کرد.
+#
+#    نتیجه‌اش شکستِ دروغین در مجموعه‌های دیگری بود که موجودیِ دقیق را
+#    می‌سنجند؛ یک بار شش سنجهٔ `e2e-cycles` را قرمز کرد و وقتِ زیادی
+#    صرفِ عیب‌یابیِ چیزی شد که اصلاً خراب نبود.
+#
+# ⚠️ وضعیتِ پیش از آزمون **قبل از** هر تغییری گرفته می‌شود.
+Q0=$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c   "SELECT quantity FROM \"Inventory\" WHERE \"productId\"='seed-p3' AND \"warehouseId\"='seed-warehouse';" | tr -d ' 
+')
+C0=$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c   "SELECT balance FROM \"CashBox\" WHERE id='seed-cashbox';" | tr -d ' 
+')
+
+# ⚠️ حذفِ سند در **جفت** انجام می‌شود.
+#
+#    فروش، بهای تمام‌شده، دریافت و برگشت هرکدام سندِ خودشان را دارند.
+#    اگر یکی بماند و بقیه بروند، تراز آزمایشی — که خودِ همین مجموعه
+#    در بخشِ ۹ می‌سنجدش — در اجرای بعدی می‌شکند.
+cleanup() {
+  [ -z "$SID" ] && return 0
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c "
+    DELETE FROM \"JournalLine\" WHERE \"entryId\" IN
+      (SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN
+        ('$SID', (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID')));
+    DELETE FROM \"JournalEntry\" WHERE \"sourceId\" IN
+      ('$SID', (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID'));
+    DELETE FROM \"ProductReturnItem\" WHERE \"returnId\" IN
+      (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID');
+    DELETE FROM \"ProductReturn\" WHERE \"saleId\"='$SID';
+    DELETE FROM \"StockMovement\" WHERE \"refId\"='$SID'
+       OR \"refId\" IN (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID');
+    DELETE FROM \"Payment\" WHERE \"saleId\"='$SID';
+    DELETE FROM \"SaleItem\" WHERE \"saleId\"='$SID';
+    DELETE FROM \"Sale\" WHERE id='$SID';
+    UPDATE \"Inventory\" SET quantity=$Q0
+      WHERE \"productId\"='seed-p3' AND \"warehouseId\"='seed-warehouse';
+    UPDATE \"CashBox\" SET balance=$C0 WHERE id='seed-cashbox';" >/dev/null 2>&1
+}
+trap cleanup EXIT
 chk() { # chk "label" "actual" "expected"
   if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"
   else fail=$((fail+1)); printf '  FAIL %s  (got=%s want=%s)\n' "$1" "$2" "$3"; fi

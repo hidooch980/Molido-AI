@@ -75,13 +75,24 @@ CO=$(Q "SELECT \"companyId\" FROM \"Warehouse\" WHERE id='$WH';")
 PROD="avgcost-p1"
 cleanup() {
   $C exec -T postgres psql -U postgres -d molido_ai -q -c "
+    -- ⚠️ سندِ معکوسِ مرجوعی هم باید برود: sourceIdِ آن شناسهٔ سندِ
+    --    معکوس‌شده است، نه فاکتور — پس با شرطِ ساده پیدا نمی‌شد و
+    --    هر اجرا یک سند جا می‌گذاشت.  نگهبانِ نشت گرفتش.
     DELETE FROM \"JournalLine\" WHERE \"entryId\" IN
       (SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN
         (SELECT id FROM \"Sale\" WHERE note='AVGCOST-sale'
-         UNION SELECT id FROM \"Purchase\" WHERE note LIKE 'AVGCOST%'));
+         UNION SELECT id FROM \"Purchase\" WHERE note LIKE 'AVGCOST%'
+         UNION SELECT id FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%'
+         UNION SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN
+           (SELECT id FROM \"Sale\" WHERE note='AVGCOST-sale'
+            UNION SELECT id FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%')));
     DELETE FROM \"JournalEntry\" WHERE \"sourceId\" IN
       (SELECT id FROM \"Sale\" WHERE note='AVGCOST-sale'
-       UNION SELECT id FROM \"Purchase\" WHERE note LIKE 'AVGCOST%');
+       UNION SELECT id FROM \"Purchase\" WHERE note LIKE 'AVGCOST%'
+       UNION SELECT id FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%'
+       UNION SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN
+         (SELECT id FROM \"Sale\" WHERE note='AVGCOST-sale'
+          UNION SELECT id FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%'));
     DELETE FROM \"ProductReturnItem\" WHERE \"productId\"='$PROD';
     DELETE FROM \"ProductReturn\" WHERE reason LIKE 'AVGCOST%';
     DELETE FROM \"StockMovement\" WHERE \"productId\"='$PROD';

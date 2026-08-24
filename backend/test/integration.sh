@@ -73,23 +73,52 @@ C0=$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c   "SELECT balance
 #    در بخشِ ۹ می‌سنجدش — در اجرای بعدی می‌شکند.
 cleanup() {
   [ -z "$SID" ] && return 0
+
+  # ⚠️ شناسهٔ مرجوعی **پیش از** حذف گرفته می‌شود.
+  #
+  #    اگر داخلِ خودِ SQL با زیرپرس‌وجو خوانده می‌شد، ترتیبِ دستورها
+  #    اهمیت پیدا می‌کرد: حذفِ `ProductReturn` زیرپرس‌وجوی بعدی را
+  #    خالی می‌کرد و حرکتِ انبارِ برگشت جا می‌ماند.  همین یک بار رخ داد
+  #    و نگهبانِ نشت گرفتش.
+  local RID
+  RID=$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c     "SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID' LIMIT 1;" | tr -d ' 
+')
+
+  # ⚠️ سندِ معکوس هم باید برود.
+  #
+  #    مرجوعی سندِ `REVERSAL` می‌سازد که `sourceId`ش شناسهٔ **سندِ
+  #    معکوس‌شده** است، نه فاکتور و نه برگشت.  پس با شرطِ ساده پیدا
+  #    نمی‌شد و هر اجرا دو سند جا می‌گذاشت.
   $C exec -T postgres psql -U postgres -d molido_ai -q -c "
     DELETE FROM \"JournalLine\" WHERE \"entryId\" IN
-      (SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN
-        ('$SID', (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID')));
-    DELETE FROM \"JournalEntry\" WHERE \"sourceId\" IN
-      ('$SID', (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID'));
-    DELETE FROM \"ProductReturnItem\" WHERE \"returnId\" IN
-      (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID');
-    DELETE FROM \"ProductReturn\" WHERE \"saleId\"='$SID';
-    DELETE FROM \"StockMovement\" WHERE \"refId\"='$SID'
-       OR \"refId\" IN (SELECT id FROM \"ProductReturn\" WHERE \"saleId\"='$SID');
+      (SELECT id FROM \"JournalEntry\"
+        WHERE \"sourceId\" IN ('$SID','$RID')
+           OR \"sourceId\" IN (SELECT id FROM \"JournalEntry\"
+                                WHERE \"sourceId\" IN ('$SID','$RID')));
+    DELETE FROM \"JournalEntry\"
+      WHERE \"sourceId\" IN ('$SID','$RID')
+         OR \"sourceId\" IN (SELECT id FROM \"JournalEntry\"
+                              WHERE \"sourceId\" IN ('$SID','$RID'));
+    DELETE FROM \"StockMovement\" WHERE \"refId\" IN ('$SID','$RID');
+    DELETE FROM \"ProductReturnItem\" WHERE \"returnId\"='$RID';
+    DELETE FROM \"ProductReturn\" WHERE id='$RID';
     DELETE FROM \"Payment\" WHERE \"saleId\"='$SID';
     DELETE FROM \"SaleItem\" WHERE \"saleId\"='$SID';
     DELETE FROM \"Sale\" WHERE id='$SID';
     UPDATE \"Inventory\" SET quantity=$Q0
       WHERE \"productId\"='seed-p3' AND \"warehouseId\"='seed-warehouse';
     UPDATE \"CashBox\" SET balance=$C0 WHERE id='seed-cashbox';" >/dev/null 2>&1
+
+  [ -z "$T_COMM" ] && return 0
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c "
+    DELETE FROM \"JournalLine\" WHERE \"entryId\" IN
+      (SELECT id FROM \"JournalEntry\"
+        WHERE \"sourceType\" IN ('AgentCommission','REVERSAL')
+          AND \"createdAt\" > '$T_COMM');
+    DELETE FROM \"JournalEntry\"
+      WHERE \"sourceType\" IN ('AgentCommission','REVERSAL')
+        AND \"createdAt\" > '$T_COMM';
+    DELETE FROM \"AgentCommission\" WHERE \"createdAt\" > '$T_COMM';" >/dev/null 2>&1
 }
 trap cleanup EXIT
 chk() { # chk "label" "actual" "expected"
@@ -158,6 +187,14 @@ chk "depreciation repeat = 0" "$D2" "0"
 
 echo
 echo '########## ۷) کمیسیون idempotent ##########'
+# ⚠️ مهرِ زمانی پیش از فراخوانی گرفته می‌شود تا پاک‌سازی فقط چیزی را
+#    ببرد که **همین اجرا** ساخته.
+#
+#    محاسبهٔ کمیسیون هر بار سندهای قبلی را معکوس و دوباره صادر می‌کند،
+#    پس هر اجرا دو `AgentCommission` و دو `REVERSAL` جا می‌گذاشت.
+#    حذفِ کورکورانه‌شان کمیسیونِ واقعیِ شرکت را هم می‌برد.
+T_COMM=$($C exec -T postgres psql -U postgres -d molido_ai -tAq -c "SELECT now();" | tr -d '')
+
 c1=$(curl -s -X POST $A/sales-agents/commissions/calculate -H "$AU" -H "$JS" -d '{}' | P "d.get('total')")
 c2=$(curl -s -X POST $A/sales-agents/commissions/calculate -H "$AU" -H "$JS" -d '{}' | P "d.get('total')")
 chk "commission stable on repeat" "$c1" "$c2"

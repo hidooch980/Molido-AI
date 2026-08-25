@@ -14,6 +14,8 @@
  *    اینجا نیست، در آن جدول هم نیست.
  */
 
+import { MUNICIPAL } from './municipal';
+
 export type FieldKind = 'text' | 'num' | 'int' | 'date' | 'bool' | 'select' | 'textarea';
 
 export type FieldDef = {
@@ -312,3 +314,11 @@ export const DOMAINS: Record<string, DomainDef> = {
     ],
   },
 };
+
+/**
+ * ⚠️ حوزه‌های شهرداری در فایلِ جدا، ولی در همین نگاشت ادغام می‌شوند.
+ *
+ *    یک فایلِ هزارخطی که همه‌چیز در آن باشد، پیدا کردنِ یک تعریف را
+ *    سخت می‌کند — و این‌ها دسته‌ای مستقل‌اند که با هم عوض می‌شوند.
+ */
+Object.assign(DOMAINS, MUNICIPAL);

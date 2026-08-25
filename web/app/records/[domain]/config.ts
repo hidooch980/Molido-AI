@@ -15,6 +15,7 @@
  */
 
 import { MUNICIPAL } from './municipal';
+import { OPERATIONS } from './operations';
 
 export type FieldKind = 'text' | 'num' | 'int' | 'date' | 'bool' | 'select' | 'textarea';
 
@@ -316,9 +317,28 @@ export const DOMAINS: Record<string, DomainDef> = {
 };
 
 /**
- * ⚠️ حوزه‌های شهرداری در فایلِ جدا، ولی در همین نگاشت ادغام می‌شوند.
+ * ⚠️ دسته‌های دیگر در فایل‌های جدا، ولی در همین نگاشت ادغام می‌شوند.
  *
  *    یک فایلِ هزارخطی که همه‌چیز در آن باشد، پیدا کردنِ یک تعریف را
- *    سخت می‌کند — و این‌ها دسته‌ای مستقل‌اند که با هم عوض می‌شوند.
+ *    سخت می‌کند — و این‌ها دسته‌هایی مستقل‌اند که با هم عوض می‌شوند.
+ *
+ * ⚠️ ادغام با کشفِ تصادم، نه `Object.assign` خالص.
+ *
+ *    `Object.assign` بی‌صدا رونویسی می‌کند.  اگر دو دسته کلیدِ یکسان
+ *    داشته باشند، یکی از دو حوزه ناپدید می‌شود و هیچ خطایی نمی‌دهد —
+ *    فقط صفحه‌ای که کاربر انتظار دارد، چیزِ دیگری نشان می‌دهد.
+ *
+ *    سه دسته را سه نفر در سه زمان می‌نویسند و `helpdesk` و
+ *    `customer-tickets` همین حالا هم شبیه‌اند.  این تابع تصادم را در
+ *    لحظهٔ بارگذاریِ ماژول می‌گیرد، نه در گزارشِ کاربر.
  */
-Object.assign(DOMAINS, MUNICIPAL);
+function mergeDomains(target: Record<string, DomainDef>, source: Record<string, DomainDef>, label: string) {
+  const clashes = Object.keys(source).filter((k) => k in target);
+  if (clashes.length) {
+    throw new Error(`حوزه‌های تکراری در ${label}: ${clashes.join('، ')}`);
+  }
+  Object.assign(target, source);
+}
+
+mergeDomains(DOMAINS, MUNICIPAL, 'municipal.ts');
+mergeDomains(DOMAINS, OPERATIONS, 'operations.ts');

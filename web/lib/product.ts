@@ -8,6 +8,18 @@
  * فهرست قابلیت‌ها باید با `backend/src/product.ts` یکی بماند.
  */
 
+/**
+ * ⚠️ نام‌ها **عیناً** از `backend/src/product.ts` می‌آیند.
+ *
+ *    پیش‌تر اینجا `municipality` نوشته شده بود و بک‌اند `municipal`.
+ *    نتیجه‌اش این نبود که چیزی خطا بدهد — بلکه هیچ‌کس از آن کلید
+ *    استفاده نکرد و یازده صفحهٔ شهرداری **بی‌گیت** ماندند: کاربرِ
+ *    فروشگاه «پارکینگ» را در منو می‌دید و با کلیک ۴۰۴ می‌گرفت.
+ *
+ *    سه قابلیتِ `verticals`، `operations` و `shop` هم اصلاً اینجا
+ *    نبودند.  نگهبانِ `verify-product-features` حالا این دو فایل را
+ *    مقایسه می‌کند تا دوباره از هم دور نیفتند.
+ */
 export type FeatureKey =
   | 'catalogue'
   | 'sales'
@@ -17,11 +29,14 @@ export type FeatureKey =
   | 'ration'
   | 'finance'
   | 'crm'
-  | 'municipality';
+  | 'municipal'
+  | 'verticals'
+  | 'operations'
+  | 'shop';
 
 const FEATURES: Record<string, FeatureKey[]> = {
-  store: ['catalogue', 'sales', 'retail', 'ration', 'hr', 'finance', 'crm'],
-  resto: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm'],
+  store: ['catalogue', 'sales', 'retail', 'ration', 'hr', 'finance', 'crm', 'shop'],
+  resto: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm', 'shop'],
   suite: [
     'catalogue',
     'sales',
@@ -31,7 +46,10 @@ const FEATURES: Record<string, FeatureKey[]> = {
     'hr',
     'finance',
     'crm',
-    'municipality',
+    'municipal',
+    'verticals',
+    'operations',
+    'shop',
   ],
 };
 

@@ -79,6 +79,12 @@ chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; el
 # هم می‌شمرد و شکست‌های زنجیره‌ای می‌ساخت که هیچ‌کدام باگ نیستند.
 PHONE=09120000001
 PHONE2=09120000009
+# ⚠️ `PHONE3` اینجا هم اعلام می‌شود، هرچند بخشِ ۱۹e پایین‌تر است.
+#
+#    پاک‌سازی در `trap` اجرا می‌شود؛ اگر شماره فقط پایین اعلام شده بود
+#    و اجرا پیش از رسیدن به آنجا می‌افتاد، متغیر خالی می‌ماند و مشتریِ
+#    مهمان جا می‌ماند.  نگهبانِ نشت دقیقاً همین را گرفت.
+PHONE3=09120000008
 
 # ⚠️ پاک‌سازی هم در **آغاز** و هم در **پایان** لازم است.
 #
@@ -94,10 +100,11 @@ PHONE2=09120000009
 cleanup() {
   $C exec -T postgres psql -U postgres -d molido_ai -q -c "
     DELETE FROM \"OnlineOrder\" WHERE \"customerId\" IN
-      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
+      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2','$PHONE3'));
     DELETE FROM \"Cart\" WHERE \"customerId\" IN
-      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2'));
-    DELETE FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2');
+      (SELECT id FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2','$PHONE3'));
+    DELETE FROM \"Cart\" WHERE \"guestToken\" LIKE 'guest-test-%';
+    DELETE FROM \"Customer\" WHERE phone IN ('$PHONE','$PHONE2','$PHONE3');
   " >/dev/null 2>&1
 }
 cleanup

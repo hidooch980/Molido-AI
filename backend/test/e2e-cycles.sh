@@ -61,8 +61,37 @@ TRIAL_BEFORE=$(Q "SELECT COALESCE(SUM(l.debit)-SUM(l.credit),0)::bigint
                     FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
                    WHERE e.status<>'DRAFT'")
 
+# ⚠️ مهرِ زمانیِ آغاز — مرزِ «آنچه این اجرا ساخت».
+T0=$(Q "SELECT now()")
+
 cleanup() {
   $C exec -T postgres psql -U postgres -d molido_ai -q >/dev/null 2>&1 <<'SQL'
+-- ⚠️ اسنادِ حسابداری **پیش از** فاکتورها حذف می‌شوند.
+--
+--    این مجموعه تا امروز اصلاً سندی پاک نمی‌کرد و فقط برای سنجشِ تراز
+--    می‌خواندشان — یعنی هر اجرا چهار سند برای همیشه جا می‌گذاشت.
+--
+--    ترتیب مهم است: شناسایی از روی `note` فاکتور انجام می‌شود، پس اگر
+--    فاکتور اول برود، سند دیگر پیدا نمی‌شود.  همین دام یک بار در
+--    `integration` افتاد.
+--
+--    سندِ `REVERSAL` هم گرفته می‌شود: `sourceId`ِ آن شناسهٔ سندِ
+--    معکوس‌شده است، نه فاکتور.
+DELETE FROM "JournalLine" WHERE "entryId" IN (
+  SELECT id FROM "JournalEntry" WHERE "sourceId" IN (
+    SELECT id FROM "Sale" WHERE note LIKE 'E2E-%'
+    UNION SELECT id FROM "Purchase" WHERE note LIKE 'E2E-%')
+  UNION SELECT id FROM "JournalEntry" WHERE "sourceId" IN (
+    SELECT id FROM "JournalEntry" WHERE "sourceId" IN (
+      SELECT id FROM "Sale" WHERE note LIKE 'E2E-%'
+      UNION SELECT id FROM "Purchase" WHERE note LIKE 'E2E-%')));
+DELETE FROM "JournalEntry" WHERE "sourceId" IN (
+  SELECT id FROM "Sale" WHERE note LIKE 'E2E-%'
+  UNION SELECT id FROM "Purchase" WHERE note LIKE 'E2E-%')
+  OR "sourceId" IN (
+    SELECT id FROM "JournalEntry" WHERE "sourceId" IN (
+      SELECT id FROM "Sale" WHERE note LIKE 'E2E-%'
+      UNION SELECT id FROM "Purchase" WHERE note LIKE 'E2E-%'));
 DELETE FROM "SaleItem" WHERE "saleId" IN (SELECT id FROM "Sale" WHERE note LIKE 'E2E-%');
 DELETE FROM "Sale" WHERE note LIKE 'E2E-%';
 DELETE FROM "PurchaseItem" WHERE "purchaseId" IN (SELECT id FROM "Purchase" WHERE note LIKE 'E2E-%');
@@ -84,6 +113,30 @@ DELETE FROM "Supplier" WHERE name LIKE 'E2E-%';
 --    فروش با خطای کلید خارجی می‌افتد — شکستی که هیچ ربطی به کد ندارد.
 DELETE FROM "Customer" WHERE "firstName" LIKE 'E2E-%' OR phone = '09127770001';
 SQL
+
+  # ⚠️ جاروی پایانی — چون شناساییِ نام‌محور کافی نیست.
+  #
+  #    این مجموعه یک فاکتور خرید هم از راهِ «استعلام ← سفارش» می‌سازد
+  #    که یادداشتش `E2E-` نیست، پس با الگوی نام پیدا نمی‌شد و سندش
+  #    هر اجرا جا می‌ماند.
+  #
+  #    قاعدهٔ مطمئن‌تر: سندی که **این اجرا** ساخته و سندِ مرجعش دیگر
+  #    وجود ندارد، یتیم است و باید برود.  به یادداشت وابسته نیست، پس
+  #    مسیرِ تازه‌ای هم که فردا اضافه شود خودبه‌خود پوشش می‌گیرد.
+  $C exec -T postgres psql -U postgres -d molido_ai -q -c "
+    DELETE FROM \"JournalLine\" WHERE \"entryId\" IN
+      (SELECT id FROM \"JournalEntry\" WHERE \"createdAt\" > '$T0'
+         AND \"sourceId\" IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM \"Sale\" x WHERE x.id=\"sourceId\")
+         AND NOT EXISTS (SELECT 1 FROM \"Purchase\" x WHERE x.id=\"sourceId\")
+         AND NOT EXISTS (SELECT 1 FROM \"ProductReturn\" x WHERE x.id=\"sourceId\")
+         AND NOT EXISTS (SELECT 1 FROM \"JournalEntry\" y WHERE y.id=\"sourceId\"));
+    DELETE FROM \"JournalEntry\" WHERE \"createdAt\" > '$T0'
+       AND \"sourceId\" IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM \"Sale\" x WHERE x.id=\"sourceId\")
+       AND NOT EXISTS (SELECT 1 FROM \"Purchase\" x WHERE x.id=\"sourceId\")
+       AND NOT EXISTS (SELECT 1 FROM \"ProductReturn\" x WHERE x.id=\"sourceId\")
+       AND NOT EXISTS (SELECT 1 FROM \"JournalEntry\" y WHERE y.id=\"sourceId\");" >/dev/null 2>&1
 }
 cleanup
 # ⚠️ `trap` لازم است، نه فقط فراخوانیِ پایانی.

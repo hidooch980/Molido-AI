@@ -119,6 +119,7 @@ export const NAV: NavItem[] = [
   { href: '/treasury', group: 'money', label: 'menuTreasury', icon: 'bank', feature: 'finance' as FeatureKey },
   { href: '/reports', group: 'money', label: 'menuReports2', icon: 'chart' },
   { href: '/labels', group: 'stock', label: 'menuLabels', icon: 'tag' },
+  { href: '/ration', group: 'sell', label: 'menuRation', icon: 'ticket' },
   { href: '/tax', group: 'money', label: 'menuTax', icon: 'building', feature: 'finance' as FeatureKey },
   { href: '/import', group: 'system', label: 'menuImport', icon: 'inbox' },
   { href: '/definitions', group: 'system', label: 'menuDefinitions', icon: 'settings' },

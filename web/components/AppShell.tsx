@@ -29,62 +29,102 @@ export type NavItem = {
   primary?: boolean;
   /** اگر تعیین شود، فقط در محصولی دیده می‌شود که این قابلیت را دارد */
   feature?: FeatureKey;
+  /**
+   * دستهٔ منو.
+   *
+   * ⚠️ پنجاه‌ودو گزینه در یک فهرستِ تخت بود.  هیچ رنگ و سایه‌ای این را
+   *    درست نمی‌کند: چشم برای پیدا کردنِ «مرجوعی» باید از بالا تا پایین
+   *    بخواند، چون هیچ نشانه‌ای نمی‌گوید کجا تمام می‌شود و کجا شروع.
+   */
+  group: NavGroup;
+};
+
+export type NavGroup =
+  | 'main'
+  | 'sell'
+  | 'stock'
+  | 'buy'
+  | 'money'
+  | 'people'
+  | 'records'
+  | 'system';
+
+/**
+ * ترتیبِ دسته‌ها در سایدبار — از پرکاربرد به کم‌کاربرد.
+ *
+ * فروش بالاتر از انبار است چون صندوق‌دار روزی ده‌ها بار سراغش می‌رود و
+ * انباردار روزی چند بار.  «سامانه» آخر است: تنظیماتی که ماهی یک بار
+ * باز می‌شود نباید هر روز جلوی چشم باشد.
+ */
+export const GROUP_ORDER: NavGroup[] = [
+  'main', 'sell', 'stock', 'buy', 'money', 'people', 'records', 'system',
+];
+
+export const GROUP_LABEL: Record<NavGroup, string> = {
+  main: 'navGroupMain',
+  sell: 'navGroupSell',
+  stock: 'navGroupStock',
+  buy: 'navGroupBuy',
+  money: 'navGroupMoney',
+  people: 'navGroupPeople',
+  records: 'navGroupRecords',
+  system: 'navGroupSystem',
 };
 
 export const NAV: NavItem[] = [
   // label کلید ترجمه است؛ متن در زمان رندر ساخته می‌شود.
-  { href: '/dashboard', label: 'menuDashboard', icon: 'home', primary: true },
-  { href: '/pos', label: 'menuCashier', icon: 'pos', primary: true, feature: 'retail' as FeatureKey },
-  { href: '/quick-keys', label: 'menuQuickKeys', icon: 'tag', feature: 'retail' as FeatureKey },
-  { href: '/restaurant', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
-  { href: '/restaurant/kitchen', label: 'menuKitchen', icon: 'kitchen', feature: 'restaurant' as FeatureKey },
-  { href: '/restaurant/menu', label: 'menuMenuAdmin', icon: 'menuBook', feature: 'restaurant' as FeatureKey },
-  { href: '/restaurant/reservations', label: 'menuReservations', icon: 'calendar', feature: 'restaurant' as FeatureKey },
-  { href: '/restaurant/shift', label: 'menuShift', icon: 'chart', feature: 'restaurant' as FeatureKey },
-  { href: '/restaurant/setup', label: 'menuFloorSetup', icon: 'building', feature: 'restaurant' as FeatureKey },
-  { href: '/products', label: 'menuProducts', icon: 'package', primary: true },
-  { href: '/inventory', label: 'menuInventory', icon: 'warehouse', primary: true },
-  { href: '/stock-count', label: 'menuStockCount', icon: 'clipboard' },
-  { href: '/catalogue', label: 'menuCatalogue', icon: 'package' },
-  { href: '/pricing', label: 'menuPricing', icon: 'tag' },
-  { href: '/loyalty', label: 'menuLoyalty', icon: 'target' },
-  { href: '/sms', label: 'menuSms', icon: 'sms' },
-  { href: '/online-orders', label: 'menuOnlineOrders', icon: 'cart' },
-  { href: '/staff', label: 'menuStaff', icon: 'users', feature: 'hr' as FeatureKey },
-  { href: '/contracts', label: 'menuContracts', icon: 'shield' },
-  { href: '/pos-terminals', label: 'menuPosTerminals', icon: 'bank' },
-  { href: '/roles', label: 'menuRoles', icon: 'settings' },
-  { href: '/records/customer-tickets', label: 'menuTickets', icon: 'ticket', feature: 'crm' as FeatureKey },
-  { href: '/records/budget', label: 'menuBudget', icon: 'ledger', feature: 'finance' as FeatureKey },
-  { href: '/records/loans', label: 'menuLoans', icon: 'coins', feature: 'finance' as FeatureKey },
-  { href: '/records/investments', label: 'menuInvestments', icon: 'chart', feature: 'finance' as FeatureKey },
-  { href: '/records/training', label: 'menuTraining', icon: 'graduation', feature: 'hr' as FeatureKey },
-  { href: '/records/performance', label: 'menuPerformance', icon: 'target', feature: 'hr' as FeatureKey },
-  { href: '/records/tenders', label: 'menuTenders', icon: 'tender' },
-  { href: '/records/surveys', label: 'menuSurveys', icon: 'survey', feature: 'crm' as FeatureKey },
-  { href: '/records/news', label: 'menuNews', icon: 'news' },
-  { href: '/records/email-campaigns', label: 'menuEmailCampaigns', icon: 'link', feature: 'crm' as FeatureKey },
-  { href: '/customers', label: 'menuCustomers', icon: 'users' },
-  { href: '/sales', label: 'menuSales', icon: 'receipt' },
-  { href: '/sales-chain', label: 'menuChain', icon: 'link' },
-  { href: '/sales-agents', label: 'menuAgents', icon: 'agent' },
-  { href: '/crm', label: 'menuCrm', icon: 'target', feature: 'crm' as FeatureKey },
-  { href: '/returns', label: 'menuReturns', icon: 'return' },
-  { href: '/accounting', label: 'menuAccounting', icon: 'ledger', feature: 'finance' as FeatureKey },
-  { href: '/assets', label: 'menuAssets', icon: 'building', feature: 'finance' as FeatureKey },
-  { href: '/fiscal-year', label: 'menuFiscalYear', icon: 'calendar', feature: 'finance' as FeatureKey },
-  { href: '/purchases', label: 'menuPurchases', icon: 'truck' },
-  { href: '/purchasing', label: 'menuPurchasing', icon: 'agent' },
-  { href: '/voice', label: 'menuVoice', icon: 'user' },
-  { href: '/treasury', label: 'menuTreasury', icon: 'bank', feature: 'finance' as FeatureKey },
-  { href: '/reports', label: 'menuReports2', icon: 'chart' },
-  { href: '/labels', label: 'menuLabels', icon: 'tag' },
-  { href: '/tax', label: 'menuTax', icon: 'building', feature: 'finance' as FeatureKey },
-  { href: '/import', label: 'menuImport', icon: 'inbox' },
-  { href: '/definitions', label: 'menuDefinitions', icon: 'settings' },
-  { href: '/operations', label: 'menuOperations', icon: 'alert' },
-  { href: '/settings', label: 'menuSettings', icon: 'settings' },
-  { href: '/users', label: 'menuUsers', icon: 'user' },
+  { href: '/dashboard', group: 'main', label: 'menuDashboard', icon: 'home', primary: true },
+  { href: '/pos', group: 'main', label: 'menuCashier', icon: 'pos', primary: true, feature: 'retail' as FeatureKey },
+  { href: '/quick-keys', group: 'main', label: 'menuQuickKeys', icon: 'tag', feature: 'retail' as FeatureKey },
+  { href: '/restaurant', group: 'sell', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/kitchen', group: 'sell', label: 'menuKitchen', icon: 'kitchen', feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/menu', group: 'sell', label: 'menuMenuAdmin', icon: 'menuBook', feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/reservations', group: 'sell', label: 'menuReservations', icon: 'calendar', feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/shift', group: 'sell', label: 'menuShift', icon: 'chart', feature: 'restaurant' as FeatureKey },
+  { href: '/restaurant/setup', group: 'sell', label: 'menuFloorSetup', icon: 'building', feature: 'restaurant' as FeatureKey },
+  { href: '/products', group: 'stock', label: 'menuProducts', icon: 'package', primary: true },
+  { href: '/inventory', group: 'stock', label: 'menuInventory', icon: 'warehouse', primary: true },
+  { href: '/stock-count', group: 'stock', label: 'menuStockCount', icon: 'clipboard' },
+  { href: '/catalogue', group: 'stock', label: 'menuCatalogue', icon: 'package' },
+  { href: '/pricing', group: 'stock', label: 'menuPricing', icon: 'tag' },
+  { href: '/loyalty', group: 'sell', label: 'menuLoyalty', icon: 'target' },
+  { href: '/sms', group: 'system', label: 'menuSms', icon: 'sms' },
+  { href: '/online-orders', group: 'sell', label: 'menuOnlineOrders', icon: 'cart' },
+  { href: '/staff', group: 'people', label: 'menuStaff', icon: 'users', feature: 'hr' as FeatureKey },
+  { href: '/contracts', group: 'records', label: 'menuContracts', icon: 'shield' },
+  { href: '/pos-terminals', group: 'system', label: 'menuPosTerminals', icon: 'bank' },
+  { href: '/roles', group: 'people', label: 'menuRoles', icon: 'settings' },
+  { href: '/records/customer-tickets', group: 'records', label: 'menuTickets', icon: 'ticket', feature: 'crm' as FeatureKey },
+  { href: '/records/budget', group: 'records', label: 'menuBudget', icon: 'ledger', feature: 'finance' as FeatureKey },
+  { href: '/records/loans', group: 'records', label: 'menuLoans', icon: 'coins', feature: 'finance' as FeatureKey },
+  { href: '/records/investments', group: 'records', label: 'menuInvestments', icon: 'chart', feature: 'finance' as FeatureKey },
+  { href: '/records/training', group: 'records', label: 'menuTraining', icon: 'graduation', feature: 'hr' as FeatureKey },
+  { href: '/records/performance', group: 'records', label: 'menuPerformance', icon: 'target', feature: 'hr' as FeatureKey },
+  { href: '/records/tenders', group: 'records', label: 'menuTenders', icon: 'tender' },
+  { href: '/records/surveys', group: 'records', label: 'menuSurveys', icon: 'survey', feature: 'crm' as FeatureKey },
+  { href: '/records/news', group: 'records', label: 'menuNews', icon: 'news' },
+  { href: '/records/email-campaigns', group: 'records', label: 'menuEmailCampaigns', icon: 'link', feature: 'crm' as FeatureKey },
+  { href: '/customers', group: 'sell', label: 'menuCustomers', icon: 'users' },
+  { href: '/sales', group: 'sell', label: 'menuSales', icon: 'receipt' },
+  { href: '/sales-chain', group: 'sell', label: 'menuChain', icon: 'link' },
+  { href: '/sales-agents', group: 'sell', label: 'menuAgents', icon: 'agent' },
+  { href: '/crm', group: 'sell', label: 'menuCrm', icon: 'target', feature: 'crm' as FeatureKey },
+  { href: '/returns', group: 'sell', label: 'menuReturns', icon: 'return' },
+  { href: '/accounting', group: 'money', label: 'menuAccounting', icon: 'ledger', feature: 'finance' as FeatureKey },
+  { href: '/assets', group: 'money', label: 'menuAssets', icon: 'building', feature: 'finance' as FeatureKey },
+  { href: '/fiscal-year', group: 'money', label: 'menuFiscalYear', icon: 'calendar', feature: 'finance' as FeatureKey },
+  { href: '/purchases', group: 'buy', label: 'menuPurchases', icon: 'truck' },
+  { href: '/purchasing', group: 'buy', label: 'menuPurchasing', icon: 'agent' },
+  { href: '/voice', group: 'people', label: 'menuVoice', icon: 'user' },
+  { href: '/treasury', group: 'money', label: 'menuTreasury', icon: 'bank', feature: 'finance' as FeatureKey },
+  { href: '/reports', group: 'money', label: 'menuReports2', icon: 'chart' },
+  { href: '/labels', group: 'stock', label: 'menuLabels', icon: 'tag' },
+  { href: '/tax', group: 'money', label: 'menuTax', icon: 'building', feature: 'finance' as FeatureKey },
+  { href: '/import', group: 'system', label: 'menuImport', icon: 'inbox' },
+  { href: '/definitions', group: 'system', label: 'menuDefinitions', icon: 'settings' },
+  { href: '/operations', group: 'system', label: 'menuOperations', icon: 'alert' },
+  { href: '/settings', group: 'system', label: 'menuSettings', icon: 'settings' },
+  { href: '/users', group: 'people', label: 'menuUsers', icon: 'user' },
 ];
 
 /**
@@ -232,16 +272,32 @@ export default function AppShell({
         </div>
 
         <nav>
-          {visible.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item${pathname === item.href ? ' active' : ''}`}
-            >
-              <Icon name={item.icon} />
-              <span>{t(item.label)}</span>
-            </Link>
-          ))}
+          {GROUP_ORDER.map((group) => {
+            const items = visible.filter((item) => item.group === group);
+            if (!items.length) return null;
+
+            return (
+              <div key={group} className="nav-group">
+                {/* ⚠️ دستهٔ نخست عنوان ندارد.
+                    داشبورد و صندوق پرکاربردترین‌اند و باید بالای فهرست
+                    بی‌واسطه دیده شوند؛ عنوان روی آن‌ها فقط یک پله
+                    فاصله اضافه می‌کرد. */}
+                {group !== 'main' && (
+                  <div className="nav-group-title">{t(GROUP_LABEL[group])}</div>
+                )}
+                {items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`nav-item${pathname === item.href ? ' active' : ''}`}
+                  >
+                    <Icon name={item.icon} />
+                    <span>{t(item.label)}</span>
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <button

@@ -359,6 +359,36 @@ input:focus {
   background: linear-gradient(135deg, var(--primary), var(--accent));
 }
 
+/* ============================================================
+   دسته‌بندی سایدبار
+   ============================================================
+
+   ⚠️ چرا لازم بود؟
+
+      پنجاه‌ودو گزینه در یک فهرستِ تخت بود.  برای پیدا کردنِ «مرجوعی»
+      باید از بالا تا پایین خوانده می‌شد، چون هیچ نشانه‌ای نمی‌گفت کجا
+      یک موضوع تمام می‌شود و بعدی شروع.
+
+      رنگ و سایه این را درست نمی‌کند؛ ساختار می‌کند. */
+
+.nav-group + .nav-group {
+  /* فاصله تنها چیزی است که مرزِ دسته را می‌سازد — خط نمی‌کشیم،
+     چون هشت خطِ افقی خودش شلوغی تازه است. */
+  margin-top: 18px;
+}
+
+.nav-group-title {
+  padding: 0 14px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* کم‌رنگ‌تر از خودِ گزینه‌ها: عنوان راهنماست، نه مقصد.  اگر هم‌وزنِ
+     گزینه‌ها بود، چشم آن را هم گزینه می‌خواند و شمارش را بدتر می‌کرد. */
+  color: var(--text-dim);
+  opacity: 0.62;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -386,6 +416,14 @@ input:focus {
   background: var(--nav-active-bg);
   border: 1px solid var(--nav-active-border);
   color: #fff;
+  /* ⚠️ نوارِ کناری، نه فقط زمینه.
+     در پوستهٔ تیره تفاوتِ زمینهٔ فعال و غیرفعال کم است و گزینهٔ جاری
+     گم می‌شود.  نوارِ رنگی لبه، در هر پوسته‌ای دیده می‌شود. */
+  position: relative;
+  box-shadow: inset 3px 0 0 var(--primary-2);
+}
+[dir='rtl'] .nav-item.active {
+  box-shadow: inset -3px 0 0 var(--primary-2);
 }
 
 .nav-item .soon {

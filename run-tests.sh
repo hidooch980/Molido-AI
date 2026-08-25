@@ -125,8 +125,38 @@ ensure_token() {
   [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10         "${MOLIDO_API:-http://localhost:3000}/auth/me"         -H "Authorization: Bearer $MOLIDO_TOKEN")" = "200" ] && return 0
   printf '  … توکن مشترک باطل شده؛ ورود دوباره
 ' >&2
+  # ⚠️ `wait_for_quota` اینجا کافی **نیست** و پیش‌تر نبود.
+  #
+  #    آن تابع سهمیهٔ **عمومی** را از `/health` می‌خواند (۱۲۰۰ در
+  #    دقیقه) در حالی که `/auth/login` سطلِ جداگانه و به‌مراتب تنگ‌ترِ
+  #    خودش را دارد: اندازه‌گیری‌شده ~۱۰ در دقیقه.
+  #
+  #    نتیجه: سهمیهٔ عمومی ۱۰۵۸ باقی‌مانده نشان می‌داد، نگهبان بی‌درنگ
+  #    سبز می‌گفت، و ورودِ بعدی ۴۲۹ می‌خورد.  یک اجرای کامل با ۱۳
+  #    مجموعهٔ «نیمه‌کاره مرده» تمام شد — `import`، `avg-cost`،
+  #    `freight`، `purchasing` و بقیه — که هیچ‌کدام عیبی نداشتند.
+  #
+  #    خودِ پاسخِ ۴۲۹ می‌گوید چقدر باید صبر کرد (`Retry-After-long`).
+  #    پس به‌جای حدس زدنِ سهمیه، از خودِ سرور می‌پرسیم.
   wait_for_quota
-  MOLIDO_TOKEN=$(curl -s -X POST "${MOLIDO_API:-http://localhost:3000}/auth/login"     -H 'Content-Type: application/json'     -d "{\"email\":\"admin@molido.ai\",\"password\":\"$MOLIDO_ADMIN_PASSWORD\"}"     | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)
+  local try body wait_s
+  for try in 1 2 3 4; do
+    body=$(curl -s -D /tmp/molido-login-hdr.$$ -X POST "${MOLIDO_API:-http://localhost:3000}/auth/login"       -H 'Content-Type: application/json'       -d "{\"email\":\"admin@molido.ai\",\"password\":\"$MOLIDO_ADMIN_PASSWORD\"}")
+    MOLIDO_TOKEN=$(printf '%s' "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)
+    [ -n "$MOLIDO_TOKEN" ] && break
+
+    # فقط برای ۴۲۹ صبر می‌کنیم.  رمزِ غلط با صبر کردن درست نمی‌شود و
+    # چهار بار تلاش فقط چهار دقیقه وقت را هدر می‌دهد.
+    grep -qi '^HTTP/[0-9.]* 429' /tmp/molido-login-hdr.$$ || break
+    wait_s=$(grep -i '^Retry-After-long:' /tmp/molido-login-hdr.$$ | tr -dc '0-9')
+    wait_s=${wait_s:-60}
+    printf '  … سقف ورود؛ %s ثانیه صبر (تلاش %s از ۴)
+' "$wait_s" "$try" >&2
+    sleep "$((wait_s + 2))"
+  done
+  rm -f /tmp/molido-login-hdr.$$
+  [ -z "$MOLIDO_TOKEN" ] && printf '  ✗ ورود دوباره ناموفق ماند
+' >&2
   export MOLIDO_TOKEN
 }
 

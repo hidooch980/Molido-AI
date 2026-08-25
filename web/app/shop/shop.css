@@ -1018,3 +1018,136 @@
   border-color: var(--s-primary);
   color: var(--s-on-primary);
 }
+
+/* ---------- نظر و امتیاز ---------- */
+
+/* ⚠️ متنی که فقط صفحه‌خوان می‌خواند.
+   `display:none` کار نمی‌کند — صفحه‌خوان هم آن را نمی‌خواند.  این
+   الگو عنصر را از چشم پنهان می‌کند ولی در درختِ دسترسی نگه می‌دارد. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--s-accent);
+}
+
+.reviews {
+  margin-top: var(--s-8);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--s-border);
+}
+
+.reviews-title {
+  font-size: 17px;
+  margin-bottom: var(--s-4);
+}
+
+.review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s-6);
+  display: grid;
+  gap: var(--s-3);
+}
+
+.review-list li {
+  padding: var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+
+.review-list p {
+  margin: 0;
+  line-height: 1.85;
+  /* نظر ممکن است رشتهٔ بلندِ بی‌فاصله داشته باشد؛ بدونِ این، کارت را
+     می‌شکند و صفحه افقی اسکرول می‌شود. */
+  overflow-wrap: anywhere;
+}
+
+.review-form {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  background: var(--s-surface-2);
+}
+
+.review-form-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.review-done {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-primary-soft);
+  border: 1px solid var(--s-primary);
+  font-weight: 600;
+}
+
+/* انتخابِ ستاره */
+.star-pick {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 2px;
+  color: var(--s-text-dim);
+}
+
+.star-pick label {
+  /* ⚠️ ۴۴ پیکسل کفِ هدفِ لمسی — با ستارهٔ ۲۶ پیکسلی، بدونِ padding
+     انگشت ستارهٔ کناری را می‌زند و کاربر امتیازِ اشتباه می‌دهد. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  transition: color 120ms ease, transform 120ms ease;
+}
+
+.star-pick label.on {
+  color: var(--s-accent);
+}
+
+.star-pick label:active {
+  transform: scale(0.92);
+}
+
+/* رادیو پنهان است ولی حذف نشده: فوکوسِ کیبورد و صفحه‌خوان به آن
+   وابسته‌اند. */
+.star-pick input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.star-pick input:focus-visible + svg {
+  outline: 2px solid var(--s-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

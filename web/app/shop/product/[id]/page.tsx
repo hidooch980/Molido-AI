@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Icon } from '../../../../components/icons';
 import { shopFetch } from '../../../../lib/shop-server';
 import AddToCart from '../../AddToCart';
+import Stars from '../../Stars';
+import ReviewForm from '../../ReviewForm';
 
 type Product = {
   id: string;
@@ -15,6 +17,14 @@ type Product = {
   price: string | number;
   stock: string | number;
   categoryName: string | null;
+};
+
+type Review = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  customerName: string | null;
 };
 
 const fa = (value: unknown) => Number(value ?? 0).toLocaleString('fa-IR');
@@ -44,7 +54,16 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = await shopFetch<Product | null>(`/products/${id}`, null);
+  // ⚠️ سه درخواست موازی، نه پشتِ سرِ هم: نظرها به کالا وابسته نیستند و
+  //    زنجیره کردنشان صفحه را بی‌دلیل کند می‌کند.
+  const [product, rating, reviews] = await Promise.all([
+    shopFetch<Product | null>(`/products/${id}`, null),
+    shopFetch<{ average: number | null; count: number }>(
+      `/products/${id}/rating`,
+      { average: null, count: 0 },
+    ),
+    shopFetch<Review[]>(`/products/${id}/reviews`, []),
+  ]);
 
   if (!product) {
     return (
@@ -158,7 +177,11 @@ export default async function ProductPage({
           <div className="shop-muted">{product.categoryName}</div>
         ) : null}
 
-        <h1 style={{ margin: '4px 0 var(--s-3)' }}>{product.name}</h1>
+        <h1 style={{ margin: '4px 0 var(--s-2)' }}>{product.name}</h1>
+
+        <div style={{ marginBottom: 'var(--s-3)' }}>
+          <Stars value={rating.average} count={rating.count} />
+        </div>
 
         <div
           style={{
@@ -208,6 +231,40 @@ export default async function ProductPage({
         ) : null}
       </div>
     </div>
+
+      {/* ---------- نظرها ---------- */}
+      <section className="reviews">
+        <h2 className="reviews-title">
+          نظر خریداران
+          {rating.count ? (
+            <span className="shop-muted"> ({fa(rating.count)})</span>
+          ) : null}
+        </h2>
+
+        {reviews.length === 0 ? (
+          // ⚠️ متنِ خالی باید بگوید **چه کسی** می‌تواند نظر بدهد.
+          //    «نظری نیست» تنها، کاربر را به فرمِ زیرش راهنمایی نمی‌کند.
+          <p className="shop-muted">
+            هنوز نظری ثبت نشده. اگر این کالا را خریده‌اید، اولین نفر باشید.
+          </p>
+        ) : (
+          <ul className="review-list">
+            {reviews.map((review) => (
+              <li key={review.id}>
+                <div className="review-head">
+                  <Stars value={review.rating} size={13} />
+                  <span className="shop-muted">
+                    {review.customerName || 'خریدار'}
+                  </span>
+                </div>
+                {review.comment ? <p>{review.comment}</p> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <ReviewForm productId={product.id} />
+      </section>
     </>
   );
 }

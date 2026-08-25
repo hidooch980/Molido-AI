@@ -68,6 +68,120 @@ curl -s http://localhost:3000/telephony/status -H "Authorization: Bearer TOKEN"
 سپس در صفحهٔ «مریم — منشی خرید»، بنکدار را انتخاب کنید، داخلی خودتان را
 بنویسید و «زنگ بزن» را بزنید.
 
+## ۴) ترانک SIP — تا تماس واقعاً بیرون برود
+
+سه بخشِ بالا سامانه را به **مرکز** وصل می‌کنند.  ولی مرکز به‌تنهایی
+نمی‌تواند به بیرون زنگ بزند؛ برای آن یک **ترانک SIP** از اپراتور لازم
+است.  بدون ترانک، تماسِ داخلی برقرار می‌شود و شمارهٔ بنکدار
+`ALL CIRCUITS ARE BUSY` می‌گیرد.
+
+### چه چیزی از اپراتور بگیرید
+
+نامِ کاربری و رمزِ SIP، نشانیِ سرور (و درگاهش، معمولاً ۵۰۶۰)، و اینکه
+احرازش **register** است یا بر پایهٔ **IP**.  این تفاوت مهم است: در حالت
+IP، اپراتور آی‌پیِ ثابتِ شما را می‌شناسد و رمزی رد و بدل نمی‌شود.
+
+### پیکربندی در `pjsip.conf`
+
+```ini
+[molido-trunk]
+type = registration
+outbound_auth = molido-auth
+server_uri = sip:sip.OPERATOR.example
+client_uri = sip:USERNAME@sip.OPERATOR.example
+retry_interval = 60
+
+[molido-auth]
+type = auth
+auth_type = userpass
+username = USERNAME
+password = PASSWORD
+
+[molido-endpoint]
+type = endpoint
+context = from-trunk
+disallow = all
+; ⚠️ ترتیب کُدِک عمدی است: alaw برای خطوط ایران، بعد ulaw.
+;    g729 را اگر اپراتور می‌خواهد اضافه کنید — پروانه لازم دارد.
+allow = alaw,ulaw
+outbound_auth = molido-auth
+aors = molido-aor
+from_user = USERNAME
+
+[molido-aor]
+type = aor
+contact = sip:sip.OPERATOR.example
+qualify_frequency = 60
+
+[molido-identify]
+type = identify
+endpoint = molido-endpoint
+match = sip.OPERATOR.example
+```
+
+سپس:
+
+```bash
+asterisk -rx "pjsip reload"
+asterisk -rx "pjsip show registrations"
+```
+
+باید وضعیت `Registered` باشد.  اگر `Rejected` است، نام کاربری یا رمز
+غلط است؛ اگر `Trying` می‌ماند، بستهٔ SIP اصلاً به اپراتور نمی‌رسد —
+دیوارِ آتش یا NAT.
+
+### مسیرِ خروجی در `extensions.conf`
+
+⚠️ **این بخش با کدِ سامانه گره خورده است.**
+
+`telephony.service.ts` تماس را این‌طور می‌سازد: کانالِ
+`Local/<داخلیِ اپراتور>@<ARI_CONTEXT>` را برمی‌دارد و بعد شمارهٔ بنکدار
+را در **همان context** شماره‌گیری می‌کند.  یعنی `ARI_CONTEXT` باید هم
+داخلی‌ها را بشناسد و هم مسیرِ خروجی را:
+
+```ini
+[from-internal]
+; داخلی‌ها — در FreePBX و ایزابل از قبل هست
+include => internal-extensions
+
+; خروجی: هر شمارهٔ ۱۰ تا ۱۳ رقمی از ترانک برود
+exten => _X.,1,NoOp(Molido → ${MOLIDO_SUPPLIER})
+ same => n,Set(CALLERID(num)=${CALLERID(num)})
+ same => n,Dial(PJSIP/${EXTEN}@molido-endpoint,45)
+ same => n,Hangup()
+```
+
+> ⚠️ الگوی `_X.` هر رشتهٔ رقمی را می‌گیرد.  اگر مرکزتان داخلی‌های
+> کوتاه دارد (مثلاً ۱۰۱)، آن‌ها هم در این الگو می‌افتند و به ترانک
+> فرستاده می‌شوند.  در آن صورت الگو را دقیق‌تر کنید — مثلاً
+> `_0[1-9]XXXXXXXX` برای شماره‌های ثابت و `_09XXXXXXXXX` برای همراه.
+
+متغیرهای `MOLIDO_SUPPLIER` و `MOLIDO_INQUIRY` را خودِ سامانه ست می‌کند،
+پس در CDR می‌بینید کدام تماس مالِ کدام استعلام بود.
+
+### وقتی مرکز پشتِ NAT است
+
+اگر سرورِ استریسک آی‌پیِ عمومی ندارد، در `pjsip.conf` بخشِ `[global]` یا
+همان endpoint:
+
+```ini
+external_media_address = آی‌پی-عمومی-شما
+external_signaling_address = آی‌پی-عمومی-شما
+local_net = 192.168.0.0/16
+```
+
+بدون این‌ها تماس برقرار می‌شود ولی **صدا یک‌طرفه** است — کلاسیک‌ترین
+نشانهٔ NATِ پیکربندی‌نشده.
+
+### آزمودن بدونِ درگیر کردنِ سامانه
+
+```bash
+asterisk -rx "channel originate PJSIP/09120000000@molido-endpoint application Playback hello-world"
+```
+
+اگر این کار کرد، ترانک سالم است و هر مشکلی که بماند سمتِ ARI است، نه
+ترانک.  این جداسازی وقتِ زیادی صرفه‌جویی می‌کند.
+
 ## چطور کار می‌کند
 
 مرکز **اول به داخلیِ خودِ شما** زنگ می‌زند و وقتی برداشتید، شمارهٔ

@@ -33,10 +33,28 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = await shopFetch<Settings>('/settings', {});
   const name = settings.shopName?.trim() || 'فروشگاه اینترنتی';
 
+  const description = `خرید آنلاین از ${name} با تحویل درب منزل`;
+
   return {
     title: { default: name, template: `%s — ${name}` },
-    description: `خرید آنلاین از ${name} با تحویل درب منزل`,
-    openGraph: { title: name, type: 'website' },
+    description,
+    // ⚠️ `openGraph` بدونِ `description` و `locale` ناقص است.
+    //
+    //    تلگرام و واتساپ همین را می‌خوانند؛ نبودِ توضیح یعنی لینکِ
+    //    اشتراک‌گذاری‌شده فقط یک عنوانِ خشک نشان می‌دهد و کلیک نمی‌گیرد.
+    //    `fa_IR` هم به پیام‌رسان می‌گوید متن راست‌به‌چپ است.
+    openGraph: {
+      title: name,
+      description,
+      siteName: name,
+      type: 'website',
+      locale: 'fa_IR',
+    },
+    // کارتِ توییتر/ایکس جداست و از openGraph ارث نمی‌برد.
+    twitter: { card: 'summary_large_image', title: name, description },
+    // ⚠️ صفحه‌های سبد، حساب و سفارش‌ها نباید ایندکس شوند — در
+    //    `robots.ts` جدا مدیریت می‌شود؛ اینجا فقط اجازهٔ کلی است.
+    robots: { index: true, follow: true },
   };
 }
 

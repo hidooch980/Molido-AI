@@ -273,5 +273,19 @@ node web/scripts/verify-no-t-shadow.mjs 2>&1 | tail -2
 echo '--- hardcoded fa ---'
 node web/scripts/audit-hardcoded-fa.mjs --max 175 2>&1 | tail -2
 
+# ⚠️ این یکی خروجیِ ناصفر می‌دهد و عمداً اجرا را می‌شکند.
+#
+#    وب و بک‌اند هرکدام فهرستِ قابلیت‌های محصول را دارند و باید یکی
+#    بمانند.  یک بار از هم دور افتادند (`municipality` در برابر
+#    `municipal`) و هیچ خطایی نداد — فقط ۱۲ ورودیِ منو بی‌گیت ماندند
+#    و کاربرِ فروشگاه با کلیک روی «پارکینگ» ۴۰۴ می‌گرفت.
+#
+#    برخلافِ نگهبان‌های هشداری، اینجا مثبتِ کاذب ممکن نیست: دو فهرست
+#    یا یکی‌اند یا نیستند.
+echo '--- product features ---'
+node web/scripts/verify-product-features.mjs 2>&1 | tail -3
+feat_rc=${PIPESTATUS[0]}
+[ "$feat_rc" -eq 0 ] || broken="$broken product-features"
+
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

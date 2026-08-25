@@ -208,7 +208,12 @@
   border: 1px solid transparent;
   border-radius: var(--s-radius-pill);
   /* گرادیان به‌جای رنگِ تخت — امضای بصری این طرح. */
-  background: var(--s-brand-grad);
+  /* ⚠️ رنگِ تخت، نه گرادیان.
+     گرادیان دو سر دارد و فقط یکی‌شان سنجیده می‌شد؛ سرِ دوم در پوستهٔ
+     روشن کنتراستِ ۳٫۴۷ می‌داد — زیر حد.  جفتِ `--s-primary` و
+     `--s-on-primary` از قبل در `audit-contrast.mjs` تأیید شده و در هر
+     دو پوسته کار می‌کند. */
+  background: var(--s-primary);
   color: var(--s-on-primary);
   box-shadow: var(--s-glow);
   font-family: inherit;
@@ -296,18 +301,26 @@
   padding: var(--s-3) var(--s-4);
   margin-bottom: var(--s-6);
   border-radius: var(--s-radius);
-  background: var(--s-primary-soft);
-  color: var(--s-primary-dark);
-  border: 1px solid var(--s-border);
-  font-size: 14px;
-  font-weight: 600;
+  /* ⚠️ گرادیانِ برند به‌جای رنگِ تخت.
+     این نوار تنها عنصرِ تبلیغیِ صفحه است — «ارسال رایگان» چیزی است
+     که خرید را جلو می‌اندازد.  با رنگِ کم‌رنگِ قبلی شبیه یک پیامِ
+     سیستمی بود و چشم از رویش رد می‌شد. */
+  background: var(--s-brand-grad);
+  color: var(--s-on-primary);
+  border: 0;
+  box-shadow: var(--s-shadow);
+  font-size: 14.5px;
+  font-weight: 700;
 }
 
-@media (prefers-color-scheme: dark) {
-  .shop-banner {
-    color: var(--s-primary);
-  }
-}
+/* ⚠️ بازنویسیِ پوستهٔ تیره برداشته شد.
+
+   `color: var(--s-primary)` برای زمینهٔ کم‌رنگِ قبلی نوشته شده بود.
+   روی گرادیانِ برند، بنفش روی بنفش می‌شد — در مرورگر سنجیده شد:
+   زمینه rgb(196,181,253) و متن rgb(167,139,250)، عملاً ناخوانا.
+
+   حالا `--s-on-primary` در هر دو پوسته کار می‌کند، چون خودش
+   پوسته‌آگاه است: سفید در روشن، بنفشِ تیره در تاریک. */
 
 /* ---------- دسته‌بندی ---------- */
 
@@ -360,7 +373,9 @@
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  /* ۲۰۶ به‌جای ۱۹۰: کارتِ کمی پهن‌تر جا برای نامِ دوخطی و قیمت
+     می‌دهد؛ با ۱۹۰ نامِ بلند بریده می‌شد. */
+  grid-template-columns: repeat(auto-fill, minmax(206px, 1fr));
   gap: var(--s-4);
 }
 
@@ -372,7 +387,37 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: border-color 150ms ease;
+  /* ⚠️ توکن‌های سایه از قبل بودند و هیچ‌جا استفاده نمی‌شدند.
+     کارت‌ها تخت بودند: فقط رنگِ حاشیه عوض می‌شد، که در پوستهٔ تیره
+     تقریباً دیده نمی‌شود. */
+  box-shadow: var(--s-shadow);
+  transition:
+    border-color 150ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.product-card:hover {
+  border-color: var(--s-primary);
+  box-shadow: var(--s-shadow-lg);
+  /* بلند شدنِ کم — دو پیکسل کافی است تا «قابلِ کلیک» حس شود.
+     بیشترش روی شبکه‌ای با ده‌ها کارت، تکان‌دهنده می‌شود. */
+  transform: translateY(-2px);
+}
+
+/* ⚠️ فوکوسِ کیبورد هم باید همان بازخورد را بگیرد.
+   بدون این، کاربری که با Tab می‌گردد نمی‌داند روی کدام کارت است. */
+.product-card:focus-within {
+  border-color: var(--s-primary);
+  box-shadow: var(--s-shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card,
+  .product-card:hover {
+    transition: none;
+    transform: none;
+  }
 }
 
 .product-card:hover {
@@ -383,6 +428,9 @@
 .product-image {
   position: relative;
   aspect-ratio: 1;
+  /* تصویر هنگام hover کمی بزرگ می‌شود — ولی داخلِ قابِ خودش، چون
+     کارت `overflow: hidden` دارد.  حسِ زنده بودن می‌دهد بی‌آنکه
+     چیدمان تکان بخورد. */
   background: var(--s-surface-2);
   display: flex;
   align-items: center;

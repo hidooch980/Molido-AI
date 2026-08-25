@@ -48,6 +48,13 @@ if [ -z "$T" ]; then T=$(login 'admin@molido.ai' "$PW"); fi
 if [ -z "$T" ]; then echo "  ✗ ورود مدیر ناموفق"; exit 1; fi
 AU="Authorization: Bearer $T"
 
+# پاک‌سازیِ مشترک — پیش از این، هر اجرا یک سند جا می‌گذاشت.
+. "$(dirname "$0")/lib/reset.sh"
+reset_begin
+# ⚠️ اینجا `trap` نمی‌گذاریم — این مجموعه پایین‌تر `trap` خودش را دارد
+#    و آخرین `trap` قبلی را بی‌صدا کنار می‌زند.  هر دو در همان یکی
+#    زنجیر می‌شوند.
+
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
@@ -63,7 +70,12 @@ cleanup() {
   Q "DELETE FROM \"JournalEntry\" WHERE \"sourceType\"='AssetDepreciation' AND \"sourceId\" LIKE '2026-0%';" >/dev/null
 }
 cleanup
-trap cleanup EXIT
+# ⚠️ هر دو پاک‌سازی در یک `trap`.
+#
+#    `cleanup` چیزهای ویژهٔ این مجموعه را می‌برد (خزانه، دارایی،
+#    استهلاک) و `reset_finish` هرچه دیگری را که پس از مهرِ زمانی ساخته
+#    شده — از جمله سندِ «واگذاری دارایی» که پاک‌سازیِ ویژه نمی‌گرفتش.
+trap 'cleanup; reset_finish' EXIT
 
 # ═══════════════════════════════════════════════════════════ خزانه
 

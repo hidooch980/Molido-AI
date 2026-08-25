@@ -49,6 +49,11 @@ except ValueError:
     print('<<پاسخ-JSON-نبود: %d نویسه: %s>>' % (len(raw), safe)); sys.exit(0)
 print($1)"; }
 
+# پاک‌سازیِ مشترک — پیش از این، هر اجرا دو سند، یک حرکتِ انبار و پنج واحد موجودی جا می‌گذاشت.
+. "$(dirname "$0")/lib/reset.sh"
+reset_begin
+trap reset_finish EXIT
+
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }

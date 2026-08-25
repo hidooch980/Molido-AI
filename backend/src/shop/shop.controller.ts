@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -14,6 +16,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
 import { ShopService } from './shop.service';
+import { PaymentService } from '../payment/payment.service';
 import { CheckinService } from '../loyalty/checkin.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
@@ -64,6 +67,7 @@ export class ShopPublicController {
     private readonly service: ShopService,
     private readonly loyalty: LoyaltyService,
     private readonly checkin: CheckinService,
+    private readonly payment: PaymentService,
   ) {}
 
   private company(req: ShopRequest): string {
@@ -238,6 +242,46 @@ export class ShopPublicController {
     @CurrentCustomer() customer: CustomerToken,
   ) {
     return this.service.myOrders(this.company(req), customer.sub);
+  }
+
+  /**
+   * آغازِ پرداختِ آنلاین — نشانیِ درگاه را برمی‌گرداند.
+   *
+   * ⚠️ شناسهٔ مشتری از **توکن** می‌آید، نه از بدنه.
+   *
+   *    همان قاعده‌ای که `my-orders/:id` رعایت می‌کند: تنها راهی که کسی
+   *    نتواند سفارشِ دیگری را پرداخت کند یا وضعیتش را ببیند.
+   */
+  @Post('orders/:id/pay')
+  @UseGuards(CustomerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  payOrder(
+    @Req() req: ShopRequest,
+    @Param('id') id: string,
+    @CurrentCustomer() customer: CustomerToken,
+  ) {
+    return this.payment.start(this.company(req), id, customer.sub);
+  }
+
+  /**
+   * تأیید پس از بازگشت از درگاه.
+   *
+   * ⚠️ تأیید را **سرور** انجام می‌دهد، نه کلاینت.
+   *
+   *    اگر صفحهٔ بازگشت فقط می‌گفت «موفق بود» و ما باور می‌کردیم، هر
+   *    کسی می‌توانست با ساختنِ همان درخواست سفارشش را پرداخت‌شده کند.
+   *    اینجا دوباره از خودِ درگاه پرسیده می‌شود و مبلغ هم تطبیق داده
+   *    می‌شود.
+   */
+  @Post('orders/:id/verify-payment')
+  @UseGuards(CustomerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  verifyPayment(
+    @Req() req: ShopRequest,
+    @Param('id') id: string,
+    @CurrentCustomer() customer: CustomerToken,
+  ) {
+    return this.payment.verify(this.company(req), id, customer.sub);
   }
 
   @Get('my-orders/:id')

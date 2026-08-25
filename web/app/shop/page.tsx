@@ -58,6 +58,7 @@ export default async function ShopPage({
     maxPrice?: string;
     sort?: string;
     limit?: string;
+    page?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -76,12 +77,23 @@ export default async function ShopPage({
   if (params.maxPrice) query.set('maxPrice', params.maxPrice);
   if (params.sort) query.set('sort', params.sort);
   query.set('limit', String(limit));
+  // ⚠️ فرستادنِ `page` شکلِ پاسخ را عوض می‌کند: با آن پاکتِ
+  //    `{items,total,pages}` می‌آید، بی‌آن آرایهٔ خام.  عمدی است تا
+  //    مصرف‌کننده‌های قدیمی نشکنند.
+  const page = Math.max(Number(params.page) || 1, 1);
+  query.set('page', String(page));
 
-  const [products, categories, settings] = await Promise.all([
-    shopFetch<Product[]>(`/products?${query}`, []),
+  const [catalogue, categories, settings] = await Promise.all([
+    shopFetch<{ items: Product[]; total: number; pages: number }>(
+      `/products?${query}`,
+      { items: [], total: 0, pages: 1 },
+    ),
     shopFetch<Category[]>('/categories', []),
     shopFetch<Settings>('/settings', {}),
   ]);
+
+  const products = catalogue.items;
+  const totalPages = catalogue.pages;
 
   if (settings.isOpen === false) {
     return (
@@ -220,28 +232,66 @@ export default async function ShopPage({
         </div>
       )}
 
-      {/* دکمه فقط وقتی که واقعاً چیزی بیشتر هست.
-          `length === limit` یعنی سرویس تا سقف پر کرده، پس احتمالاً
-          بیشتر هم هست.  اگر دقیقاً همان تعداد بود، یک بار دکمهٔ
-          بی‌اثر دیده می‌شود — بهتر از پنهان کردنِ کالایی که هست. */}
-      {products.length === limit && limit < 200 ? (
-        <p className="shop-more">
-          <Link
-            href={`/shop?${new URLSearchParams({
-              ...(search ? { search } : {}),
-              ...(categoryId ? { categoryId } : {}),
-              ...(params.minPrice ? { minPrice: params.minPrice } : {}),
-              ...(params.maxPrice ? { maxPrice: params.maxPrice } : {}),
-              ...(params.sort ? { sort: params.sort } : {}),
-              limit: String(Math.min(limit + PAGE, 200)),
-            })}`}
-            className="btn ghost"
-            scroll={false}
-          >
-            نمایش بیشتر
-          </Link>
-        </p>
+      {/* ⚠️ صفحه‌بندیِ واقعی، جای «نمایش بیشتر».
+          روشِ قبلی از روی `length === limit` حدس می‌زد چیزی بیشتر هست —
+          و توضیحش خودش اعتراف می‌کرد که گاهی دکمهٔ بی‌اثر نشان می‌دهد.
+          حالا سرویس `total` و `pages` می‌دهد، پس حدس لازم نیست.
+
+          لینک است نه دکمه: کاربر می‌تواند صفحهٔ ۳ را نشان کند یا در
+          تبِ تازه باز کند، و خزنده هم دنبالش می‌رود. */}
+      {totalPages > 1 ? (
+        <nav className="shop-pager" aria-label="صفحه‌بندی">
+          {(() => {
+            const link = (target: number) =>
+              `/shop?${new URLSearchParams({
+                ...(search ? { search } : {}),
+                ...(categoryId ? { categoryId } : {}),
+                ...(params.minPrice ? { minPrice: params.minPrice } : {}),
+                ...(params.maxPrice ? { maxPrice: params.maxPrice } : {}),
+                ...(params.sort ? { sort: params.sort } : {}),
+                page: String(target),
+              })}`;
+
+            // ⚠️ پنجرهٔ لغزان، نه همهٔ صفحه‌ها.
+            //
+            //    کاتالوگِ هزارتایی با ۲۴ در صفحه یعنی ۴۲ لینک — روی
+            //    موبایل چند سطر می‌شود و خودش یک شلوغیِ تازه است.
+            const from = Math.max(1, page - 2);
+            const to = Math.min(totalPages, from + 4);
+            const numbers = [];
+            for (let n = Math.max(1, to - 4); n <= to; n += 1) numbers.push(n);
+
+            return (
+              <>
+                {page > 1 ? (
+                  <Link href={link(page - 1)} className="pager-btn" scroll={false}>
+                    قبلی
+                  </Link>
+                ) : null}
+
+                {numbers.map((n) => (
+                  <Link
+                    key={n}
+                    href={link(n)}
+                    scroll={false}
+                    className={`pager-btn${n === page ? ' active' : ''}`}
+                    aria-current={n === page ? 'page' : undefined}
+                  >
+                    {n.toLocaleString('fa-IR')}
+                  </Link>
+                ))}
+
+                {page < totalPages ? (
+                  <Link href={link(page + 1)} className="pager-btn" scroll={false}>
+                    بعدی
+                  </Link>
+                ) : null}
+              </>
+            );
+          })()}
+        </nav>
       ) : null}
+
     </>
   );
 }

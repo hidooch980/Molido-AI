@@ -80,11 +80,12 @@ export class ShopPublicController {
   }
 
   @Get('products')
-  catalogue(
+  async catalogue(
     @Req() req: ShopRequest,
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: string,
     @Query('limit') limit?: string,
+    @Query('page') page?: string,
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('sort') sort?: string,
@@ -96,7 +97,8 @@ export class ShopPublicController {
       const n = Number(raw);
       return Number.isFinite(n) && n >= 0 ? n : undefined;
     };
-    return this.service.catalogue(this.company(req), {
+    const result = await this.service.catalogue(this.company(req), {
+      page: num(page),
       search,
       categoryId,
       limit: num(limit),
@@ -104,6 +106,18 @@ export class ShopPublicController {
       maxPrice: num(maxPrice),
       sort,
     });
+
+    // ⚠️ شکلِ پاسخ به `page` بستگی دارد — عمدی، برای سازگاری.
+    //
+    //    این نقطه از قبل مصرف‌کننده داشت: نقشهٔ سایت، صفحهٔ فروشگاه و
+    //    چهار مجموعهٔ آزمون همه آرایه انتظار دارند.  برگرداندنِ پاکت
+    //    به همه، همه‌شان را هم‌زمان می‌شکست.
+    //
+    //    پس هرکه `page` نمی‌فرستد همان آرایهٔ قبلی را می‌گیرد، و
+    //    رابطِ صفحه‌بندی‌شده که `page` می‌فرستد پاکت را با `total` و
+    //    `pages`.  وقتی همهٔ مصرف‌کننده‌ها منتقل شدند، این شرط برداشته
+    //    می‌شود.
+    return page === undefined ? result.items : result;
   }
 
   @Get('categories')

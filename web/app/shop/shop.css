@@ -974,3 +974,47 @@
   font-size: 12px;
   color: var(--s-text-dim);
 }
+
+/* ---------- صفحه‌بندی ---------- */
+
+.shop-pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-6);
+}
+
+.pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ⚠️ ۴۴ پیکسل کفِ هدفِ لمسی است.
+     زیر آن، انگشت روی موبایل شمارهٔ کناری را می‌زند و کاربر به صفحهٔ
+     اشتباه می‌رود — خطایی که آزاردهنده‌تر از کند بودن است. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.pager-btn:hover {
+  border-color: var(--s-primary);
+}
+
+/* صفحهٔ جاری پر می‌شود، نه فقط پررنگ: تفاوتِ وزنِ فونت در یک ردیف
+   عدد به‌سختی دیده می‌شود. */
+.pager-btn.active {
+  background: var(--s-primary);
+  border-color: var(--s-primary);
+  color: var(--s-on-primary);
+}

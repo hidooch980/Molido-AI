@@ -281,6 +281,7 @@ export class ShopService {
       search?: string;
       categoryId?: string;
       limit?: number;
+      page?: number;
       minPrice?: number;
       maxPrice?: number;
       sort?: string;
@@ -325,9 +326,31 @@ export class ShopService {
     };
     const order = ORDERS[options.sort ?? ''] ?? ORDERS.name;
 
-    values.push(Math.min(options.limit ?? 60, 200));
+    // ⚠️ شمارشِ کل **پیش از** افزودنِ LIMIT و OFFSET گرفته می‌شود.
+    //
+    //    بدونِ تعداد کل، رابط نمی‌داند چند صفحه هست و فقط می‌تواند
+    //    «بعدی» را کورکورانه نشان دهد — تا کاربر به صفحهٔ خالی برسد.
+    //
+    //    همان `values` و همان `filter` استفاده می‌شود تا شمارش دقیقاً
+    //    با همان صافی‌ها بخواند؛ ساختنِ پرس‌وجوی جدا یعنی دو جای
+    //    متفاوت که باید هم‌زمان درست بمانند.
+    const counted = await this.db.query<{ total: string }>(
+      `SELECT COUNT(*)::text AS total
+         FROM "Product" p
+        WHERE p."companyId" = $1 AND p."isOnline" = true${filter}`,
+      values.slice(),
+    );
+    const total = Number(counted[0]?.total ?? 0);
 
-    return this.db.query<Row>(
+    const limit = Math.min(Math.max(options.limit ?? 24, 1), 200);
+    // صفحهٔ کمتر از یک معنا ندارد؛ نشانیِ دستکاری‌شده نباید OFFSET
+    // منفی بسازد و پرس‌وجو را بشکند.
+    const page = Math.max(options.page ?? 1, 1);
+
+    values.push(limit);
+    values.push((page - 1) * limit);
+
+    const items = await this.db.query<Row>(
       `SELECT p.id, p.name, p.sku, p.unit, p.description, p."imageUrl",
               COALESCE(p."onlinePrice", p."salePrice") AS price,
               c.name AS "categoryName",
@@ -338,9 +361,19 @@ export class ShopService {
          LEFT JOIN "Category" c ON c.id = p."categoryId"
         WHERE p."companyId" = $1 AND p."isOnline" = true${filter}
         ORDER BY ${order}
-        LIMIT $${values.length}`,
+        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values,
     );
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      // ⚠️ `Math.ceil` روی صفر، صفر می‌دهد — و «صفحهٔ ۱ از ۰» غلط
+      //    به‌نظر می‌رسد.  حداقل یک صفحه همیشه هست، حتی خالی.
+      pages: Math.max(Math.ceil(total / limit), 1),
+    };
   }
 
   async categories(companyId: string) {

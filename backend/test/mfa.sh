@@ -56,7 +56,43 @@ req() {
   done
   return 0
 }
+
+# ⚠️ `req` برای درخواستِ حاوی کدِ TOTP **کار نمی‌کند**.
+#
+#    آرگومان‌ها پیش از فراخوانی بسط می‌یابند، پس `$(totp ...)` یک بار
+#    حساب می‌شود.  `req` هر ۸ ثانیه همان رشته را دوباره می‌فرستد، در
+#    حالی که پنجرهٔ پذیرش `±۱` گام یعنی حداکثر ۳۰ ثانیه است
+#    (`totp.ts:STEP_SECONDS` و حلقهٔ `[-1,0,1]`).
+#
+#    یعنی از تلاشِ چهارم به بعد کدِ **منقضی** فرستاده می‌شود و پاسخ
+#    ۴۰۱ است، نه ۴۲۹ — پس `req` هم دیگر تلاش نمی‌کند و با شکست
+#    برمی‌گردد.
+#
+#    این دقیقاً در اجرای کامل رخ داد: `mfa` به‌تنهایی ۳۵/۳۵ بود و در
+#    اجرای کامل ۳۳/۲، با پیامِ «توکن آمد got=no» که شبیه اشکالِ MFA به
+#    نظر می‌رسید و هیچ ربطی به آن نداشت.
+#
+#    اینجا کد **در هر تلاش دوباره** حساب می‌شود.  الگو: تابع بدنه را
+#    می‌سازد، نه فراخواننده.
+totp_req() {
+  local url=$1 body_fmt=$2 raw code
+  # آرگومان‌های باقی‌مانده (مثلاً سربرگِ احراز هویت) عیناً رد می‌شوند —
+  # نخستین نسخهٔ این تابع دورشان می‌ریخت و `mfa/confirm` بی‌توکن می‌رفت.
+  shift 2
+  for _ in $(seq 1 12); do
+    code=$(totp "$SECRET")
+    # `body_fmt` جای کد را با %s نگه می‌دارد تا هر بار تازه پر شود.
+    raw=$(curl -s -w ' %{http_code}' -X POST "$url" -H "$JS" "$@"       -d "$(printf "$body_fmt" "$code")")
+    _C=${raw##* }; _R=${raw% *}
+    [ "$_C" = "429" ] || return 0
+    sleep 8
+  done
+  return 0
+}
 code() { req "$@"; printf '%s' "$_C"; }
+# مانندِ `code` ولی با کدِ TOTPِ تازه در هر تلاش — دلیلش بالای
+# `totp_req` نوشته شده.
+totp_code() { totp_req "$@"; printf %s "$_C"; }
 login() {
   req -X POST "$A/auth/login" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"
 }
@@ -116,7 +152,7 @@ chk "کد غلط ۴۰۱" \
   "$(code -X POST "$A/auth/mfa/confirm" -H "$UAU" -H "$JS" -d '{"code":"000000"}')" "401"
 
 echo '--- ۵) کدِ درست فعال می‌کند و کدهای بازیابی می‌دهد ---'
-req -X POST "$A/auth/mfa/confirm" -H "$UAU" -H "$JS" -d "{\"code\":\"$(totp "$SECRET")\"}"
+totp_req "$A/auth/mfa/confirm" '{"code":"%s"}' -H "$UAU"
 chk "تأیید ۲۰۰" "$_C" "200"
 RECOVERY=$(printf '%s' "$_R" | python3 -c "import sys,json;c=json.load(sys.stdin).get('recoveryCodes',[]);print(c[0] if c else '')")
 chk "هشت کد بازیابی" \
@@ -153,7 +189,7 @@ chk "علت BAD_MFA ثبت شد" \
   "$(Q "SELECT reason FROM \"LoginAttempt\" WHERE email='$EMAIL' ORDER BY \"createdAt\" DESC LIMIT 1;")" "BAD_MFA"
 
 echo '--- ۹) کدِ درست توکنِ کامل می‌دهد ---'
-req -X POST "$A/auth/mfa/verify" -H "$JS" -d "{\"challenge\":\"$CH\",\"code\":\"$(totp "$SECRET")\"}"
+totp_req "$A/auth/mfa/verify" "{\"challenge\":\"$CH\",\"code\":\"%s\"}"
 V2=$(printf '%s' "$_R" | TOK)
 chk "توکن دسترسی آمد" "$([ -n "$V2" ] && echo yes || echo no)" "yes"
 chk "توکن کار می‌کند" "$(code "$A/auth/me" -H "Authorization: Bearer $V2")" "200"
@@ -183,14 +219,14 @@ echo '--- ۱۲) خاموش کردن، رمز و کد هر دو می‌خواهد
 #    توکن ممکن است دزدیده شده باشد؛ اگر با آن بشود MFA را خاموش کرد،
 #    مهاجم اولین کاری که می‌کند همین است و از آن پس محافظتی نیست.
 chk "بدون رمز ۴۰۱" \
-  "$(code -X POST "$A/auth/mfa/disable" -H "Authorization: Bearer $V2" -H "$JS" \
-     -d "{\"password\":\"wrong-one\",\"code\":\"$(totp "$SECRET")\"}")" "401"
+  "$(totp_code "$A/auth/mfa/disable" '{"password":"wrong-one","code":"%s"}' \
+     -H "Authorization: Bearer $V2")" "401"
 chk "بدون کد ۴۰۱" \
   "$(code -X POST "$A/auth/mfa/disable" -H "Authorization: Bearer $V2" -H "$JS" \
      -d '{"password":"Correct#123","code":"000000"}')" "401"
 chk "با هر دو ۲۰۰" \
-  "$(code -X POST "$A/auth/mfa/disable" -H "Authorization: Bearer $V2" -H "$JS" \
-     -d "{\"password\":\"Correct#123\",\"code\":\"$(totp "$SECRET")\"}")" "200"
+  "$(totp_code "$A/auth/mfa/disable" '{"password":"Correct#123","code":"%s"}' \
+     -H "Authorization: Bearer $V2")" "200"
 
 echo '--- ۱۳) پس از خاموش کردن، ورود عادی برمی‌گردد ---'
 login "$EMAIL" 'Correct#123'
@@ -211,8 +247,7 @@ login "$EMAIL" 'Correct#123'
 V3=$(printf '%s' "$_R" | TOK)
 req -X POST "$A/auth/mfa/setup" -H "Authorization: Bearer $V3" -H "$JS" -d '{}'
 SECRET=$(printf '%s' "$_R" | JGET secret)
-code -X POST "$A/auth/mfa/confirm" -H "Authorization: Bearer $V3" -H "$JS" \
-  -d "{\"code\":\"$(totp "$SECRET")\"}" >/dev/null
+totp_req "$A/auth/mfa/confirm" '{"code":"%s"}' -H "Authorization: Bearer $V3" >/dev/null
 chk "MFA دوباره روشن شد" \
   "$(curl -s "$A/auth/mfa/status" -H "Authorization: Bearer $V3" | JGET enabled)" "True"
 
@@ -224,7 +259,7 @@ chk "علتش MFA_PENDING" \
   "$(Q "SELECT reason FROM \"LoginAttempt\" WHERE email='$EMAIL' ORDER BY \"createdAt\" DESC LIMIT 1;")" "MFA_PENDING"
 
 echo '--- ۱۵) «ورودِ موفق» فقط پس از مرحلهٔ دوم ثبت می‌شود ---'
-req -X POST "$A/auth/mfa/verify" -H "$JS" -d "{\"challenge\":\"$CH4\",\"code\":\"$(totp "$SECRET")\"}"
+totp_req "$A/auth/mfa/verify" "{\"challenge\":\"$CH4\",\"code\":\"%s\"}"
 chk "توکن آمد" "$([ -n "$(printf '%s' "$_R" | TOK)" ] && echo yes || echo no)" "yes"
 chk "حالا success=true" \
   "$(Q "SELECT success FROM \"LoginAttempt\" WHERE email='$EMAIL' ORDER BY \"createdAt\" DESC LIMIT 1;")" "t"

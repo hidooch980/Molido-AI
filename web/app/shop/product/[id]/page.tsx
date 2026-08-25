@@ -60,8 +60,76 @@ export default async function ProductPage({
 
   const stock = Number(product.stock);
   const available = stock > 0;
+  // ⚠️ آستانهٔ فوریت.  «۳ عدد مانده» خرید را جلو می‌اندازد، ولی فقط
+  //    وقتی راست باشد؛ نشان دادنش برای موجودیِ زیاد، اعتماد را خرج
+  //    می‌کند و دفعهٔ بعد کسی باورش نمی‌کند.
+  const lowStock = available && stock <= 5;
+
+  /**
+   * دادهٔ ساخت‌یافتهٔ schema.org.
+   *
+   * ⚠️ چرا لازم است؟
+   *
+   *    بدون این، گوگل صفحه را فقط متن می‌بیند: قیمت، موجودی و ارز را
+   *    نمی‌فهمد و نتیجه‌اش در جست‌وجو بدونِ قیمت و ستاره نشان داده
+   *    می‌شود.  همین یک تفاوت، نرخِ کلیک را جابه‌جا می‌کند.
+   *
+   *    پیام‌رسان‌ها هم موقعِ اشتراک‌گذاریِ لینک همین را می‌خوانند.
+   *
+   * ⚠️ `IRR` است نه `IRT`: مبلغ در پایگاه داده ریال ذخیره می‌شود و
+   *    اعلامِ واحدِ غلط یعنی قیمتِ ده برابر در نتایجِ جست‌وجو.
+   */
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    ...(product.description ? { description: product.description } : {}),
+    ...(product.sku ? { sku: product.sku } : {}),
+    ...(product.imageUrl ? { image: product.imageUrl } : {}),
+    ...(product.categoryName ? { category: product.categoryName } : {}),
+    offers: {
+      '@type': 'Offer',
+      price: Number(product.price),
+      priceCurrency: 'IRR',
+      availability: available
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+    },
+  };
 
   return (
+    <>
+      {/* اسکریپت پیش از محتوا می‌آید تا خزنده زودتر ببیندش. */}
+      <script
+        type="application/ld+json"
+        // ⚠️ `JSON.stringify` به‌تنهایی **کافی نیست**.
+        //
+        //    گیومه را فرار می‌دهد ولی `<` را نه.  نامِ کالایی که
+        //    `</script>` داشته باشد، از همین بلوک بیرون می‌زند و هر
+        //    HTMLای که بعدش بیاید اجرا می‌شود — یعنی XSS ذخیره‌شده،
+        //    از راهِ فرمِ ثبتِ کالا.
+        //
+        //    آزمونِ محلی نشانش داد: رشتهٔ `</script>` عیناً در خروجی
+        //    می‌نشست.  جایگزینیِ `<` با `<` داخلِ JSON معتبر است
+        //    و خزنده همان نویسه را می‌خواند.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
+
+      {/* مسیر راهنما — کاربر باید بداند کجاست و راهِ برگشت داشته باشد */}
+      <nav className="shop-crumbs" aria-label="مسیر">
+        <Link href="/shop">فروشگاه</Link>
+        {product.categoryName ? (
+          <>
+            <span aria-hidden="true">/</span>
+            <span>{product.categoryName}</span>
+          </>
+        ) : null}
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{product.name}</span>
+      </nav>
+
     <div
       style={{
         display: 'grid',
@@ -109,10 +177,25 @@ export default async function ProductPage({
 
         <div
           className={available ? 'in-stock' : 'out-stock'}
-          style={{ fontWeight: 600, marginBottom: 'var(--s-4)' }}
+          style={{ fontWeight: 600, marginBottom: 'var(--s-2)' }}
         >
           {available ? `موجود (${fa(stock)})` : 'ناموجود'}
         </div>
+
+        {lowStock ? (
+          <div className="stock-warn" role="status">
+            <Icon name="alert" size={15} />
+            تنها {fa(stock)} عدد مانده
+          </div>
+        ) : null}
+
+        {/* کدِ کالا — خریدارِ حرفه‌ای با همین سفارش می‌دهد و پیگیری
+            می‌کند، نه با نام. */}
+        {product.sku ? (
+          <div className="shop-muted" style={{ fontSize: 13, marginBottom: 'var(--s-4)' }}>
+            کد کالا: <span style={{ fontVariantNumeric: 'tabular-nums' }}>{product.sku}</span>
+          </div>
+        ) : null}
 
         {product.description ? (
           <p style={{ lineHeight: 1.9, marginBottom: 'var(--s-4)' }}>
@@ -125,5 +208,6 @@ export default async function ProductPage({
         ) : null}
       </div>
     </div>
+    </>
   );
 }

@@ -870,3 +870,47 @@
  * اسکلت خوب است، ولی نه به این بها.
  */
 
+/* ---------- مسیر راهنما و هشدار موجودی ---------- */
+
+.shop-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+  font-size: 13px;
+  color: var(--s-text-dim);
+}
+
+.shop-crumbs a {
+  color: var(--s-text-dim);
+  text-decoration: none;
+}
+
+.shop-crumbs a:hover {
+  color: var(--s-primary);
+  text-decoration: underline;
+}
+
+/* صفحهٔ جاری لینک نیست و پررنگ‌تر است — مرزِ «کجا بودم» و «کجا هستم». */
+.shop-crumbs [aria-current='page'] {
+  color: var(--s-text);
+  font-weight: 600;
+}
+
+/* ⚠️ هشدار با آیکون می‌آید، نه فقط رنگ.
+   کاربرِ نابینای رنگ (حدود هشت درصدِ مردان) نارنجی را از متنِ عادی
+   تشخیص نمی‌دهد؛ آیکون و متن پیام را مستقل از رنگ می‌رسانند. */
+.stock-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--s-2);
+  padding: 4px 10px;
+  border-radius: var(--s-radius-pill);
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  color: var(--s-accent);
+  font-size: 12.5px;
+  font-weight: 700;
+}

@@ -53,6 +53,15 @@ type Product = {
   barcode: string | null;
   salePrice: string | number;
   taxRate?: string | number | null;
+  /**
+   * کالای خدماتی — حمل، نصب، گارانتی.
+   *
+   * ⚠️ سرور از قبل درست رفتار می‌کند: `sales.service.ts` هنگام کاهش
+   *    موجودی `if (!product.trackInventory) continue` می‌زند.  چیزی
+   *    که نبود، **دیده شدنش** بود: خدمات موجودی ندارد، پس فرم
+   *    «موجودی ۰» هشدار می‌داد و فروشنده فکر می‌کرد کالا تمام شده.
+   */
+  trackInventory?: boolean;
 };
 
 type ScanResult = {
@@ -262,6 +271,9 @@ export default function NewInvoicePage() {
         sku: result.product.sku,
         barcode: result.product.barcode,
         unit: result.product.unit ?? 'عدد',
+        // پیش‌فرض `true` است: کالای معمولی موجودی دارد.  فقط کالایی
+        // که صریحاً غیرانباری علامت خورده، خدمات شمرده می‌شود.
+        isService: result.product.trackInventory === false,
         available: result.available,
         quantity: result.quantity,
         unitPrice: result.unitPrice,
@@ -844,6 +856,10 @@ export default function NewInvoicePage() {
                 <tr>
                   <th style={{ ...th, width: 34 }}>#</th>
                   <th style={th}>{t('invColName')}</th>
+                  {/* کد کالا جدا از بارکد: بارکد روی بسته است و کد
+                      همان چیزی است که در انبارگردانی و فهرست‌ها
+                      به‌کار می‌رود.  فروشنده معمولاً کد را حفظ است. */}
+                  <th style={{ ...th, width: 108 }}>{t('invColCode')}</th>
                   <th style={{ ...th, width: 118 }}>{t('invColBarcode')}</th>
                   <th style={{ ...th, width: 92 }}>{t('invColQty')}</th>
                   <th style={{ ...th, width: 54 }}>{t('invColUnit')}</th>
@@ -860,7 +876,7 @@ export default function NewInvoicePage() {
                 {lines.length === 0 && (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={13}
                       style={{ padding: 34, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}
                     >
                       {t('invScanHint')}
@@ -886,9 +902,22 @@ export default function NewInvoicePage() {
                             موجودی {fa(line.available)}
                           </span>
                         )}
+                        {/* نشانِ خدمات — تا فروشنده در یک نگاه بفهمد
+                            این قلم از انبار کم نمی‌شود. */}
+                        {line.isService && (
+                          <span className="badge" style={{ marginInlineStart: 6, fontSize: 10 }}>
+                            {t('invService')}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '4px 8px', color: 'var(--muted)', ...num }}>
-                        {line.barcode ?? line.sku}
+                        {line.sku || '—'}
+                      </td>
+                      {/* بارکد دیگر به sku عقب‌گرد نمی‌کند: حالا ستونِ
+                          خودش را دارد و نشان دادنِ یک مقدار در دو ستون
+                          گمراه‌کننده بود. */}
+                      <td style={{ padding: '4px 8px', color: 'var(--muted)', ...num }}>
+                        {line.barcode ?? '—'}
                       </td>
                       <td style={{ padding: '2px 4px' }}>
                         <input

@@ -1477,6 +1477,8 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   invNote: { fa: 'شرح', en: 'Note', ar: 'الوصف' },
   invAdd: { fa: 'افزودن', en: 'Add', ar: 'إضافة' },
   invColName: { fa: 'نام کالا', en: 'Product name', ar: 'اسم المنتج' },
+  invService: { fa: 'خدمات', en: 'Service', ar: 'خدمة' },
+  invColCode: { fa: 'کد کالا', en: 'Code', ar: 'رمز الصنف' },
   invColBarcode: { fa: 'بارکد', en: 'Barcode', ar: 'الباركود' },
   invColQty: { fa: 'مقدار', en: 'Qty', ar: 'الكمية' },
   invColUnit: { fa: 'واحد', en: 'Unit', ar: 'الوحدة' },

@@ -16,6 +16,18 @@ export type IconName =
   | 'pos'
   | 'mic'
   | 'camera'
+  | 'sms'
+  | 'cart'
+  | 'ticket'
+  | 'news'
+  | 'survey'
+  | 'tender'
+  | 'graduation'
+  | 'kitchen'
+  | 'menuBook'
+  | 'shield'
+  | 'truck'
+  | 'coins'
   | 'restaurant'
   | 'package'
   | 'warehouse'
@@ -91,6 +103,18 @@ const PATHS: Record<IconName, string> = {
   refresh: 'M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5',
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3',
   plus: 'M12 5v14M5 12h14',
+  sms: 'M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10ZM8 9h8M8 13h5',
+  cart: 'M3 3h2l2.6 11.6a2 2 0 0 0 2 1.4h7.7a2 2 0 0 0 2-1.6L21 7H6M10 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
+  ticket: 'M3 9a2 2 0 0 0 0 6v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-6V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3ZM13 5v14',
+  news: 'M4 5h12a2 2 0 0 1 2 2v10a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5ZM7 9h6M7 13h6M20 9v8',
+  survey: 'M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1ZM6 5h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1ZM9 11l1.5 1.5L14 9M9 16h6',
+  tender: 'M12 3v4M5 21h14M7 21V11l5-4 5 4v10M10 21v-5h4v5',
+  graduation: 'M22 9 12 5 2 9l10 4 10-4ZM6 11.5V16c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4.5',
+  kitchen: 'M6 3v8a2 2 0 0 0 2 2h1v8M6 3v5M9 3v5M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9',
+  menuBook: 'M4 4h7v16H6a2 2 0 0 1-2-2V4ZM13 4h7v14a2 2 0 0 1-2 2h-5V4ZM7 8h1M16 8h1',
+  shield: 'M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3ZM9.5 12l2 2 3.5-4',
+  truck: 'M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM18 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',
+  coins: 'M8 13a5 3 0 1 0 0-6 5 3 0 0 0 0 6ZM3 10v4c0 1.7 2.2 3 5 3s5-1.3 5-3v-4M16 8a5 3 0 1 0 0 6 5 3 0 0 0 0-6ZM11 15v2c0 1.7 2.2 3 5 3s5-1.3 5-3v-4',
   mic: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM19 12a7 7 0 0 1-14 0M12 19v3M8 22h8',
   camera:
     'M3 8a2 2 0 0 1 2-2h2.2l1.3-2h6.9l1.3 2H21a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',

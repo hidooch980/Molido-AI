@@ -19,6 +19,14 @@ export type Line = {
   unit: string;
   /** موجودی انبار در لحظهٔ افزودن — برای هشدار، نه برای محاسبه */
   available: number | null;
+  /**
+   * خدمات (حمل، نصب، گارانتی) موجودی ندارد.
+   *
+   * ⚠️ بدونِ این، خدمات با «موجودی ۰» هشدار می‌گرفت و دکمهٔ ثبت را
+   *    قرمز می‌کرد — هشداری که هیچ‌وقت رفع نمی‌شد، چون خدمات قرار
+   *    نیست موجودی داشته باشد.
+   */
+  isService: boolean;
   quantity: number;
   unitPrice: number;
   /** درصد تخفیف این قلم؛ فرم درصد می‌گیرد، سرور مبلغ می‌خواهد */
@@ -130,6 +138,7 @@ export function computeTotals(lines: Line[], extras: Extras): Totals {
 /** قلم‌هایی که موجودی کافی ندارند — پیام هشدار، نه جلوگیری. */
 export function shortStock(lines: Line[]): Line[] {
   return lines.filter(
-    (line) => line.available !== null && line.quantity > line.available,
+    (line) =>
+      !line.isService && line.available !== null && line.quantity > line.available,
   );
 }

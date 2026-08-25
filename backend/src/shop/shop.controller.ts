@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -17,6 +18,7 @@ import { Throttle } from '@nestjs/throttler';
 
 import { ShopService } from './shop.service';
 import { PaymentService } from '../payment/payment.service';
+import { ReviewService } from './review.service';
 import { CheckinService } from '../loyalty/checkin.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
@@ -68,6 +70,7 @@ export class ShopPublicController {
     private readonly loyalty: LoyaltyService,
     private readonly checkin: CheckinService,
     private readonly payment: PaymentService,
+    private readonly reviews_: ReviewService,
   ) {}
 
   private company(req: ShopRequest): string {
@@ -298,6 +301,35 @@ export class ShopPublicController {
     return this.payment.verify(this.company(req), id, customer.sub);
   }
 
+  /** خلاصهٔ امتیاز و نظرهای تأییدشده — عمومی، بدون ورود. */
+  @Get('products/:id/reviews')
+  reviews(@Req() req: ShopRequest, @Param('id') id: string) {
+    return this.reviews_.list(this.company(req), id);
+  }
+
+  @Get('products/:id/rating')
+  rating(@Req() req: ShopRequest, @Param('id') id: string) {
+    return this.reviews_.summary(this.company(req), id);
+  }
+
+  /**
+   * ثبت یا ویرایشِ نظر.
+   *
+   * ⚠️ شناسهٔ مشتری از توکن می‌آید.  اگر از بدنه می‌آمد، هر کسی
+   *    می‌توانست به نامِ دیگری نظر بگذارد.
+   */
+  @Post('products/:id/reviews')
+  @UseGuards(CustomerAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  writeReview(
+    @Req() req: ShopRequest,
+    @Param('id') id: string,
+    @Body() body: { rating: number; comment?: string },
+    @CurrentCustomer() customer: CustomerToken,
+  ) {
+    return this.reviews_.upsert(this.company(req), id, customer.sub, body);
+  }
+
   @Get('my-orders/:id')
   @UseGuards(CustomerAuthGuard)
   myOrder(
@@ -342,7 +374,34 @@ export class ShopPublicController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shop-admin')
 export class ShopAdminController {
-  constructor(private readonly service: ShopService) {}
+  constructor(
+    private readonly service: ShopService,
+    private readonly reviews: ReviewService,
+  ) {}
+
+  /**
+   * صفِ بررسیِ نظرها.
+   *
+   * ⚠️ نظرِ تأییدنشده در فروشگاه دیده نمی‌شود؛ این تنها جایی است که
+   *    صاحبِ فروشگاه پیش از انتشار می‌بیندشان.
+   */
+  @Get('reviews/pending')
+  pendingReviews(@CurrentUser() user: AuthUser) {
+    return this.reviews.pending(user.companyId!);
+  }
+
+  @Post('reviews/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  approveReview(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.reviews.moderate(user.companyId!, id, true);
+  }
+
+  /** رد یعنی حذف — نگه داشتنِ نظرِ ردشده فایده‌ای ندارد. */
+  @Delete('reviews/:id')
+  @HttpCode(HttpStatus.OK)
+  rejectReview(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.reviews.moderate(user.companyId!, id, false);
+  }
 
   @Get('stats')
   stats(@CurrentUser() user: AuthUser) {

@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 
 import { ShopService } from './shop.service';
+import { ReviewService } from './review.service';
 import {
   ShopAdminController,
   ShopPublicController,
@@ -20,7 +21,7 @@ import {
   // کار می‌رود و `kind` در محتوا دو نوع را از هم جدا نگه می‌دارد.
   imports: [AuthModule, LoyaltyModule, SmsModule, PaymentModule],
   controllers: [ShopPublicController, ShopAdminController],
-  providers: [ShopService, ShopTenantMiddleware, CustomerAuthGuard, OptionalCustomerGuard],
+  providers: [ShopService, ReviewService, ShopTenantMiddleware, CustomerAuthGuard, OptionalCustomerGuard],
   exports: [ShopService],
 })
 export class ShopModule implements NestModule {

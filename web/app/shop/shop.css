@@ -914,3 +914,63 @@
   font-size: 12.5px;
   font-weight: 700;
 }
+
+/* ---------- انتخاب روش پرداخت ---------- */
+
+.pay-choice {
+  border: 0;
+  padding: 0;
+  margin: var(--s-3) 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.pay-choice legend {
+  padding: 0;
+  margin-bottom: var(--s-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--s-text-dim);
+}
+
+.pay-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.pay-choice label:hover {
+  border-color: var(--s-primary);
+}
+
+/* ⚠️ گزینهٔ انتخاب‌شده حاشیه و زمینه می‌گیرد، نه فقط نقطهٔ رادیو.
+   نقطه کوچک است و روی موبایل در یک نگاه دیده نمی‌شود — کاربر مطمئن
+   نمی‌شود کدام را زده و همان تردید، تسویه را رها می‌کند. */
+.pay-choice label.active {
+  border-color: var(--s-primary);
+  background: var(--s-primary-soft);
+}
+
+.pay-choice input {
+  margin-top: 3px;
+  accent-color: var(--s-primary);
+  flex-shrink: 0;
+}
+
+.pay-choice span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+}
+
+.pay-choice small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--s-text-dim);
+}

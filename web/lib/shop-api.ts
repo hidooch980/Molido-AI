@@ -90,11 +90,25 @@ export async function shopApi<T = unknown>(
     headers['x-guest-token'] = guestToken();
   }
 
-  const response = await fetch(`${API_URL}/shop${path}`, {
-    method: options?.method ?? 'GET',
-    headers,
-    body: options?.body ? JSON.stringify(options.body) : undefined,
-  });
+  // ⚠️ خطای شبکه پیش از رسیدن به بررسیِ پاسخ رخ می‌دهد.
+  //
+  //    `fetch` وقتی سرور در دسترس نیست `TypeError: Failed to fetch`
+  //    پرتاب می‌کند — و آن متنِ خامِ انگلیسیِ مرورگر تا صفحه بالا
+  //    می‌رفت.  در فروشگاهی که مشتریِ فارسی‌زبان دارد، این هم
+  //    نامفهوم است هم بی‌اعتمادکننده.
+  //
+  //    اینجا می‌گیریمش چون همهٔ صفحه‌های فروشگاه از همین تابع رد
+  //    می‌شوند؛ رفعش در تک‌تک صفحه‌ها یعنی جایی از قلم می‌افتد.
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/shop${path}`, {
+      method: options?.method ?? 'GET',
+      headers,
+      body: options?.body ? JSON.stringify(options.body) : undefined,
+    });
+  } catch {
+    throw new Error('ارتباط با فروشگاه برقرار نشد؛ اتصال اینترنت را بررسی کنید');
+  }
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;

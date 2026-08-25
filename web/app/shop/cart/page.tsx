@@ -43,6 +43,16 @@ export default function CartPage() {
     receiverPhone: '',
     note: '',
   });
+  /**
+   * روشِ پرداخت.
+   *
+   * ⚠️ پیش‌فرض «در محل» است، نه «آنلاین».
+   *
+   *    درگاه ممکن است پیکربندی نشده باشد؛ اگر پیش‌فرض آنلاین بود،
+   *    فروشگاهی که هنوز کدِ پذیرنده ندارد در همان نخستین سفارش
+   *    خطا می‌داد.  گزینهٔ مطمئن پیش‌فرض می‌ماند.
+   */
+  const [payMethod, setPayMethod] = useState<'COD' | 'GATEWAY'>('COD');
 
   const load = useCallback(async () => {
     try {
@@ -111,11 +121,27 @@ export default function CartPage() {
           receiverName: form.receiverName.trim() || undefined,
           receiverPhone: form.receiverPhone.trim() || undefined,
           note: form.note.trim() || undefined,
-          paymentMethod: 'COD',
+          paymentMethod: payMethod,
         },
       });
 
       window.dispatchEvent(new Event('shop-cart-changed'));
+
+      if (payMethod === 'GATEWAY') {
+        // ⚠️ نشانیِ درگاه را **سرور** می‌سازد، نه اینجا.
+        //
+        //    اگر کلاینت می‌ساختش، مبلغ و شناسه هم از کلاینت می‌آمد و
+        //    دستکاری‌شان بی‌دردسر بود.
+        const pay = await shopApi<{ redirectUrl: string }>(
+          `/orders/${order.id}/pay`,
+          { method: 'POST' },
+        );
+        // `replace` نه `push`: کاربر با دکمهٔ back نباید به سبدِ
+        // خالی‌شده برگردد.
+        window.location.replace(pay.redirectUrl);
+        return;
+      }
+
       router.push(`/shop/orders/${order.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطا در ثبت سفارش');
@@ -264,6 +290,42 @@ export default function CartPage() {
               onChange={(e) => setForm({ ...form, note: e.target.value })}
             />
           </div>
+
+          {/* ⚠️ روشِ پرداخت با رادیو می‌آید، نه کشویی.
+              هر دو گزینه باید هم‌زمان دیده شوند: کاربری که نمی‌داند
+              «پرداخت در محل» هست، کشویی را باز نمی‌کند و فرض می‌کند
+              فقط آنلاین ممکن است. */}
+          <fieldset className="pay-choice">
+            <legend>روش پرداخت</legend>
+
+            <label className={payMethod === 'COD' ? 'active' : undefined}>
+              <input
+                type="radio"
+                name="payMethod"
+                value="COD"
+                checked={payMethod === 'COD'}
+                onChange={() => setPayMethod('COD')}
+              />
+              <span>
+                پرداخت در محل
+                <small>هنگام تحویل، نقدی یا کارت‌خوان</small>
+              </span>
+            </label>
+
+            <label className={payMethod === 'GATEWAY' ? 'active' : undefined}>
+              <input
+                type="radio"
+                name="payMethod"
+                value="GATEWAY"
+                checked={payMethod === 'GATEWAY'}
+                onChange={() => setPayMethod('GATEWAY')}
+              />
+              <span>
+                پرداخت آنلاین
+                <small>انتقال به درگاه بانکی</small>
+              </span>
+            </label>
+          </fieldset>
 
           <div style={{ borderTop: '1px solid var(--s-border)', paddingTop: 'var(--s-3)' }}>
             <Row label="جمع کالاها" value={`${fa(subtotal)} ریال`} />

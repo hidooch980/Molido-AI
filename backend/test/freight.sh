@@ -47,6 +47,13 @@ except ValueError:
 print($1)"; }
 Q() { $C exec -T postgres psql -U postgres -d molido_ai -t -c "$1" | tr -d ' \r\n'; }
 
+# پاک‌سازیِ مشترک: هرچه پس از این لحظه ساخته شود، در پایان برمی‌گردد.
+# این مجموعه تا امروز هیچ پاک‌سازی‌ای نداشت و هر اجرا دو فاکتور خرید،
+# سه سند، سه حرکتِ انبار و سه واحد موجودی جا می‌گذاشت.
+. "$(dirname "$0")/lib/reset.sh"
+reset_begin
+trap reset_finish EXIT
+
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 

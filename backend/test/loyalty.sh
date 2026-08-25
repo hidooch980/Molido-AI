@@ -49,6 +49,11 @@ except ValueError:
     print('<<پاسخ-JSON-نبود: %d نویسه: %s>>' % (len(raw), safe)); sys.exit(0)
 print($1)"; }
 
+# پاک‌سازیِ مشترک — پاک‌سازیِ نام‌محورش اسناد و حرکتِ انبار را نمی‌گرفت.
+. "$(dirname "$0")/lib/reset.sh"
+reset_begin
+trap reset_finish EXIT
+
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 psql() { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }

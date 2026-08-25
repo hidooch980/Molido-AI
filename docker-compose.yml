@@ -110,6 +110,16 @@ services:
       SMS_SENDER: ${SMS_SENDER:-10008663}
       N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-molido_n8n_secret}
       N8N_BASE_URL: http://n8n:5678
+      # ⚠️ همان دامِ `ADMIN_PASSWORD` بالا، برای درگاهِ پرداخت.
+      #    بودنشان در `.env.example` هیچ اثری ندارد: `.env` فقط برای
+      #    جای‌گذاری در همین فایل خوانده می‌شود، نه محیطِ داخلِ کانتینر.
+      #    بدونِ این دو خط، `ZARINPAL_MERCHANT_ID` همیشه تهی است و
+      #    پرداختِ آنلاین در تولید خطا می‌دهد — درست وقتی مشتری وسطِ
+      #    خرید است.
+      ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
+      ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
+      # نشانیِ عمومیِ سایت — بازگشتِ درگاه به همین‌جا برمی‌گردد.
+      SITE_URL: ${SITE_URL:-http://${HOST_IP:-localhost}:${WEB_PORT:-3001}}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:
@@ -140,6 +150,10 @@ services:
       # سرویس صدا بزند؛ NEXT_PUBLIC_API_URL نشانیِ قابل دسترس از مرورگر
       # است و از داخل کانتینر لزوماً کار نمی‌کند.
       INTERNAL_API_URL: http://backend:3000
+      # ⚠️ `robots.ts` و `sitemap.ts` این را در **زمانِ اجرا** می‌خوانند
+      #    (پیش از `NEXT_PUBLIC_SITE_URL` که در زمانِ ساخت جا می‌افتد).
+      #    نبودنش یعنی نقشهٔ سایت با نشانیِ localhost منتشر می‌شود.
+      SITE_URL: ${SITE_URL:-http://${HOST_IP:-localhost}:${WEB_PORT:-3001}}
     ports:
       - "${WEB_PORT:-3001}:3001"
     networks:

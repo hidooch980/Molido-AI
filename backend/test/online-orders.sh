@@ -173,7 +173,24 @@ psql "DELETE FROM \"CartItem\" WHERE \"cartId\" IN
         (SELECT id FROM \"Customer\" WHERE phone='$CLEAN_PHONE');
       DELETE FROM \"Customer\" WHERE phone='$CLEAN_PHONE';"
 
-CU2=$(curl -s -X POST $A/shop/register -H "$JS"   -d '{"firstName":"DTO","lastName":"Check","phone":"09121110000","password":"Shop-Pass-1"}'   | P "d.get('token') or d.get('accessToken','')")
+# ⚠️ ثبت‌نام پشتِ محدودکنندهٔ نرخ است و در اجرای کاملِ مجموعه‌ها
+#    ۴۲۹ می‌گیرد — نه چون محصول ایراد دارد، بلکه چون ده‌ها مجموعه پیش
+#    از این یکی به همان IP زده‌اند.
+#
+#    نتیجه‌اش گزارشِ «ثبت‌نام نشد» بود که مثلِ عیبِ تسویه به نظر می‌رسید
+#    و وقتِ عیب‌یابی گرفت.  اینجا ۴۲۹ را از شکستِ واقعی جدا می‌کنیم:
+#    سه بار با فاصله تلاش می‌شود، و اگر باز هم ۴۲۹ بود پیامش صریح
+#    می‌گوید محدودیتِ نرخ بوده.
+REG_BODY='{"firstName":"DTO","lastName":"Check","phone":"09121110000","password":"Shop-Pass-1"}'
+CU2=''
+REG_LAST=''
+for attempt in 1 2 3; do
+  REG_LAST=$(curl -s -X POST $A/shop/register -H "$JS" -d "$REG_BODY")
+  CU2=$(printf '%s' "$REG_LAST" | P "d.get('token') or d.get('accessToken','')")
+  [ -n "$CU2" ] && break
+  printf '%s' "$REG_LAST" | grep -q 'Too Many Requests' || break
+  sleep 20
+done
 if [ -n "$CU2" ]; then
   A2="Authorization: Bearer $CU2"
   curl -s -X POST $A/shop/cart/items -H "$A2" -H "$JS" -d '{"productId":"seed-p3","qty":1}' >/dev/null
@@ -191,7 +208,11 @@ if [ -n "$CU2" ]; then
           (SELECT id FROM \"Customer\" WHERE phone='$CLEAN_PHONE');
         DELETE FROM \"Customer\" WHERE phone='$CLEAN_PHONE';"
 else
-  chk "تسویه با میدان‌های واقعی" "ثبت‌نام نشد" "201"
+  if printf '%s' "$REG_LAST" | grep -q 'Too Many Requests'; then
+    chk "تسویه با میدان‌های واقعی" "محدودیتِ نرخ (۴۲۹) پس از ۳ تلاش" "201"
+  else
+    chk "تسویه با میدان‌های واقعی" "ثبت‌نام نشد: $(printf '%s' "$REG_LAST" | head -c 120)" "201"
+  fi
 fi
 
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"

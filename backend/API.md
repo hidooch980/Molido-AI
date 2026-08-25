@@ -6,7 +6,7 @@
 >
 > نسخهٔ زندهٔ تعاملی: `http://localhost:3000/api-docs`
 
-**473 عملیات در 69 گروه**
+**489 عملیات در 69 گروه**
 
 همهٔ مسیرها جز `/auth/login` و `/shop/*` توکن می‌خواهند:
 `Authorization: Bearer <token>`
@@ -494,6 +494,14 @@
 | DELETE | `/budget/{id}` | `remove` |
 | GET | `/budget/{id}` | `findOne` |
 | PATCH | `/budget/{id}` | `update` |
+| GET | `/budget/{id}/lines` | `lines` |
+| POST | `/budget/{id}/lines` | `createLine` |
+| POST | `/budget/commitments/{id}/release` | `release` |
+| POST | `/budget/commitments/{id}/settle` | `settle` |
+| PATCH | `/budget/lines/{id}/allocate` | `allocate` |
+| POST | `/budget/lines/{id}/commit` | `commit` |
+| GET | `/budget/lines/{id}/commitments` | `ledger` |
+| GET | `/budget/lines/{id}/status` | `lineStatus` |
 | GET | `/budget/stats` | `stats` |
 
 ## تیکت مشتری
@@ -652,8 +660,13 @@
 | GET | `/shop/my-codes` | `myCodes` |
 | GET | `/shop/my-orders` | `myOrders` |
 | GET | `/shop/my-orders/{id}` | `myOrder` |
+| POST | `/shop/orders/{id}/pay` | `payOrder` |
+| POST | `/shop/orders/{id}/verify-payment` | `verifyPayment` |
 | GET | `/shop/products` | `catalogue` |
 | GET | `/shop/products/{id}` | `product` |
+| GET | `/shop/products/{id}/rating` | `rating` |
+| GET | `/shop/products/{id}/reviews` | `reviews` |
+| POST | `/shop/products/{id}/reviews` | `writeReview` |
 | POST | `/shop/register` | `register` |
 | POST | `/shop/register/request-code` | `requestCode` |
 | GET | `/shop/settings` | `settings` |
@@ -701,6 +714,9 @@
 | GET | `/shop-admin/orders/{id}` | `order` |
 | POST | `/shop-admin/orders/{id}/confirm` | `confirm` |
 | PATCH | `/shop-admin/orders/{id}/status` | `setStatus` |
+| DELETE | `/shop-admin/reviews/{id}` | `rejectReview` |
+| POST | `/shop-admin/reviews/{id}/approve` | `approveReview` |
+| GET | `/shop-admin/reviews/pending` | `pendingReviews` |
 | GET | `/shop-admin/settings` | `settings` |
 | POST | `/shop-admin/settings` | `saveSettings` |
 | GET | `/shop-admin/stats` | `stats` |

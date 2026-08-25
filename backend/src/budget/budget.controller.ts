@@ -19,6 +19,39 @@ export class BudgetController {
 
   // ---------- چرخهٔ اعتبار: تخصیص ← تعهد ← هزینهٔ قطعی ----------
 
+  /** ردیف‌های یک بودجه، همراهِ اعتبارِ آزادِ هرکدام. */
+  @Get(':id/lines')
+  lines(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.commitments.lines(user.companyId!, id);
+  }
+
+  @Post(':id/lines')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  createLine(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { title: string; amount: number; allocated?: number },
+  ) {
+    return this.commitments.createLine(user.companyId!, id, dto);
+  }
+
+  /**
+   * به‌روزرسانیِ تخصیص.
+   *
+   * ⚠️ نمی‌تواند کمتر از تعهد و هزینهٔ موجود شود، وگرنه اعتبارِ آزاد
+   *    منفی می‌شد — یعنی سامانه می‌گفت بودجه از سقف رد شده، بی‌آنکه
+   *    کسی تخلفی کرده باشد.
+   */
+  @Patch('lines/:id/allocate')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  allocate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { allocated: number },
+  ) {
+    return this.commitments.allocate(user.companyId!, id, dto?.allocated);
+  }
+
   /** وضعیتِ یک ردیف: مصوب، تخصیص، تعهد، هزینه و اعتبارِ آزاد. */
   @Get('lines/:id/status')
   lineStatus(@CurrentUser() user: AuthUser, @Param('id') id: string) {

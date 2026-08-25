@@ -274,6 +274,105 @@ export class BudgetCommitmentService {
     });
   }
 
+  /**
+   * ردیف‌های یک بودجه، همراهِ وضعیتِ اعتبار.
+   *
+   * ⚠️ محاسبه در SQL انجام می‌شود نه در حلقهٔ جاوااسکریپت.
+   *
+   *    بودجهٔ شهرداری ده‌ها ردیف دارد؛ یک پرس‌وجو به‌ازای هر ردیف یعنی
+   *    ده‌ها رفت‌وبرگشت و صفحه‌ای که ثانیه‌ها طول می‌کشد.
+   */
+  async lines(companyId: string, budgetId: string) {
+    return this.db.query(
+      `SELECT l.id, l.title, l.amount, l."allocated", l."committed", l.spent,
+              COALESCE(l."allocated", l.amount)
+                - l."committed" - COALESCE(l.spent, 0) AS available
+         FROM "BudgetLine" l
+         JOIN "Budget" b ON b.id = l."budgetId"
+        WHERE l."budgetId" = $1 AND b."companyId" = $2
+        ORDER BY l."createdAt"`,
+      [budgetId, companyId],
+    );
+  }
+
+  /** ساختِ ردیف. */
+  async createLine(
+    companyId: string,
+    budgetId: string,
+    input: { title: string; amount: number; allocated?: number | null },
+  ) {
+    const owns = await this.db.query<{ id: string }>(
+      'SELECT id FROM "Budget" WHERE id = $1 AND "companyId" = $2',
+      [budgetId, companyId],
+    );
+    if (!owns[0]) throw new NotFoundException('بودجه یافت نشد');
+
+    const amount = Number(input.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new BadRequestException('مبلغ ردیف نامعتبر است');
+    }
+
+    // ⚠️ تخصیصِ بیش از مصوب پذیرفته نمی‌شود.
+    //
+    //    خزانه نمی‌تواند بیشتر از آنچه شورا تصویب کرده آزاد کند؛ اگر
+    //    بپذیریم، سقفِ کنترل بی‌معنا می‌شود.
+    const allocated =
+      input.allocated === undefined || input.allocated === null
+        ? null
+        : Number(input.allocated);
+    if (allocated !== null) {
+      if (!Number.isFinite(allocated) || allocated < 0) {
+        throw new BadRequestException('مبلغ تخصیص نامعتبر است');
+      }
+      if (allocated > amount) {
+        throw new BadRequestException('تخصیص نمی‌تواند از مصوب بیشتر باشد');
+      }
+    }
+
+    const id = randomUUID();
+    await this.db.query(
+      `INSERT INTO "BudgetLine" (id, "budgetId", title, amount, spent, "committed", "allocated")
+       VALUES ($1, $2, $3, $4, 0, 0, $5)`,
+      [id, budgetId, String(input.title ?? '').trim(), amount, allocated],
+    );
+
+    return { id, title: input.title, amount, allocated };
+  }
+
+  /**
+   * به‌روزرسانیِ تخصیص.
+   *
+   * ⚠️ تخصیص نمی‌تواند کمتر از آنچه **قبلاً تعهد و خرج شده** بشود.
+   *
+   *    وگرنه اعتبارِ آزاد منفی می‌شد — یعنی سامانه می‌گفت بودجه بیش از
+   *    سقف مصرف شده، بی‌آنکه کسی تخلفی کرده باشد.
+   */
+  async allocate(companyId: string, lineId: string, allocated: number) {
+    const line = await this.loadLine(companyId, lineId);
+    const value = Number(allocated);
+
+    if (!Number.isFinite(value) || value < 0) {
+      throw new BadRequestException('مبلغ تخصیص نامعتبر است');
+    }
+    if (value > Number(line.amount)) {
+      throw new BadRequestException('تخصیص نمی‌تواند از مصوب بیشتر باشد');
+    }
+
+    const used = Number(line.committed ?? 0) + Number(line.spent ?? 0);
+    if (value < used) {
+      throw new BadRequestException(
+        `تخصیص نمی‌تواند کمتر از مصرف‌شده باشد — تعهد و هزینه: ${used.toLocaleString('fa-IR')}`,
+      );
+    }
+
+    await this.db.query(
+      'UPDATE "BudgetLine" SET "allocated" = $1::numeric, "updatedAt" = now() WHERE id = $2',
+      [value, lineId],
+    );
+
+    return this.status(companyId, lineId);
+  }
+
   /** دفترِ تعهدهای یک ردیف. */
   async ledger(companyId: string, budgetLineId: string) {
     await this.loadLine(companyId, budgetLineId);

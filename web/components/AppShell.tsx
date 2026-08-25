@@ -95,6 +95,7 @@ export const NAV: NavItem[] = [
   { href: '/pos-terminals', group: 'system', label: 'menuPosTerminals', icon: 'bank' },
   { href: '/roles', group: 'people', label: 'menuRoles', icon: 'settings' },
   { href: '/records/customer-tickets', group: 'records', label: 'menuTickets', icon: 'ticket', feature: 'crm' as FeatureKey },
+  { href: '/budget', group: 'money', label: 'budgetCycle', icon: 'coins', feature: 'finance' as FeatureKey },
   { href: '/records/budget', group: 'records', label: 'menuBudget', icon: 'ledger', feature: 'finance' as FeatureKey },
   { href: '/records/loans', group: 'records', label: 'menuLoans', icon: 'coins', feature: 'finance' as FeatureKey },
   { href: '/records/investments', group: 'records', label: 'menuInvestments', icon: 'chart', feature: 'finance' as FeatureKey },

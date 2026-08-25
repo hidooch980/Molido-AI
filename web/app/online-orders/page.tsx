@@ -36,6 +36,15 @@ type OrderItem = {
 
 type Detail = Order & { items: OrderItem[] };
 
+type PendingReview = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  productName: string;
+  customerName: string | null;
+  createdAt: string;
+};
+
 type Stats = {
   newOrders: string | number;
   openOrders: string | number;
@@ -76,6 +85,7 @@ export default function OnlineOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [filter, setFilter] = useState('');
+  const [reviews, setReviews] = useState<PendingReview[]>([]);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -89,13 +99,19 @@ export default function OnlineOrdersPage() {
   const load = useCallback(async () => {
     try {
       const query = filter ? `?status=${filter}` : '';
-      const [list, summary] = await Promise.all([
+      const [list, summary, pending] = await Promise.all([
         api<Order[]>(`/shop-admin/orders${query}`),
         api<Stats>('/shop-admin/stats'),
+        // ⚠️ شکستِ نظرها نباید سفارش‌ها را از کار بیندازد: سفارش کارِ
+        //    روزانه است و نظر کارِ فرعی.
+        api<PendingReview[]>('/shop-admin/reviews/pending').catch(
+          () => [] as PendingReview[],
+        ),
       ]);
 
       setOrders(Array.isArray(list) ? list : []);
       setStats(summary);
+      setReviews(Array.isArray(pending) ? pending : []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('fetchError'));
@@ -125,6 +141,32 @@ export default function OnlineOrdersPage() {
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('fetchError'));
+    }
+  }
+
+  /**
+   * تأیید یا ردِ نظر.
+   *
+   * ⚠️ رد یعنی **حذف**.  نظرِ ردشده نگه داشتنی نیست؛ اگر می‌ماند، صف
+   *    به‌مرور پر می‌شد از چیزهایی که مدیر بارها ردشان کرده.
+   */
+  async function moderate(id: string, approve: boolean) {
+    setBusy(id);
+    try {
+      if (approve) {
+        await api(`/shop-admin/reviews/${id}/approve`, { method: 'POST' });
+      } else {
+        await api(`/shop-admin/reviews/${id}`, { method: 'DELETE' });
+      }
+      // ⚠️ حذفِ محلی به‌جای بارگذاریِ دوبارهٔ کلِ صفحه: مدیر معمولاً
+      //    چند نظر را پشتِ سرِ هم بررسی می‌کند و هر بار پرش کردنِ
+      //    فهرست، جایش را گم می‌کند.
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saveError'));
+    } finally {
+      setBusy('');
     }
   }
 
@@ -366,6 +408,85 @@ export default function OnlineOrdersPage() {
           <div className="row-between grand">
             <span>{t('total')}</span>
             <strong>{fa(detail.total)}</strong>
+          </div>
+        </div>
+      ) : null}
+      {/* ---------- نظرهای در انتظار تأیید ---------- */}
+      {reviews.length > 0 ? (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2 style={{ fontSize: 15, marginBottom: 4 }}>
+            {t('reviewsPending')}{' '}
+            <span className="muted">({fa(reviews.length)})</span>
+          </h2>
+          {/* ⚠️ توضیحِ صریح لازم است: نظرِ تأییدنشده در فروشگاه دیده
+              نمی‌شود و اگر مدیر نداند، مشتری فکر می‌کند نظرش گم شده. */}
+          <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+            {t('reviewsPendingHint')}
+          </p>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: 10,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    marginBottom: 6,
+                    fontSize: 13,
+                  }}
+                >
+                  <strong>{review.productName}</strong>
+                  <span className="badge">
+                    {fa(review.rating)} / {fa(5)}
+                  </span>
+                  <span className="muted">
+                    {review.customerName || t('customer')}
+                  </span>
+                </div>
+
+                {review.comment ? (
+                  <p
+                    style={{
+                      margin: '0 0 8px',
+                      fontSize: 13,
+                      lineHeight: 1.8,
+                      // متنِ نظر از کاربر می‌آید؛ رشتهٔ بلندِ بی‌فاصله
+                      // وگرنه کارت را می‌شکند.
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {review.comment}
+                  </p>
+                ) : null}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={busy === review.id}
+                    onClick={() => void moderate(review.id, true)}
+                  >
+                    {t('approve')}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={busy === review.id}
+                    onClick={() => void moderate(review.id, false)}
+                  >
+                    {t('reject')}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : null}

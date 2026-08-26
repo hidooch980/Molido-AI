@@ -41,6 +41,22 @@ print($1)"; }
 
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
+
+# ⚠️ ماژول کلیدهای میان‌بر صندوق در این محصول هست؟
+#
+#    `RetailModule` فقط در قابلیتِ `retail` است و نمایهٔ رستوران آن را ندارد،
+#    پس این مسیرها عمداً ۴۰۴ می‌دهند.  بدونِ این بررسی، اجرای رستوران
+#    ۱۹ شکست می‌داد که هیچ‌کدام عیب نبودند.
+#
+#    `restaurant.sh` قرینهٔ همین بررسی را برای نمایهٔ فروشگاه دارد.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/retail/quick-keys" -H "$AU")" = "404" ]; then
+  echo "  ماژول کلیدهای میان‌بر صندوق در این محصول فعال نیست"
+  echo "  برای آزمون: MOLIDO_PRODUCT=store یا suite"
+  echo
+  printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+  exit 0
+fi
+
 psql()  { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }
 psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
 

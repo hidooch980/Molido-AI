@@ -16,8 +16,17 @@ cd "$(dirname "$0")" || exit 1
 # رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
 SUITES="e2e-cycles integration shop shop-filter shop-takeover customer-status count-app upload-security pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
-        product-media operations hr crm freight offline-purchase avg-cost sms ration audit-fixes quick-keys purchasing voice treasury-assets ai-roles api-keys
+        product-media operations hr crm freight offline-purchase avg-cost sms ration audit-fixes quick-keys purchasing voice treasury-assets ai-roles api-keys restaurant e2e-resto
         password mfa login-hardening session-revocation refresh-revocation refresh-cookie ratelimit bundle apidocs untested records roles restore"
+
+# ⚠️ `restaurant` و `e2e-resto` تا امروز **در این فهرست نبودند**.
+#
+#    هر دو فایل وجود داشتند — ۴۷۴ خط و حدود ۸۹ سنجه — و هیچ‌وقت اجرا
+#    نمی‌شدند.  یعنی قلبِ محصولِ رستوران هرگز آزموده نشد.
+#
+#    نبودشان دیده نشد چون هر دو نگهبانِ محصول دارند و در نمایهٔ
+#    فروشگاه به‌هرحال `SKIPPED` می‌دادند؛ کسی که فقط فروشگاه را اجرا
+#    می‌کرد، تفاوتی بین «رد شد» و «اصلاً نبود» نمی‌دید.
 
 # ⚠️ سه مجموعهٔ احراز هویت (`password`, `login-hardening`,
 #    `session-revocation`) عمداً **آخر** فهرست‌اند.
@@ -316,6 +325,32 @@ echo '--- product features ---'
 node web/scripts/verify-product-features.mjs 2>&1 | tail -3
 feat_rc=${PIPESTATUS[0]}
 [ "$feat_rc" -eq 0 ] || broken="$broken product-features"
+
+# ⚠️ مجموعه‌ای که نوشته شده ولی در `SUITES` نیست، هرگز اجرا نمی‌شود.
+#
+#    `restaurant` و `e2e-resto` دقیقاً همین بودند: ۴۷۴ خط و حدود ۸۹
+#    سنجه که ماه‌ها اجرا نشدند.  نبودشان دیده نشد چون هر دو نگهبانِ
+#    محصول دارند و در نمایهٔ فروشگاه به‌هرحال `SKIPPED` می‌دادند —
+#    کسی تفاوتِ «رد شد» و «اصلاً نبود» را نمی‌دید.
+#
+#    خروجیِ گزارش هم کمکی نمی‌کرد: مجموعه‌ای که اجرا نشده، هیچ سطری
+#    نمی‌سازد.  غیابْ چیزی برای دیدن ندارد؛ باید فعالانه شمرده شود.
+echo '--- suite registration ---'
+unregistered=''
+for f in backend/test/*.sh; do
+  n=$(basename "$f" .sh)
+  # `leak-check` ابزارِ کمکی است نه مجموعه؛ خودش از بیرون صدا زده می‌شود.
+  [ "$n" = "leak-check" ] && continue
+  case " $SUITES " in *" $n "*) ;; *) unregistered="$unregistered $n" ;; esac
+done
+if [ -n "$unregistered" ]; then
+  printf '  FAIL مجموعهٔ ثبت‌نشده:%s
+' "$unregistered"
+  broken="$broken suite-registration"
+else
+  printf '  OK   هر فایلِ آزمون در فهرست هست
+'
+fi
 
 [ -n "$broken" ] && { printf '\n  مجموعه‌های خراب:%s\n' "$broken"; exit 1; }
 exit $([ "$total_fail" -eq 0 ] && echo 0 || echo 1)

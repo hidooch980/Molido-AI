@@ -58,6 +58,35 @@ reset_finish() {
     DELETE FROM \"JournalEntry\" WHERE \"createdAt\" > '$_RESET_T0';
     DELETE FROM \"StockMovement\" WHERE \"createdAt\" > '$_RESET_T0';
     DELETE FROM \"Payment\" WHERE \"createdAt\" > '$_RESET_T0';
+
+    -- ⚠️ جدول‌های رستوران تا امروز اینجا نبودند.
+    --
+    --    مجموعه‌های رستوران هرگز در SUITES ثبت نشده بودند، پس نبودشان
+    --    به چشم نیامد.  به‌محض ثبت، هر اجرا سالن و میز و سفارش جا
+    --    می‌گذاشت.
+    --
+    --    ترتیب: فرزند پیش از والد.  MenuRecipe پیش از MenuItem می‌آید
+    --    وگرنه کلید خارجی جلوی حذف را می‌گیرد.
+    --
+    -- ⚠️ در این کامنت‌ها بک‌تیک ننویسید.
+    --
+    --    کلِ این SQL داخل رشتهٔ دابل‌کوتِ  -c "..."  است، پس بک‌تیک
+    --    جایگزینیِ فرمان می‌شود و شل سعی می‌کند متنِ داخلش را اجرا
+    --    کند.  نتیجه‌اش «psql: command not found» بود و پاک‌سازیِ ده
+    --    مجموعه را با هم شکست.
+    DELETE FROM \"RestaurantOrderItem\" WHERE \"orderId\" IN
+      (SELECT id FROM \"RestaurantOrder\" WHERE \"createdAt\" > '$_RESET_T0');
+    DELETE FROM \"RestaurantOrder\" WHERE \"createdAt\" > '$_RESET_T0';
+    DELETE FROM \"RestaurantShift\" WHERE \"createdAt\" > '$_RESET_T0';
+    -- ⚠️ MenuRecipe ستونِ createdAt **ندارد** — با شرطِ زمان خطا
+    --    می‌داد، و چون psql -c چندجمله‌ای است آن خطا کلِ پاک‌سازی را
+    --    بی‌صدا برمی‌گرداند.  پس از راهِ والدش شناسایی می‌شود.
+    DELETE FROM \"MenuRecipe\" WHERE \"menuItemId\" IN
+      (SELECT id FROM \"MenuItem\" WHERE \"createdAt\" > '$_RESET_T0');
+    DELETE FROM \"MenuItem\" WHERE \"createdAt\" > '$_RESET_T0';
+    DELETE FROM \"MenuCategory\" WHERE \"createdAt\" > '$_RESET_T0';
+    DELETE FROM \"RestaurantTable\" WHERE \"createdAt\" > '$_RESET_T0';
+    DELETE FROM \"RestaurantArea\" WHERE \"createdAt\" > '$_RESET_T0';
     DELETE FROM \"ProductReturnItem\" WHERE \"returnId\" IN
       (SELECT id FROM \"ProductReturn\" WHERE \"createdAt\" > '$_RESET_T0');
     DELETE FROM \"ProductReturn\" WHERE \"createdAt\" > '$_RESET_T0';

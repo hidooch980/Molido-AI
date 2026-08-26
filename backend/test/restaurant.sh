@@ -53,6 +53,19 @@ Q() { $C exec -T postgres psql -U postgres -d molido_ai -t -c "$1" | tr -d ' \r\
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 
+# ⚠️ پاک‌سازیِ انتهای فایل کافی نبود.
+#
+#    فقط چهار رکوردِ نام‌دار را می‌برد و سفارش، رزرو و شیفت را جا
+#    می‌گذاشت.  از آن بدتر، نام‌هایی مثل «Main Hall» و «Drinks» را
+#    حذف می‌کرد — که یک رستورانِ واقعی هم می‌تواند داشته باشد.
+#
+#    قالبِ مشترک بر پایهٔ مُهرِ زمان کار می‌کند: فقط چیزی می‌رود که
+#    خودِ این اجرا ساخته.
+. "$(dirname "$0")/lib/reset.sh"
+reset_begin
+trap reset_finish EXIT
+
+
 # ماژول رستوران در این محصول هست؟
 if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/restaurant/stats" -H "$AU")" = "404" ]; then
   echo "  ماژول رستوران در این محصول فعال نیست (MOLIDO_PRODUCT=store)"
@@ -270,13 +283,14 @@ chk "حذف دوبارهٔ سالن ۴۰۴"   "$(curl -s -o /dev/null -w '%{http
 echo '--- 10) trial balance still zero ---'
 chk "trial balance" "$(Q "SELECT COALESCE(SUM(l.debit)-SUM(l.credit),0)::bigint FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\" WHERE e.status<>'DRAFT';")" "0"
 
-# پاک‌سازی تا اجرای بعدی روی «شماره میز تکراری» نشکند
-$C exec -T postgres psql -U postgres -d molido_ai -q -c "
-  DELETE FROM \"RestaurantTable\" WHERE \"tableNo\"='T-99';
-  DELETE FROM \"MenuItem\" WHERE name='Tea';
-  DELETE FROM \"MenuCategory\" WHERE name='Drinks';
-  DELETE FROM \"RestaurantArea\" WHERE name='Main Hall';
-" >/dev/null 2>&1
+# ⚠️ پاک‌سازیِ دستیِ نام‌محور اینجا بود و برداشته شد.
+#
+#    «Main Hall»، «Drinks» و «Tea» نام‌هایی‌اند که یک رستورانِ واقعی
+#    هم می‌تواند داشته باشد؛ حذفشان بر پایهٔ نام، دادهٔ مشتری را
+#    می‌بُرد.  ضمناً سفارش و شیفت را اصلاً پاک نمی‌کرد.
+#
+#    `reset_finish` بالای فایل جایش را گرفته: بر پایهٔ مُهرِ زمان، پس
+#    فقط چیزی می‌رود که خودِ این اجرا ساخته.
 
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"

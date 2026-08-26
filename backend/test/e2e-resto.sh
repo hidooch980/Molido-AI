@@ -52,6 +52,20 @@ Q() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | 
 
 pass=0; fail=0
 chk() {
+
+# ⚠️ ماژول رستوران در این محصول هست؟
+#
+#    `RestaurantModule` فقط در قابلیتِ `restaurant` است.  این فایل تا
+#    امروز در `SUITES` نبود، پس نبودِ این بررسی به چشم نیامده بود؛
+#    به‌محضِ ثبت، اجرای فروشگاه ۲۳ شکستِ بی‌معنی می‌داد.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/restaurant/stats" -H "$AU")" = "404" ]; then
+  echo "  ماژول رستوران در این محصول فعال نیست (MOLIDO_PRODUCT=store)"
+  echo "  برای آزمون: MOLIDO_PRODUCT=resto یا suite"
+  echo
+  printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+  exit 0
+fi
+
   if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"
   else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi
 }

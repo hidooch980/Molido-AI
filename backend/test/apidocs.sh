@@ -20,9 +20,27 @@ chk "swagger json پاسخ می‌دهد" \
   "$(curl -s -o /dev/null -w '%{http_code}' "$A/api-docs-json")" "200"
 
 echo '--- ۲) API.md با برنامه هم‌گام است ---'
-MOLIDO_API=$A npx tsx tools/generate-api-docs.ts --check >/tmp/apidocs.log 2>&1
-chk "بدون اختلاف" "$?" "0"
-[ -s /tmp/apidocs.log ] && grep -q '❌' /tmp/apidocs.log && cat /tmp/apidocs.log
+# ⚠️ این بررسی فقط روی نمایهٔ **کامل** (`suite`) معنا دارد.
+#
+#    `API.md` مستنداتِ کلِ سامانه است — ۷۱۱ عملیات در ۹۷ گروه.  ولی
+#    نمایهٔ فروشگاه فقط ۳۴۹ مسیر بار می‌کند و رستوران ۳۵۶.  مقایسهٔ
+#    سندِ کامل با برنامهٔ ناقص همیشه اختلاف می‌دهد، بی‌آنکه چیزی خراب
+#    باشد.
+#
+#    این دقیقاً پیش آمد: `API.md` از نمایهٔ فروشگاه ساخته شده بود و
+#    **صفر** مسیرِ رستوران داشت — کلِ ماژول رستوران، شهرداری و صنفی
+#    از مستندات غایب بودند و هیچ‌چیز این را نمی‌گفت.  در فروشگاه سبز
+#    بود چون سند و برنامه هر دو ناقصِ یکسان بودند.
+#
+#    تشخیصِ نمایه با مسیری که فقط در `suite` بار می‌شود: `municipal`
+#    و `verticals` در هیچ‌کدام از دو محصولِ دیگر نیستند.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/fire-department" -H "Authorization: Bearer ${MOLIDO_TOKEN:-x}")" = "404" ]; then
+  echo "  (نمایهٔ کامل نیست — بررسیِ هم‌گامی فقط روی MOLIDO_PRODUCT=suite اجرا می‌شود)"
+else
+  MOLIDO_API=$A npx tsx tools/generate-api-docs.ts --check >/tmp/apidocs.log 2>&1
+  chk "بدون اختلاف" "$?" "0"
+  [ -s /tmp/apidocs.log ] && grep -q '❌' /tmp/apidocs.log && cat /tmp/apidocs.log
+fi
 
 echo '--- ۳) ماژول‌های تازه مستند شده‌اند ---'
 # همان چهارتایی که در نسخهٔ دست‌نویس جا مانده بودند.

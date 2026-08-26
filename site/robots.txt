@@ -1,0 +1,6 @@
+User-Agent: *
+Allow: /
+Disallow: /result.html
+Disallow: /track.html
+
+Sitemap: https://molido.ir/sitemap.xml

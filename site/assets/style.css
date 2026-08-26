@@ -1,0 +1,408 @@
+/*
+ * سایتِ معرفیِ مولیدو — روی هاست cPanel.
+ *
+ * ⚠️ چرا CSS خالص و نه کتابخانهٔ سه‌بعدی؟
+ *
+ *    اثرِ سه‌بعدی اینجا با `perspective`، `transform` و سایه ساخته
+ *    می‌شود.  یک صحنهٔ Three.js حدود ۶۰۰ کیلوبایت جاوااسکریپت اضافه
+ *    می‌کند و روی موبایلِ متوسط کند می‌شود — و مخاطبِ این سایت با
+ *    اینترنتِ ایران وارد می‌شود، نه با فیبرِ آزمایشگاه.
+ *
+ *    کلِ این فایل زیر ۱۰ کیلوبایت است و هیچ درخواستِ بیرونی ندارد.
+ *
+ * ⚠️ هیچ فونت یا اسکریپتی از CDN بارگذاری نمی‌شود.
+ *
+ *    CDNهای خارجی از ایران ناپایدارند؛ صفحه‌ای که منتظرِ فونتِ گوگل
+ *    بماند، برای کاربرِ داخل خالی می‌ماند.  فونتِ سیستمی استفاده
+ *    می‌شود.
+ */
+
+:root {
+  --bg: #070b16;
+  --bg-2: #0d1426;
+  --surface: rgba(255, 255, 255, 0.045);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #eef2ff;
+  --muted: #9aa6c4;
+  --accent: #22d3ee;
+  --accent-2: #6366f1;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --radius: 16px;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Vazirmatn, "Segoe UI", Tahoma, system-ui, sans-serif;
+  line-height: 1.9;
+  overflow-x: hidden;
+}
+
+/* ⚠️ هر متنی که مقدارِ عددی نشان می‌دهد باید ارقامِ فارسی بگیرد،
+      وگرنه قیمت‌ها نیمه‌لاتین دیده می‌شوند. */
+body { font-variant-numeric: normal; }
+
+a { color: inherit; text-decoration: none; }
+
+.wrap { width: min(1160px, 92vw); margin-inline: auto; }
+
+/* ───────────────────────── پس‌زمینهٔ متحرک ───────────────────────── */
+
+/*
+ * ⚠️ `position: fixed` و `pointer-events: none`.
+ *
+ *    بدونِ دومی، این لایه روی کلِ صفحه می‌نشیند و هیچ دکمه‌ای قابل
+ *    زدن نیست — خطایی که فقط با کلیک کردن دیده می‌شود، نه با نگاه.
+ */
+.aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.aurora span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.aurora span:nth-child(1) {
+  width: 46vw; height: 46vw; top: -12vw; inset-inline-start: -8vw;
+  background: radial-gradient(circle, var(--accent-2), transparent 68%);
+  animation: drift-a 26s ease-in-out infinite;
+}
+.aurora span:nth-child(2) {
+  width: 38vw; height: 38vw; top: 32vh; inset-inline-end: -10vw;
+  background: radial-gradient(circle, var(--accent), transparent 68%);
+  animation: drift-b 32s ease-in-out infinite;
+}
+.aurora span:nth-child(3) {
+  width: 30vw; height: 30vw; bottom: -8vw; inset-inline-start: 30vw;
+  background: radial-gradient(circle, #a855f7, transparent 70%);
+  animation: drift-a 38s ease-in-out infinite reverse;
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4vw, 5vh, 0) scale(1.12); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-5vw, -4vh, 0) scale(1.08); }
+}
+
+main, header, footer { position: relative; z-index: 1; }
+
+/* ───────────────────────── سربرگ ───────────────────────── */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px);
+  background: rgba(7, 11, 22, 0.72);
+  border-bottom: 1px solid var(--border);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 13px 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; }
+
+.mark {
+  width: 36px; height: 36px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #04121a;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 20px;
+  box-shadow: 0 8px 22px rgba(34, 211, 238, 0.35);
+}
+
+nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* ⚠️ ۴۴ پیکسل کفِ اندازهٔ هدفِ لمسی است. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 19px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.btn:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.28); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #04121a;
+  border: none;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgba(34, 211, 238, 0.28);
+}
+
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.btn-ghost { background: transparent; }
+
+/* ───────────────────────── قهرمان ───────────────────────── */
+
+.hero { padding: clamp(56px, 11vw, 128px) 0 clamp(40px, 7vw, 84px); text-align: center; }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 15px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 13px; color: var(--muted);
+}
+
+h1 {
+  margin: 20px 0 14px;
+  font-size: clamp(30px, 6vw, 60px);
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+/* ⚠️ `background-clip: text` روی متنِ بلند خوانایی را کم می‌کند؛
+      فقط روی یک کلمه استفاده می‌شود. */
+.grad {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2) 60%, #a855f7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lead {
+  margin: 0 auto 30px;
+  max-width: 660px;
+  font-size: clamp(15px, 2.1vw, 18.5px);
+  color: var(--muted);
+}
+
+.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* ───────── کارتِ سه‌بعدی ───────── */
+
+/*
+ * ⚠️ `perspective` روی **والد** می‌نشیند نه روی خودِ کارت.
+ *
+ *    روی خودِ عنصر، هر کارت نقطهٔ گریزِ جداگانه می‌گیرد و در کنارِ
+ *    هم کج و ناهماهنگ دیده می‌شوند.
+ */
+.stage { perspective: 1400px; margin-top: clamp(40px, 7vw, 76px); }
+
+.screen {
+  transform: rotateX(16deg) rotateZ(-1.2deg);
+  transform-style: preserve-3d;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  box-shadow: var(--shadow);
+  padding: 16px;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.screen:hover { transform: rotateX(7deg) rotateZ(0deg) translateY(-8px); }
+
+.screen-bar { display: flex; gap: 7px; padding: 4px 6px 14px; }
+.screen-bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--border); }
+
+.tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.tile {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 15px;
+  transform: translateZ(28px);
+}
+
+.tile b { display: block; font-size: 20px; margin-bottom: 3px; }
+.tile span { font-size: 12.5px; color: var(--muted); }
+
+/* ───────────────────────── بخش‌ها ───────────────────────── */
+
+section { padding: clamp(46px, 8vw, 92px) 0; }
+
+h2 {
+  margin: 0 0 10px;
+  font-size: clamp(23px, 3.4vw, 34px);
+  text-align: center;
+  font-weight: 900;
+}
+
+.sub { margin: 0 auto 34px; max-width: 560px; text-align: center; color: var(--muted); font-size: 15px; }
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  transition: transform 0.22s, border-color 0.22s;
+}
+
+.card:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.24); }
+
+.card h3 { margin: 0 0 7px; font-size: 17.5px; }
+.card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+.ico {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center; margin-bottom: 13px;
+  background: linear-gradient(135deg, rgba(34,211,238,0.22), rgba(99,102,241,0.22));
+  border: 1px solid var(--border);
+  font-size: 20px;
+}
+
+/* ───────────────────────── ماژول‌ها ───────────────────────── */
+
+.mods { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); }
+
+/*
+ * ⚠️ کلِ کارت یک `<label>` است، نه یک `<div>` با `onclick`.
+ *
+ *    با برچسب، صفحه‌خوان می‌گوید چه چیزی انتخاب می‌شود و کیبورد هم
+ *    کار می‌کند.  `div` قابل‌کلیک هیچ‌کدام را ندارد.
+ */
+.mod {
+  display: block;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.mod:hover { transform: translateY(-4px); }
+
+.mod input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.mod:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 16px 40px rgba(34, 211, 238, 0.18);
+}
+
+/* ⚠️ برای مرورگرِ بدونِ `:has` — نشانگر با جاوااسکریپت هم کلاس می‌گیرد. */
+.mod.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 16px 40px rgba(34, 211, 238, 0.18);
+}
+
+.mod-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.mod h3 { margin: 0 0 6px; font-size: 17px; }
+.mod p { margin: 0 0 14px; color: var(--muted); font-size: 14px; min-height: 42px; }
+.price { font-size: 19px; font-weight: 800; }
+.price small { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+
+.check {
+  width: 24px; height: 24px; border-radius: 8px;
+  border: 1px solid var(--border); flex: none;
+  display: grid; place-items: center; font-size: 14px; color: #04121a;
+}
+.mod:has(input:checked) .check, .mod.on .check { background: var(--accent); border-color: var(--accent); }
+
+/* ───────── سبد و فرم ───────── */
+
+.checkout {
+  margin-top: 26px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.total { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.total b { font-size: 25px; }
+
+.fields { display: grid; gap: 13px; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+label.f { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); }
+
+input[type="text"], input[type="tel"], input[type="email"], textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+textarea { min-height: 88px; resize: vertical; }
+
+.msg { margin-top: 14px; padding: 12px 14px; border-radius: 11px; font-size: 14.5px; display: none; }
+.msg.show { display: block; }
+.msg.bad { background: rgba(248, 113, 113, 0.14); color: var(--bad); }
+.msg.ok  { background: rgba(52, 211, 153, 0.14); color: var(--ok); }
+
+/* ───────────────────────── پاورقی ───────────────────────── */
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 26px 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.foot { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: center; }
+
+/* ───────────────────────── پیمایش ───────────────────────── */
+
+/*
+ * ⚠️ حالتِ اولیه با جاوااسکریپت گذاشته می‌شود، نه در CSS.
+ *
+ *    اگر `opacity: 0` پیش‌فرضِ CSS باشد و جاوااسکریپت اجرا نشود،
+ *    کلِ صفحه نامرئی می‌ماند.  با این ترتیب، بدترین حالت یعنی
+ *    نبودِ انیمیشن — نه نبودِ محتوا.
+ */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.6s, transform 0.6s; }
+.reveal.in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+  .screen { transform: none; }
+  html { scroll-behavior: auto; }
+}

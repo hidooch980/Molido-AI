@@ -75,6 +75,7 @@ import { QuotationsModule } from './quotations/quotations.module';
 import { CustomerTicketsModule } from './customer-tickets/customer-tickets.module';
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { GovSsoModule } from './gov-sso/gov-sso.module';
+import { SiteModule } from './site/site.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
@@ -192,6 +193,9 @@ const CORE_MODULES = [
   //    شهروند، مشتریِ فروشگاه و کارمند.  پشتِ `FEATURE_MODULES`
   //    نمی‌رود چون به قابلیتِ خاصی وابسته نیست.
   GovSsoModule,
+  // ⚠️ ماژولِ هسته: سایتِ معرفی برای هر نصبی معنا دارد و به
+  //    قابلیتِ خاصی وابسته نیست.
+  SiteModule,
   HealthModule,
 ];
 

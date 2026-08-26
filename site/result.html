@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نتیجهٔ پرداخت | مولیدو</title>
+<!--
+  ⚠️ این صفحه نباید ایندکس شود: محتوایش برای هر تراکنش فرق دارد و
+     کدِ رهگیری در نشانی است.
+-->
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+</head>
+<body>
+
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true">م</span><span>مولیدو</span></a>
+    <nav><a class="btn btn-ghost" href="/">صفحهٔ اصلی</a></nav>
+  </div>
+</header>
+
+<main class="wrap" style="padding:clamp(48px,9vw,110px) 0">
+  <div class="card" style="max-width:620px;margin-inline:auto;text-align:center">
+    <div id="icon" style="font-size:52px;line-height:1">⏳</div>
+    <h2 id="title" style="margin:14px 0 8px">در حال بررسی…</h2>
+    <p id="body" class="sub" style="margin-bottom:20px">لطفاً چند لحظه صبر کنید.</p>
+
+    <div id="details" style="display:none;text-align:start;margin:0 auto 20px;max-width:420px">
+      <div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--muted)">کد رهگیری</span>
+        <b id="code" style="font-family:ui-monospace,monospace"></b>
+      </div>
+      <div id="refRow" style="display:none;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--muted)">شمارهٔ پیگیری بانک</span>
+        <b id="ref" style="font-family:ui-monospace,monospace"></b>
+      </div>
+      <div id="amtRow" style="display:none;justify-content:space-between;gap:12px;padding:9px 0">
+        <span style="color:var(--muted)">مبلغ</span>
+        <b><span id="amt"></span> ریال</b>
+      </div>
+    </div>
+
+    <div class="cta">
+      <a class="btn btn-primary" href="/">بازگشت به سایت</a>
+      <a class="btn" href="track.html" id="trackLink">پیگیری سفارش</a>
+    </div>
+  </div>
+</main>
+
+<footer><div class="wrap foot"><span>© مولیدو</span></div></footer>
+
+<script>
+'use strict';
+
+/*
+ * ⚠️ این صفحه **تصمیم نمی‌گیرد** که پرداخت موفق بوده یا نه.
+ *
+ *    پارامترِ `status` را سرور در نشانی گذاشته، و سرور آن را پس از
+ *    تأییدِ کانالِ پشتی با درگاه ساخته.  ولی چون نشانی در دستِ کاربر
+ *    است، نمایش را به همان بسنده نمی‌کنیم: وضعیتِ واقعی دوباره از
+ *    API خوانده می‌شود.
+ *
+ *    یعنی کسی که `status=ok` را دستی در نوارِ نشانی بنویسد، فقط یک
+ *    لحظه چیزی می‌بیند و بعد وضعیتِ درست جایش را می‌گیرد.
+ */
+
+var FA = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+function money(n) {
+  return Math.round(Number(n) || 0).toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '٬')
+    .replace(/\d/g, function (d) { return FA[+d]; });
+}
+function q(name) {
+  return new URLSearchParams(location.search).get(name) || '';
+}
+function show(icon, title, body, tone) {
+  document.getElementById('icon').textContent = icon;
+  document.getElementById('title').textContent = title;
+  var b = document.getElementById('body');
+  b.textContent = body;
+  if (tone) b.style.color = tone;
+}
+
+var code = q('code');
+var API = (window.MOLIDO_CONFIG && window.MOLIDO_CONFIG.apiBase) || '';
+
+if (code) {
+  document.getElementById('code').textContent = code;
+  document.getElementById('details').style.display = 'block';
+  document.getElementById('trackLink').href = 'track.html?code=' + encodeURIComponent(code);
+}
+
+// نمایشِ موقت بر پایهٔ پارامتر — تا پاسخِ واقعی برسد.
+if (q('status') === 'failed') {
+  show('✕', 'پرداخت انجام نشد', q('reason') || 'تراکنش تأیید نشد.', 'var(--bad)');
+}
+
+if (!API || !code) {
+  if (!code) show('✕', 'کد رهگیری نیست', 'نشانی ناقص است. از صفحهٔ پیگیری استفاده کنید.', 'var(--bad)');
+} else {
+  fetch(API + '/site/purchase/' + encodeURIComponent(code))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d) {
+        return show('✕', 'سفارش پیدا نشد', 'کد رهگیری نامعتبر است.', 'var(--bad)');
+      }
+
+      var amt = document.getElementById('amt');
+      amt.textContent = money(d.amountIrr);
+      document.getElementById('amtRow').style.display = 'flex';
+
+      if (d.bankRef) {
+        document.getElementById('ref').textContent = d.bankRef;
+        document.getElementById('refRow').style.display = 'flex';
+      }
+
+      if (d.status === 'PAID') {
+        show('✓', 'پرداخت با موفقیت انجام شد',
+             'همکاران ما به‌زودی برای راه‌اندازی با شما تماس می‌گیرند.', 'var(--ok)');
+      } else if (d.status === 'PENDING') {
+        show('⏳', 'پرداخت هنوز تأیید نشده',
+             'اگر مبلغ از حساب شما کسر شده، تا دقایقی دیگر دوباره بررسی کنید یا تماس بگیرید.', 'var(--warn)');
+      } else {
+        show('✕', 'پرداخت انجام نشد',
+             'تراکنش تأیید نشد. اگر مبلغی کسر شده، طی ۷۲ ساعت به حسابتان برمی‌گردد.', 'var(--bad)');
+      }
+    })
+    .catch(function () {
+      show('⚠', 'وضعیت خوانده نشد',
+           'ارتباط با سرور برقرار نشد. با کد رهگیری تماس بگیرید.', 'var(--warn)');
+    });
+}
+</script>
+</body>
+</html>

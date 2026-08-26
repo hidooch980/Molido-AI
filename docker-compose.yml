@@ -118,6 +118,8 @@ services:
       #    خرید است.
       ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
       ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
+      # فقط برای آزمون؛ در تولید تنظیم نمی‌شود.
+      ZARINPAL_BASE_URL: ${ZARINPAL_BASE_URL:-}
       # نشانیِ عمومیِ سایت — بازگشتِ درگاه به همین‌جا برمی‌گردد.
       SITE_URL: ${SITE_URL:-http://${HOST_IP:-localhost}:${WEB_PORT:-3001}}
       # ⚠️ همان دامِ `ADMIN_PASSWORD` و `ZARINPAL_*`: بودن در `.env`

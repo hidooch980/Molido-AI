@@ -163,13 +163,24 @@ export class PaymentService {
     //    مهاجم می‌تواند سفارشِ ده‌میلیونی را با پرداختِ هزارتومانی
     //    تأیید کند — کدِ پیگیری معتبر است و ما فرض می‌کنیم درست
     //    پرداخت شده.
-    if (typeof result.paidAmount === 'number' && result.paidAmount < expected) {
+    // ⚠️ مبلغِ **نامعلوم** هم رد می‌شود، نه فقط مبلغِ کم.
+    //
+    //    شرطِ قبلی `typeof === 'number' && <` بود: اگر درگاه مبلغی
+    //    نمی‌داد، بررسی کاملاً از کنارش رد می‌شد.  یعنی نگهبان فقط
+    //    وقتی کار می‌کرد که طرفِ مقابل همکاری کند.
+    //
+    //    پرداختی که مبلغش تأیید نشده، پرداختِ تأییدشده نیست.
+    if (typeof result.paidAmount !== 'number' || result.paidAmount < expected) {
       await this.db.query(
         `UPDATE "OnlineOrder" SET "paymentStatus" = 'FAILED'
           WHERE id = $1 AND "companyId" = $2`,
         [order.id, companyId],
       );
-      throw new BadRequestException('مبلغ پرداختی با مبلغ سفارش نمی‌خواند');
+      throw new BadRequestException(
+        typeof result.paidAmount === 'number'
+          ? 'مبلغ پرداختی با مبلغ سفارش نمی‌خواند'
+          : 'درگاه مبلغ پرداختی را تأیید نکرد',
+      );
     }
 
     await this.db.query(

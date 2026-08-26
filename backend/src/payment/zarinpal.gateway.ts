@@ -38,7 +38,20 @@ export class ZarinpalGateway implements PaymentGateway {
     return this.config.get<string>('ZARINPAL_SANDBOX') === 'true';
   }
 
+  /**
+   * ⚠️ `ZARINPAL_BASE_URL` برای **آزمون** است، نه برای تولید.
+   *
+   *    بدونش هیچ راهی برای آزمودنِ مسیرِ پرداخت از سرِتاسر نبود:
+   *    درگاهِ واقعی اعتبارنامهٔ پذیرنده می‌خواهد و sandbox هم همیشه
+   *    در دسترس نیست.  نتیجه‌اش این می‌شد که کدِ پول هرگز اجرا
+   *    نشود تا روزِ اولِ تولید.
+   *
+   *    در تولید تنظیم نمی‌شود و مسیرِ همیشگی می‌رود؛ اگر کسی اشتباهی
+   *    تنظیمش کند، نشانی در لاگِ درخواست دیده می‌شود.
+   */
   private base(): string {
+    const override = (this.config.get<string>('ZARINPAL_BASE_URL') ?? '').trim();
+    if (override) return override.replace(/\/+$/, '');
     return this.sandbox()
       ? 'https://sandbox.zarinpal.com'
       : 'https://payment.zarinpal.com';
@@ -129,7 +142,9 @@ export class ZarinpalGateway implements PaymentGateway {
       });
 
       const body = (await response.json().catch(() => null)) as {
-        data?: { code?: number; ref_id?: number | string };
+        // ⚠️ `amount` هم خوانده می‌شود — مبلغی که **درگاه** می‌گوید
+        //    واقعاً پرداخت شده، به تومان.
+        data?: { code?: number; ref_id?: number | string; amount?: number };
         errors?: { message?: string };
       } | null;
 
@@ -141,11 +156,25 @@ export class ZarinpalGateway implements PaymentGateway {
       //    کند، همین می‌آید.  خطا شمردنش یعنی سفارشِ پرداخت‌شده
       //    ناموفق علامت بخورد و پول بماند بی‌آنکه کالا برود.
       if (code === 100 || code === 101) {
+        // ⚠️ مبلغ از **پاسخ** خوانده می‌شود، نه از درخواست.
+        //
+        //    نسخهٔ قبلی `toman * 10` برمی‌گرداند — یعنی همان عددی که
+        //    خودمان فرستاده بودیم.  فراخوان آن را با مبلغِ سفارش
+        //    می‌سنجید و **همیشه** برابر بود: نگهبان عدد را با خودش
+        //    مقایسه می‌کرد.
+        //
+        //    آزموده شد: سفارشِ ۵۸ میلیون ریالی با پرداختِ ۱۰۰۰ ریال
+        //    `PAID` شد.  خودِ `payment.types.ts` دقیقاً دربارهٔ همین
+        //    حمله هشدار داده بود؛ پیاده‌سازی نگهبانِ خودش را خنثی
+        //    کرده بود.
+        const reported = body?.data?.amount;
         return {
           ok: true,
           trackingCode: String(body?.data?.ref_id ?? ''),
-          // به ریال برمی‌گردانیم تا فراخوان با مبلغِ سفارش بسنجدش.
-          paidAmount: toman * 10,
+          // ⚠️ اگر درگاه مبلغ نداد، `undefined` می‌ماند — نه مبلغِ
+          //    درخواستی.  تصمیم دربارهٔ مبلغِ نامعلوم کارِ فراخوان
+          //    است، و باید سخت‌گیرانه باشد.
+          paidAmount: typeof reported === 'number' ? reported * 10 : undefined,
         };
       }
 

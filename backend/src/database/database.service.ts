@@ -47,6 +47,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       'app.company_id',
       companyId,
     ]);
+
+    // ⚠️ همیشه نوشته می‌شود، حتی وقتی تهی است.
+    //
+    //    اتصال‌ها در استخر بازیافت می‌شوند؛ اگر فقط در حالتِ پرشده
+    //    نوشته شود، درخواستِ بعدی روی همان اتصال کدِ رهگیریِ نفرِ قبل
+    //    را به ارث می‌برد — یعنی سطری می‌بیند که نباید.
+    await client.query('SELECT set_config($1, $2, false)', [
+      'app.track_code',
+      tenant?.trackCode ?? '',
+    ]);
   }
 
   async query<T extends QueryResultRow = QueryResultRow>(

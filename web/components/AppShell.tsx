@@ -106,6 +106,7 @@ export const NAV: NavItem[] = [
   { href: '/records/municipal-properties', group: 'records', label: 'menuMunicipalProps', icon: 'building', feature: 'municipal' as FeatureKey },
   { href: '/records/service-zones', group: 'records', label: 'menuServiceZones', icon: 'target', feature: 'municipal' as FeatureKey },
   { href: '/records/property-audit', group: 'records', label: 'menuPropertyAudit', icon: 'survey', feature: 'municipal' as FeatureKey },
+  { href: '/complaints', group: 'records', label: 'menuComplaints', icon: 'alert', feature: 'municipal' as FeatureKey },
   { href: '/records/helpdesk', group: 'records', label: 'menuHelpdesk', icon: 'ticket', feature: 'operations' as FeatureKey },
   { href: '/records/projects', group: 'records', label: 'menuProjects', icon: 'target', feature: 'operations' as FeatureKey },
   { href: '/records/approvals', group: 'records', label: 'menuApprovals', icon: 'survey', feature: 'operations' as FeatureKey },

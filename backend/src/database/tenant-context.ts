@@ -27,9 +27,38 @@ export type TenantContext = {
    * نمی‌آید.
    */
   system?: boolean;
+  /**
+   * کدِ رهگیریِ شکایت، برای مسیرِ پیگیریِ عمومی.
+   *
+   * ⚠️ چرا یک میدانِ جدا و نه دور زدنِ RLS؟
+   *
+   *    شهروند توکن ندارد، پس `app.company_id` تهی می‌ماند و
+   *    fail-closed هیچ سطری نمی‌دهد — مسیرِ پیگیری همیشه ۴۰۴ می‌داد.
+   *
+   *    `runAsSystem` هم جواب نمی‌دهد: آن حالت فقط برای نقشِ صاحبِ
+   *    جدول باز است، نه `molido_app` که برنامه با آن وصل می‌شود.  و
+   *    استفاده از نقشِ مدیر روی یک مسیرِ عمومی یعنی دور زدنِ کاملِ
+   *    RLS برای همهٔ جدول‌ها.
+   *
+   *    پس به‌جای باز کردنِ در، یک روزنه: سیاستِ
+   *    `complaint_public_track` فقط سطری را می‌دهد که کدِ رهگیری‌اش
+   *    **دقیقاً** برابر این مقدار باشد.  دامنه‌اش یک جدول و یک سطر
+   *    است، نه بیشتر.
+   */
+  trackCode?: string | null;
 };
 
 const storage = new AsyncLocalStorage<TenantContext>();
+
+/**
+ * اجرای پرس‌وجو در زمینهٔ یک کدِ رهگیری، بدونِ هیچ شرکتی.
+ *
+ * ⚠️ شرکت عمداً تهی می‌ماند: تنها چیزی که باز می‌شود، همان یک سطرِ
+ *    متناظر با کد است.
+ */
+export function runWithTrackCode<T>(trackCode: string, work: () => T): T {
+  return storage.run({ companyId: null, userId: null, trackCode }, work);
+}
 
 /** اجرای یک قطعه کد در زمینهٔ یک شرکت مشخص. */
 export function runInTenant<T>(context: TenantContext, work: () => T): T {

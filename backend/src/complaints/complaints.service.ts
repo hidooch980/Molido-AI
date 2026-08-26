@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { runWithTrackCode } from '../database/tenant-context';
 import { Params } from '../database/sql';
 import { N8nService } from '../n8n/n8n.service';
 
@@ -58,13 +59,48 @@ export class ComplaintsService {
     return rows[0];
   }
 
-  /** پیگیری با کد رهگیری (بدون نیاز به ورود — مخصوص شهروندان) */
+  /**
+   * پیگیری با کد رهگیری (بدون نیاز به ورود — مخصوص شهروندان).
+   *
+   * ⚠️ این مسیر تا امروز **همیشه ۴۰۴ می‌داد**، حتی برای کد معتبر.
+   *
+   *    شهروند توکن ندارد، پس `app.company_id` تهی می‌ماند و سیاستِ
+   *    RLS با رفتار fail-closed هیچ سطری برنمی‌گرداند.  یعنی تنها
+   *    امکانی که برای خودِ شهروند ساخته شده بود، هرگز کار نکرد.
+   *
+   *    `ShopTenantMiddleware` همین مسئله را برای فروشگاه عمومی حل
+   *    کرده؛ اینجا راهِ دیگری لازم است چون شهروند نمی‌داند شکایتش در
+   *    کدام شهرداری ثبت شده — پس نمی‌توان شرکت را از پیکربندی گرفت.
+   *
+   * ⚠️ `runAsSystem` هم جواب نمی‌دهد: آن حالت فقط برای نقشِ صاحبِ
+   *    جدول باز است، نه `molido_app` که برنامه با آن وصل می‌شود.  و
+   *    نقشِ مدیر روی مسیرِ عمومی یعنی باز کردنِ همهٔ جدول‌ها.
+   *
+   *    پس سیاستِ `complaint_public_track` (مهاجرت ۰۵۳) راهِ دومی
+   *    می‌سازد که دامنه‌اش یک سطر است، و `runWithTrackCode` مقدارش را
+   *    می‌گذارد.
+   *
+   * ⚠️ این تنها وقتی بی‌خطر است که کدِ رهگیری **حدس‌ناپذیر** باشد.
+   *
+   *    قید یکتایی `(companyId, trackingNo)` است، نه سراسری.  با کدِ
+   *    زمان‌محورِ قبلی (`137-${Date.now()}`) دو شهرداری به‌سادگی کدِ
+   *    یکسان می‌گرفتند و این جست‌وجو شکایتِ شرکتِ دیگری را برمی‌گرداند.
+   *    بدتر: هر کسی می‌توانست با شمردنِ زمان، شکایاتِ همه را بخواند.
+   *
+   *    پس کد حالا بخشِ تصادفی دارد و خودش نقشِ رمز را بازی می‌کند.
+   *
+   * ⚠️ ستون‌های بازگشتی عمداً محدودند: نام، تلفن و نشانیِ شهروند
+   *    بیرون نمی‌روند.  دانستنِ کد یعنی «من همان شاکی‌ام»، نه دسترسی
+   *    به پروندهٔ کامل.
+   */
   async track(trackingNo: string) {
-    const rows = await this.db.query<Complaint>(
-      `SELECT "trackingNo", category, status, subject, "referredTo", "responseNote",
-              "createdAt", "updatedAt"
-       FROM "CitizenComplaint" WHERE "trackingNo" = $1`,
-      [trackingNo],
+    const rows = await runWithTrackCode(trackingNo, () =>
+      this.db.query<Complaint>(
+        `SELECT "trackingNo", category, status, subject, "referredTo", "responseNote",
+                "createdAt", "updatedAt"
+         FROM "CitizenComplaint" WHERE "trackingNo" = $1 LIMIT 1`,
+        [trackingNo],
+      ),
     );
     if (!rows[0]) throw new NotFoundException('کد رهگیری نامعتبر است');
     return rows[0];
@@ -89,7 +125,15 @@ export class ComplaintsService {
       [
         randomUUID(),
         companyId,
-        `137-${Date.now()}`,
+        // ⚠️ بخشِ تصادفی لازم است، نه تزئینی.
+        //
+        //    نسخهٔ قبلی `137-${Date.now()}` بود: کاملاً قابلِ حدس.  چون
+        //    این کد تنها چیزی است که پیگیریِ عمومی را باز می‌کند، حدس
+        //    زدنش یعنی خواندنِ شکایتِ دیگران.  دلیلِ کامل بالای `track`.
+        //
+        //    پیشوندِ ۱۳۷ می‌ماند: شمارهٔ شناخته‌شدهٔ خدماتِ شهریِ ایران
+        //    است و شهروند با همان می‌شناسدش.
+        `137-${randomBytes(8).toString('base64url')}`,
         data.category ?? 'OTHER',
         data.citizenName ?? null,
         data.citizenPhone ?? null,

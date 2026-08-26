@@ -120,6 +120,16 @@ services:
       ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
       # فقط برای آزمون؛ در تولید تنظیم نمی‌شود.
       ZARINPAL_BASE_URL: ${ZARINPAL_BASE_URL:-}
+      # ⚠️ نشانیِ عمومیِ **API** — بازگشتِ درگاه به همین‌جا می‌آید.
+      #
+      #    بدونش `siteBase()` به `localhost:3000` برمی‌گردد و درگاه
+      #    کاربر را به نشانی‌ای می‌فرستد که از اینترنت وجود ندارد —
+      #    یعنی پول کسر می‌شود و سفارش `PENDING` می‌ماند.
+      #
+      #    سومین بار است که همین دام تکرار می‌شود (`ADMIN_PASSWORD`،
+      #    `ZARINPAL_*`، حالا این).  الگو روشن است: هر متغیری که در
+      #    `.env.example` مستند شود باید همین‌جا هم پاس شود.
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-}
       # نشانیِ عمومیِ سایت — بازگشتِ درگاه به همین‌جا برمی‌گردد.
       SITE_URL: ${SITE_URL:-http://${HOST_IP:-localhost}:${WEB_PORT:-3001}}
       # ⚠️ همان دامِ `ADMIN_PASSWORD` و `ZARINPAL_*`: بودن در `.env`

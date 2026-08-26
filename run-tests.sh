@@ -335,6 +335,13 @@ feat_rc=${PIPESTATUS[0]}
 #
 #    خروجیِ گزارش هم کمکی نمی‌کرد: مجموعه‌ای که اجرا نشده، هیچ سطری
 #    نمی‌سازد.  غیابْ چیزی برای دیدن ندارد؛ باید فعالانه شمرده شود.
+# ⚠️ متغیری که در `.env.example` مستند شده ولی به کانتینر پاس نشده،
+#    در توسعه کار می‌کند و در تولید ساکت می‌ماند.  چهار بار تکرار شد.
+echo '--- env wiring ---'
+node web/scripts/verify-env-wiring.mjs 2>&1 | tail -3
+env_rc=${PIPESTATUS[0]}
+[ "$env_rc" -eq 0 ] || broken="$broken env-wiring"
+
 echo '--- suite registration ---'
 unregistered=''
 # ⚠️ فاصله‌ها یکدست می‌شوند، وگرنه نامِ **آخرِ هر خط** پیدا نمی‌شود.

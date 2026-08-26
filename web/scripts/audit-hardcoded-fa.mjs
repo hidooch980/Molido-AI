@@ -137,13 +137,34 @@ const files = Object.entries(perFile).sort((a, b) => b[1].length - a[1].length);
  *    بیانگرِ سلامت.  ابزاری که دو چیزِ متفاوت را یک عدد کند، کسی را
  *    به کارِ درست راهنمایی نمی‌کند.
  */
-const isShop = (f) => /[\\/]shop[\\/]/.test(f);
-const panel = files.filter(([f]) => !isShop(f));
-const shop = files.filter(([f]) => isShop(f));
+/**
+ * صفحه‌های **عمومیِ فارسی‌زبان** — پنل نیستند.
+ *
+ * ⚠️ فروشگاه از اول اینجا بود؛ صفحهٔ معرفیِ شرکت هم به همین دسته
+ *    تعلق دارد.
+ *
+ *    پنل سه‌زبانه است چون کاربرش کارمندی است که ممکن است عرب‌زبان یا
+ *    انگلیسی‌زبان باشد.  صفحهٔ معرفیِ یک شرکتِ ایرانی مخاطبِ فارسی‌زبان
+ *    دارد؛ سه‌زبانه کردنش کارِ بازاریابی است نه فنی، و وقتی لازم شد
+ *    با مسیرهای `/en` و `/ar` انجام می‌شود نه با کلیدِ واژه‌نامه.
+ *
+ * ⚠️ استثنای **نام‌دار** بهتر از سقفِ بالاتر است.
+ *
+ *    بدونش عدد بالا می‌رفت و کسی سقف را بالا می‌برد — یعنی بدهیِ
+ *    واقعیِ پنل هم پشتِ همان عدد پنهان می‌شد.
+ */
+const norm = (f) => f.split(String.fromCharCode(92)).join("/");
+const isPublicFa = (f) => {
+  const n = norm(f);
+  return n.includes("/shop/") || n.endsWith("app/page.tsx");
+};
+
+const panel = files.filter(([f]) => !isPublicFa(f));
+const shop = files.filter(([f]) => isPublicFa(f));
 const sum = (list) => list.reduce((n, [, h]) => n + h.length, 0);
 
 console.log(`  پنل (سه‌زبانه):     ${sum(panel)} رشته در ${panel.length} فایل  <- شکاف`);
-console.log(`  فروشگاه (تک‌زبانه): ${sum(shop)} رشته در ${shop.length} فایل  <- عمدی`);
+console.log(`  عمومیِ فارسی:       ${sum(shop)} رشته در ${shop.length} فایل  <- عمدی`);
 console.log();
 console.log('  بیشترین در پنل:');
 for (const [file, hits] of panel.slice(0, 10)) {

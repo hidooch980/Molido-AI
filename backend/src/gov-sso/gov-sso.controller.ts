@@ -79,7 +79,7 @@ export class GovSsoController {
 
     // کاربر در صفحهٔ درگاه «انصراف» زده — خطا نیست، تصمیم است.
     if (error) {
-      return { url: `${web}/?sso=cancelled` };
+      return { url: `${web}/panel?sso=cancelled` };
     }
 
     try {
@@ -107,7 +107,7 @@ export class GovSsoController {
       const message =
         caught instanceof Error ? caught.message : 'ورود با درگاه دولت ناموفق بود';
       return {
-        url: `${web}/?sso=error&reason=${encodeURIComponent(message)}`,
+        url: `${web}/panel?sso=error&reason=${encodeURIComponent(message)}`,
       };
     }
   }
@@ -182,13 +182,16 @@ function targetCompany(): string | null {
 }
 
 /**
- * ⚠️ صفحهٔ ورودِ کارکنان در **ریشه** است، نه `/login`.
+ * ⚠️ صفحهٔ ورودِ کارکنان `/panel` است.
  *
- *    نسخهٔ اول `/login` نوشت — مسیری که در این برنامه وجود ندارد.
- *    یعنی ورودِ موفق کاربر را به صفحهٔ ۴۰۴ می‌برد، با توکنی که هیچ‌کس
- *    نمی‌خواندش.  با اجرای واقعیِ جریان دیده شد، نه با خواندنِ کد.
+ *    نسخهٔ اول `/login` نوشت — مسیری که وجود نداشت، پس ورودِ **موفق**
+ *    کاربر را به ۴۰۴ می‌برد با توکنی که هیچ‌کس نمی‌خواندش.  با اجرای
+ *    واقعیِ جریان دیده شد، نه با خواندنِ کد.
+ *
+ *    بعد به `/` تغییر کرد و درست بود — تا وقتی که ریشه صفحهٔ معرفیِ
+ *    شرکت شد و ورود به `/panel` رفت.  همان دام، بارِ دوم.
  */
 function defaultLanding(audience: GovAudience): string {
-  if (audience === 'staff') return '/';
+  if (audience === 'staff') return '/panel';
   return '/shop';
 }

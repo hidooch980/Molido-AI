@@ -45,16 +45,10 @@ export type FeatureKey =
   | 'hr'
   /** خزانه، چک، قرارداد، بودجه، دارایی */
   | 'finance'
-  /** شهرداری و خدمات شهری */
-  | 'municipal'
-  /** ماژول‌های صنفی دیگر: کلینیک، پارکینگ، تاکسی، آرامستان */
-  | 'verticals'
   /** CRM، تیکت، نظرسنجی، کمپین */
-  /** فروشگاه اینترنتی: کاتالوگ عمومی، سبد خرید، سفارش مشتری */
-  | 'shop'
   | 'crm'
-  /** پروژه، ناوگان، مکاتبات، گردش تأیید */
-  | 'operations';
+  /** فروشگاه اینترنتی: کاتالوگ عمومی، سبد خرید، سفارش مشتری */
+  | 'shop';
 
 export const PRODUCTS: Record<ProductKey, ProductSpec> = {
   store: {
@@ -73,7 +67,15 @@ export const PRODUCTS: Record<ProductKey, ProductSpec> = {
     features: ['catalogue', 'sales', 'restaurant', 'hr', 'finance', 'crm', 'shop'],
   },
 
-  // نسخهٔ کامل: همهٔ ماژول‌ها، برای سازمان و شهرداری
+  // ⚠️ نسخهٔ کامل = فروشگاه + رستوران با هم، نه بیشتر.
+  //
+  //    پیش‌تر این کامنت «برای سازمان و شهرداری» می‌گفت و درست بود:
+  //    سه گروهِ `municipal`، `verticals` و `operations` فقط اینجا بار
+  //    می‌شدند.  هر سه به درخواستِ صاحبِ محصول حذف شدند (مهاجرت ۰۵۶).
+  //
+  //    پس `suite` دیگر قابلیتِ **اختصاصی** ندارد؛ تنها تفاوتش این است
+  //    که هم `retail` دارد هم `restaurant`.  نگه داشته شد چون نصبی که
+  //    هر دو را می‌خواهد جای دیگری ندارد.
   suite: {
     key: 'suite',
     title: 'Molido AI',
@@ -85,11 +87,8 @@ export const PRODUCTS: Record<ProductKey, ProductSpec> = {
       'restaurant',
       'hr',
       'finance',
-      'municipal',
-      'verticals',
       'crm',
       'shop',
-      'operations',
     ],
   },
 };

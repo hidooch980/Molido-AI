@@ -33,10 +33,6 @@ import { AccountingModule } from './accounting/accounting.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { TechnicalOfficeModule } from './technical-office/technical-office.module';
-import { FireDepartmentModule } from './fire-department/fire-department.module';
-import { ComplaintsModule } from './complaints/complaints.module';
-import { MunicipalFeesModule } from './municipal-fees/municipal-fees.module';
 import { ChequesModule } from './cheques/cheques.module';
 import { SmsModule } from './sms/sms.module';
 import { VoiceModule } from './voice/voice.module';
@@ -51,10 +47,6 @@ import { TendersModule } from './tenders/tenders.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { LeaveRequestsModule } from './leave-requests/leave-requests.module';
 import { PerformanceModule } from './performance/performance.module';
-import { ConstructionProjectsModule } from './construction-projects/construction-projects.module';
-import { FleetModule } from './fleet/fleet.module';
-import { ServiceZonesModule } from './service-zones/service-zones.module';
-import { LettersModule } from './letters/letters.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { PricingModule } from './pricing/pricing.module';
 import { OperationsModule } from './operations/operations.module';
@@ -62,31 +54,13 @@ import { TaxModule } from './tax/tax.module';
 import { ShopModule } from './shop/shop.module';
 import { CrmModule } from './crm/crm.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
-import { ApprovalsModule } from './approvals/approvals.module';
-import { ECityModule } from './e-city/e-city.module';
-import { CemeteryModule } from './cemetery/cemetery.module';
-import { TaxiModule } from './taxi/taxi.module';
-import { BusinessLicensesModule } from './business-licenses/business-licenses.module';
-import { MunicipalPropertiesModule } from './municipal-properties/municipal-properties.module';
-import { PropertyAuditModule } from './property-audit/property-audit.module';
-import { CrisisModule } from './crisis/crisis.module';
-import { ParkingModule } from './parking/parking.module';
-import { StreetLightsModule } from './street-lights/street-lights.module';
-import { CouncilModule } from './council/council.module';
-import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { TrainingModule } from './training/training.module';
-import { DmsModule } from './dms/dms.module';
-import { AppointmentsModule } from './appointments/appointments.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { RevenueModule } from './revenue/revenue.module';
 import { RationModule } from './ration/ration.module';
 import { RetailModule } from './retail/retail.module';
 import { CashierShiftModule } from './retail/cashier-shift.module';
-import { ClinicModule } from './clinic/clinic.module';
-import { IotModule } from './iot/iot.module';
-import { CctvModule } from './cctv/cctv.module';
-import { UtilityMetersModule } from './utility-meters/utility-meters.module';
 import { NewsModule } from './news/news.module';
 import { LoansModule } from './loans/loans.module';
 import { InvestmentsModule } from './investments/investments.module';
@@ -96,7 +70,6 @@ import { ShipmentsModule } from './shipments/shipments.module';
 import { SerialNumbersModule } from './serial-numbers/serial-numbers.module';
 import { PriceLevelsModule } from './price-levels/price-levels.module';
 import { DiscountRulesModule } from './discount-rules/discount-rules.module';
-import { ProjectsModule } from './projects/projects.module';
 import { SalesAgentsModule } from './sales-agents/sales-agents.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { CustomerTicketsModule } from './customer-tickets/customer-tickets.module';
@@ -180,31 +153,7 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
     TreasuryModule,
   ],
 
-  municipal: [
-    BusinessLicensesModule,
-    CctvModule,
-    ComplaintsModule,
-    CouncilModule,
-    CrisisModule,
-    ECityModule,
-    FireDepartmentModule,
-    IotModule,
-    MunicipalFeesModule,
-    MunicipalPropertiesModule,
-    PropertyAuditModule,
-    ServiceZonesModule,
-    StreetLightsModule,
-    TechnicalOfficeModule,
-    UtilityMetersModule,
-  ],
 
-  verticals: [
-    AppointmentsModule,
-    CemeteryModule,
-    ClinicModule,
-    ParkingModule,
-    TaxiModule,
-  ],
 
   shop: [
     ShopModule,
@@ -218,15 +167,6 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
     SurveysModule,
   ],
 
-  operations: [
-    ApprovalsModule,
-    ConstructionProjectsModule,
-    DmsModule,
-    FleetModule,
-    HelpdeskModule,
-    LettersModule,
-    ProjectsModule,
-  ],
 };
 
 /** ماژول‌هایی که هر محصولی — فروشگاه، رستوران یا سازمانی — لازم دارد. */

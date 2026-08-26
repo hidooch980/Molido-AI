@@ -29,9 +29,6 @@ export type FeatureKey =
   | 'ration'
   | 'finance'
   | 'crm'
-  | 'municipal'
-  | 'verticals'
-  | 'operations'
   | 'shop';
 
 const FEATURES: Record<string, FeatureKey[]> = {
@@ -46,9 +43,6 @@ const FEATURES: Record<string, FeatureKey[]> = {
     'hr',
     'finance',
     'crm',
-    'municipal',
-    'verticals',
-    'operations',
     'shop',
   ],
 };

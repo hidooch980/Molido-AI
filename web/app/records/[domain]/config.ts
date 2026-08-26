@@ -14,7 +14,6 @@
  *    اینجا نیست، در آن جدول هم نیست.
  */
 
-import { MUNICIPAL } from './municipal';
 import { OPERATIONS } from './operations';
 
 export type FieldKind = 'text' | 'num' | 'int' | 'date' | 'bool' | 'select' | 'textarea';
@@ -340,5 +339,4 @@ function mergeDomains(target: Record<string, DomainDef>, source: Record<string, 
   Object.assign(target, source);
 }
 
-mergeDomains(DOMAINS, MUNICIPAL, 'municipal.ts');
 mergeDomains(DOMAINS, OPERATIONS, 'operations.ts');

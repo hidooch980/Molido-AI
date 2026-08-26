@@ -6,7 +6,7 @@
 >
 > نسخهٔ زندهٔ تعاملی: `http://localhost:3000/api-docs`
 
-**711 عملیات در 97 گروه**
+**530 عملیات در 71 گروه**
 
 همهٔ مسیرها جز `/auth/login` و `/shop/*` توکن می‌خواهند:
 `Authorization: Bearer <token>`
@@ -109,18 +109,6 @@
 | PATCH | `/company` | `update` |
 | GET | `/company/currency` | `currency` |
 
-## Complaints
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/complaints` | `findAll` |
-| POST | `/complaints` | `create` |
-| GET | `/complaints/{id}` | `findOne` |
-| PATCH | `/complaints/{id}/refer` | `refer` |
-| PATCH | `/complaints/{id}/status` | `updateStatus` |
-| GET | `/complaints/stats` | `stats` |
-| GET | `/complaints/track/{trackingNo}` | `track` |
-
 ## Contracts
 
 | متد | مسیر | شرح |
@@ -155,30 +143,6 @@
 | GET | `/expenses/{id}` | `findOne` |
 | PATCH | `/expenses/{id}` | `update` |
 
-## FireDepartment
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/fire-department/firefighters` | `findFirefighters` |
-| POST | `/fire-department/firefighters` | `createFirefighter` |
-| PATCH | `/fire-department/firefighters/{id}` | `updateFirefighter` |
-| GET | `/fire-department/incidents` | `findIncidents` |
-| POST | `/fire-department/incidents` | `reportIncident` |
-| GET | `/fire-department/incidents/{id}` | `findIncident` |
-| PATCH | `/fire-department/incidents/{id}/dispatch` | `dispatchIncident` |
-| PATCH | `/fire-department/incidents/{id}/status` | `updateIncidentStatus` |
-| GET | `/fire-department/safety-inspections` | `findSafetyInspections` |
-| POST | `/fire-department/safety-inspections` | `createSafetyInspection` |
-| GET | `/fire-department/stations` | `findAllStations` |
-| POST | `/fire-department/stations` | `createStation` |
-| DELETE | `/fire-department/stations/{id}` | `removeStation` |
-| GET | `/fire-department/stations/{id}` | `findStation` |
-| PATCH | `/fire-department/stations/{id}` | `updateStation` |
-| GET | `/fire-department/stats` | `stats` |
-| GET | `/fire-department/vehicles` | `findVehicles` |
-| POST | `/fire-department/vehicles` | `createVehicle` |
-| PATCH | `/fire-department/vehicles/{id}` | `updateVehicle` |
-
 ## Inventory
 
 | متد | مسیر | شرح |
@@ -205,18 +169,6 @@
 | PATCH | `/ledger/fiscal-years/{id}/close` | `closeFiscalYear` |
 | GET | `/ledger/income-statement` | `incomeStatement` |
 | GET | `/ledger/trial-balance` | `trialBalance` |
-
-## MunicipalFees
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/municipal-fees` | `findAll` |
-| POST | `/municipal-fees` | `create` |
-| GET | `/municipal-fees/{id}` | `findOne` |
-| PATCH | `/municipal-fees/{id}/cancel` | `cancel` |
-| PATCH | `/municipal-fees/{id}/pay` | `pay` |
-| POST | `/municipal-fees/from-violation/{violationId}` | `createFromViolation` |
-| GET | `/municipal-fees/stats` | `stats` |
 
 ## N8n
 
@@ -413,24 +365,6 @@
 | GET | `/suppliers/{id}` | `findOne` |
 | PATCH | `/suppliers/{id}` | `update` |
 
-## TechnicalOffice
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/technical-office/permits` | `findAllPermits` |
-| POST | `/technical-office/permits` | `createPermit` |
-| GET | `/technical-office/permits/{id}` | `findPermit` |
-| PATCH | `/technical-office/permits/{id}` | `updatePermit` |
-| PATCH | `/technical-office/permits/{id}/approve` | `approvePermit` |
-| POST | `/technical-office/permits/{id}/inspections` | `addInspection` |
-| PATCH | `/technical-office/permits/{id}/reject` | `rejectPermit` |
-| GET | `/technical-office/stats` | `stats` |
-| GET | `/technical-office/violations` | `findAllViolations` |
-| POST | `/technical-office/violations` | `createViolation` |
-| GET | `/technical-office/violations/{id}` | `findViolation` |
-| PATCH | `/technical-office/violations/{id}` | `updateViolation` |
-| PATCH | `/technical-office/violations/{id}/fine` | `fineViolation` |
-
 ## Telephony
 
 | متد | مسیر | شرح |
@@ -484,17 +418,6 @@
 | GET | `/voice/samples/pending` | `pending` |
 | GET | `/voice/status` | `status` |
 
-## آرامستان
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/cemetery` | `findAll` |
-| POST | `/cemetery` | `create` |
-| DELETE | `/cemetery/{id}` | `remove` |
-| GET | `/cemetery/{id}` | `findOne` |
-| PATCH | `/cemetery/{id}` | `update` |
-| GET | `/cemetery/stats` | `stats` |
-
 ## آموزش کارکنان
 
 | متد | مسیر | شرح |
@@ -527,17 +450,6 @@
 | GET | `/shipments/{id}` | `findOne` |
 | PATCH | `/shipments/{id}` | `update` |
 | GET | `/shipments/stats` | `stats` |
-
-## املاک شهرداری
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/municipal-properties` | `findAll` |
-| POST | `/municipal-properties` | `create` |
-| DELETE | `/municipal-properties/{id}` | `remove` |
-| GET | `/municipal-properties/{id}` | `findOne` |
-| PATCH | `/municipal-properties/{id}` | `update` |
-| GET | `/municipal-properties/stats` | `stats` |
 
 ## انبار
 
@@ -592,17 +504,6 @@
 | GET | `/budget/lines/{id}/status` | `lineStatus` |
 | GET | `/budget/stats` | `stats` |
 
-## تاکسیرانی
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/taxi` | `findAll` |
-| POST | `/taxi` | `create` |
-| DELETE | `/taxi/{id}` | `remove` |
-| GET | `/taxi/{id}` | `findOne` |
-| PATCH | `/taxi/{id}` | `update` |
-| GET | `/taxi/stats` | `stats` |
-
 ## تیکت مشتری
 
 | متد | مسیر | شرح |
@@ -613,17 +514,6 @@
 | GET | `/customer-tickets/{id}` | `findOne` |
 | PATCH | `/customer-tickets/{id}` | `update` |
 | GET | `/customer-tickets/stats` | `stats` |
-
-## جلسات شورا
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/council` | `findAll` |
-| POST | `/council` | `create` |
-| DELETE | `/council/{id}` | `remove` |
-| GET | `/council/{id}` | `findOne` |
-| PATCH | `/council/{id}` | `update` |
-| GET | `/council/stats` | `stats` |
 
 ## حضور و غیاب
 
@@ -651,28 +541,6 @@
 | POST | `/assets/depreciation/run` | `runDepreciation` |
 | GET | `/assets/stats` | `stats` |
 
-## دبیرخانه
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/letters` | `findAll` |
-| POST | `/letters` | `create` |
-| DELETE | `/letters/{id}` | `remove` |
-| GET | `/letters/{id}` | `findOne` |
-| PATCH | `/letters/{id}` | `update` |
-| GET | `/letters/stats` | `stats` |
-
-## درمانگاه
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/clinic` | `findAll` |
-| POST | `/clinic` | `create` |
-| DELETE | `/clinic/{id}` | `remove` |
-| GET | `/clinic/{id}` | `findOne` |
-| PATCH | `/clinic/{id}` | `update` |
-| GET | `/clinic/stats` | `stats` |
-
 ## دسته‌بندی
 
 | متد | مسیر | شرح |
@@ -684,17 +552,6 @@
 | PATCH | `/categories/{id}` | `update` |
 | GET | `/categories/tree` | `tree` |
 
-## دوربین‌های شهری
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/cctv` | `findAll` |
-| POST | `/cctv` | `create` |
-| DELETE | `/cctv/{id}` | `remove` |
-| GET | `/cctv/{id}` | `findOne` |
-| PATCH | `/cctv/{id}` | `update` |
-| GET | `/cctv/stats` | `stats` |
-
 ## روابط عمومی
 
 | متد | مسیر | شرح |
@@ -705,17 +562,6 @@
 | GET | `/news/{id}` | `findOne` |
 | PATCH | `/news/{id}` | `update` |
 | GET | `/news/stats` | `stats` |
-
-## روشنایی معابر
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/street-lights` | `findAll` |
-| POST | `/street-lights` | `create` |
-| DELETE | `/street-lights/{id}` | `remove` |
-| GET | `/street-lights/{id}` | `findOne` |
-| PATCH | `/street-lights/{id}` | `update` |
-| GET | `/street-lights/stats` | `stats` |
 
 ## زنجیرهٔ فروش
 
@@ -774,17 +620,6 @@
 | PATCH | `/sales-orders/{id}` | `update` |
 | GET | `/sales-orders/stats` | `stats` |
 
-## سنسورهای IoT
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/iot` | `findAll` |
-| POST | `/iot` | `create` |
-| DELETE | `/iot/{id}` | `remove` |
-| GET | `/iot/{id}` | `findOne` |
-| PATCH | `/iot/{id}` | `update` |
-| GET | `/iot/stats` | `stats` |
-
 ## شمارهٔ سریال
 
 | متد | مسیر | شرح |
@@ -798,17 +633,6 @@
 | POST | `/serial-numbers/batch` | `addBatch` |
 | GET | `/serial-numbers/lookup/{serial}` | `lookup` |
 | GET | `/serial-numbers/stats` | `stats` |
-
-## شهر الکترونیک
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/e-city` | `findAll` |
-| POST | `/e-city` | `create` |
-| DELETE | `/e-city/{id}` | `remove` |
-| GET | `/e-city/{id}` | `findOne` |
-| PATCH | `/e-city/{id}` | `update` |
-| GET | `/e-city/stats` | `stats` |
 
 ## عملیات
 
@@ -847,17 +671,6 @@
 | POST | `/shop/register/request-code` | `requestCode` |
 | GET | `/shop/settings` | `settings` |
 
-## فضای سبز و پسماند
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/service-zones` | `findAll` |
-| POST | `/service-zones` | `create` |
-| DELETE | `/service-zones/{id}` | `remove` |
-| GET | `/service-zones/{id}` | `findOne` |
-| PATCH | `/service-zones/{id}` | `update` |
-| GET | `/service-zones/stats` | `stats` |
-
 ## قوانین تخفیف
 
 | متد | مسیر | شرح |
@@ -893,28 +706,6 @@
 | PATCH | `/audit-log/{id}` | `update` |
 | GET | `/audit-log/stats` | `stats` |
 
-## مدیریت اسناد
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/dms` | `findAll` |
-| POST | `/dms` | `create` |
-| DELETE | `/dms/{id}` | `remove` |
-| GET | `/dms/{id}` | `findOne` |
-| PATCH | `/dms/{id}` | `update` |
-| GET | `/dms/stats` | `stats` |
-
-## مدیریت بحران
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/crisis` | `findAll` |
-| POST | `/crisis` | `create` |
-| DELETE | `/crisis/{id}` | `remove` |
-| GET | `/crisis/{id}` | `findOne` |
-| PATCH | `/crisis/{id}` | `update` |
-| GET | `/crisis/stats` | `stats` |
-
 ## مدیریت فروشگاه
 
 | متد | مسیر | شرح |
@@ -929,17 +720,6 @@
 | GET | `/shop-admin/settings` | `settings` |
 | POST | `/shop-admin/settings` | `saveSettings` |
 | GET | `/shop-admin/stats` | `stats` |
-
-## مدیریت پروژه
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/projects` | `findAll` |
-| POST | `/projects` | `create` |
-| DELETE | `/projects/{id}` | `remove` |
-| GET | `/projects/{id}` | `findOne` |
-| PATCH | `/projects/{id}` | `update` |
-| GET | `/projects/stats` | `stats` |
 
 ## مرجوعی
 
@@ -962,17 +742,6 @@
 | PATCH | `/leave-requests/{id}` | `update` |
 | GET | `/leave-requests/stats` | `stats` |
 
-## ممیزی نوسازی
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/property-audit` | `findAll` |
-| POST | `/property-audit` | `create` |
-| DELETE | `/property-audit/{id}` | `remove` |
-| GET | `/property-audit/{id}` | `findOne` |
-| PATCH | `/property-audit/{id}` | `update` |
-| GET | `/property-audit/stats` | `stats` |
-
 ## مناقصه
 
 | متد | مسیر | شرح |
@@ -984,17 +753,6 @@
 | PATCH | `/tenders/{id}` | `update` |
 | GET | `/tenders/stats` | `stats` |
 
-## ناوگان
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/fleet` | `findAll` |
-| POST | `/fleet` | `create` |
-| DELETE | `/fleet/{id}` | `remove` |
-| GET | `/fleet/{id}` | `findOne` |
-| PATCH | `/fleet/{id}` | `update` |
-| GET | `/fleet/stats` | `stats` |
-
 ## نظرسنجی
 
 | متد | مسیر | شرح |
@@ -1005,28 +763,6 @@
 | GET | `/surveys/{id}` | `findOne` |
 | PATCH | `/surveys/{id}` | `update` |
 | GET | `/surveys/stats` | `stats` |
-
-## نوبت‌دهی
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/appointments` | `findAll` |
-| POST | `/appointments` | `create` |
-| DELETE | `/appointments/{id}` | `remove` |
-| GET | `/appointments/{id}` | `findOne` |
-| PATCH | `/appointments/{id}` | `update` |
-| GET | `/appointments/stats` | `stats` |
-
-## هلپ‌دسک
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/helpdesk` | `findAll` |
-| POST | `/helpdesk` | `create` |
-| DELETE | `/helpdesk/{id}` | `remove` |
-| GET | `/helpdesk/{id}` | `findOne` |
-| PATCH | `/helpdesk/{id}` | `update` |
-| GET | `/helpdesk/stats` | `stats` |
 
 ## وام‌ها
 
@@ -1049,6 +785,14 @@
 | GET | `/webhooks/{id}` | `findOne` |
 | PATCH | `/webhooks/{id}` | `update` |
 | GET | `/webhooks/stats` | `stats` |
+
+## ورود با درگاه دولت
+
+| متد | مسیر | شرح |
+|---|---|---|
+| GET | `/gov-sso/callback` | `callback` |
+| GET | `/gov-sso/start` | `start` |
+| GET | `/gov-sso/status` | `status` |
 
 ## وضعیت سیستم
 
@@ -1075,39 +819,6 @@
 | PATCH | `/sales-agents/commissions/{id}/pay` | `markPaid` |
 | POST | `/sales-agents/commissions/calculate` | `calculate` |
 | GET | `/sales-agents/stats` | `stats` |
-
-## پارکینگ
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/parking` | `findAll` |
-| POST | `/parking` | `create` |
-| DELETE | `/parking/{id}` | `remove` |
-| GET | `/parking/{id}` | `findOne` |
-| PATCH | `/parking/{id}` | `update` |
-| GET | `/parking/stats` | `stats` |
-
-## پروانه کسب
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/business-licenses` | `findAll` |
-| POST | `/business-licenses` | `create` |
-| DELETE | `/business-licenses/{id}` | `remove` |
-| GET | `/business-licenses/{id}` | `findOne` |
-| PATCH | `/business-licenses/{id}` | `update` |
-| GET | `/business-licenses/stats` | `stats` |
-
-## پروژه عمرانی
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/construction-projects` | `findAll` |
-| POST | `/construction-projects` | `create` |
-| DELETE | `/construction-projects/{id}` | `remove` |
-| GET | `/construction-projects/{id}` | `findOne` |
-| PATCH | `/construction-projects/{id}` | `update` |
-| GET | `/construction-projects/stats` | `stats` |
 
 ## پیشنهاد قیمت
 
@@ -1184,25 +895,3 @@
 | GET | `/email-campaigns/{id}` | `findOne` |
 | PATCH | `/email-campaigns/{id}` | `update` |
 | GET | `/email-campaigns/stats` | `stats` |
-
-## کنتور آب و گاز
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/utility-meters` | `findAll` |
-| POST | `/utility-meters` | `create` |
-| DELETE | `/utility-meters/{id}` | `remove` |
-| GET | `/utility-meters/{id}` | `findOne` |
-| PATCH | `/utility-meters/{id}` | `update` |
-| GET | `/utility-meters/stats` | `stats` |
-
-## گردش‌کار تأیید
-
-| متد | مسیر | شرح |
-|---|---|---|
-| GET | `/approvals` | `findAll` |
-| POST | `/approvals` | `create` |
-| DELETE | `/approvals/{id}` | `remove` |
-| GET | `/approvals/{id}` | `findOne` |
-| PATCH | `/approvals/{id}` | `update` |
-| GET | `/approvals/stats` | `stats` |

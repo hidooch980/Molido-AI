@@ -96,36 +96,9 @@ export const NAV: NavItem[] = [
   { href: '/roles', group: 'people', label: 'menuRoles', icon: 'settings' },
   { href: '/records/customer-tickets', group: 'records', label: 'menuTickets', icon: 'ticket', feature: 'crm' as FeatureKey },
   { href: '/budget', group: 'money', label: 'budgetCycle', icon: 'coins', feature: 'finance' as FeatureKey },
-  { href: '/records/parking', group: 'records', label: 'menuParking', icon: 'building', feature: 'verticals' as FeatureKey },
-  { href: '/records/street-lights', group: 'records', label: 'menuStreetLights', icon: 'tag', feature: 'municipal' as FeatureKey },
-  { href: '/records/crisis', group: 'records', label: 'menuCrisis', icon: 'alert', feature: 'municipal' as FeatureKey },
-  { href: '/records/fleet', group: 'records', label: 'menuFleet', icon: 'truck', feature: 'operations' as FeatureKey },
-  { href: '/records/taxi', group: 'records', label: 'menuTaxi', icon: 'truck', feature: 'verticals' as FeatureKey },
-  { href: '/records/iot', group: 'records', label: 'menuIot', icon: 'target', feature: 'municipal' as FeatureKey },
-  { href: '/records/letters', group: 'records', label: 'menuLetters', icon: 'news', feature: 'operations' as FeatureKey },
-  { href: '/records/municipal-properties', group: 'records', label: 'menuMunicipalProps', icon: 'building', feature: 'municipal' as FeatureKey },
-  { href: '/records/service-zones', group: 'records', label: 'menuServiceZones', icon: 'target', feature: 'municipal' as FeatureKey },
-  { href: '/records/property-audit', group: 'records', label: 'menuPropertyAudit', icon: 'survey', feature: 'municipal' as FeatureKey },
-  { href: '/complaints', group: 'records', label: 'menuComplaints', icon: 'alert', feature: 'municipal' as FeatureKey },
-  { href: '/municipal-fees', group: 'money', label: 'menuMunicipalFees', icon: 'receipt', feature: 'municipal' as FeatureKey },
-  { href: '/technical-office', group: 'records', label: 'menuTechnicalOffice', icon: 'building', feature: 'municipal' as FeatureKey },
-  { href: '/fire-department', group: 'records', label: 'menuFireDepartment', icon: 'alert', feature: 'municipal' as FeatureKey },
-  { href: '/records/helpdesk', group: 'records', label: 'menuHelpdesk', icon: 'ticket', feature: 'operations' as FeatureKey },
-  { href: '/records/projects', group: 'records', label: 'menuProjects', icon: 'target', feature: 'operations' as FeatureKey },
-  { href: '/records/approvals', group: 'records', label: 'menuApprovals', icon: 'survey', feature: 'operations' as FeatureKey },
-  { href: '/records/dms', group: 'records', label: 'menuDms', icon: 'news', feature: 'operations' as FeatureKey },
-  { href: '/records/construction-projects', group: 'records', label: 'menuConstructionProjects', icon: 'building', feature: 'operations' as FeatureKey },
   { href: '/records/leave-requests', group: 'records', label: 'menuLeaveRequests', icon: 'graduation', feature: 'hr' as FeatureKey },
   { href: '/records/price-levels', group: 'records', label: 'menuPriceLevels', icon: 'tag', feature: 'sales' as FeatureKey },
   { href: '/records/discount-rules', group: 'records', label: 'menuDiscountRules', icon: 'coins', feature: 'sales' as FeatureKey },
-  { href: '/records/appointments', group: 'records', label: 'menuAppointments', icon: 'survey', feature: 'verticals' as FeatureKey },
-  { href: '/records/cemetery', group: 'records', label: 'menuCemetery', icon: 'building', feature: 'verticals' as FeatureKey },
-  { href: '/records/clinic', group: 'records', label: 'menuClinic', icon: 'alert', feature: 'verticals' as FeatureKey },
-  { href: '/records/business-licenses', group: 'records', label: 'menuBusinessLicenses', icon: 'tender', feature: 'municipal' as FeatureKey },
-  { href: '/records/e-city', group: 'records', label: 'menuECity', icon: 'link', feature: 'municipal' as FeatureKey },
-  { href: '/records/council', group: 'records', label: 'menuCouncil', icon: 'news', feature: 'municipal' as FeatureKey },
-  { href: '/records/cctv', group: 'records', label: 'menuCctv', icon: 'target', feature: 'municipal' as FeatureKey },
-  { href: '/records/utility-meters', group: 'records', label: 'menuUtilityMeters', icon: 'tag', feature: 'municipal' as FeatureKey },
   { href: '/records/budget', group: 'records', label: 'menuBudget', icon: 'ledger', feature: 'finance' as FeatureKey },
   { href: '/records/loans', group: 'records', label: 'menuLoans', icon: 'coins', feature: 'finance' as FeatureKey },
   { href: '/records/investments', group: 'records', label: 'menuInvestments', icon: 'chart', feature: 'finance' as FeatureKey },
@@ -213,7 +186,12 @@ export default function AppShell({
 
   useEffect(() => {
     if (!getToken()) {
-      router.replace('/');
+      // ⚠️ `/panel` نه `/`.
+      //
+      //    ریشه حالا صفحهٔ معرفیِ شرکت است.  فرستادنِ کاربرِ بی‌توکن
+      //    به آنجا یعنی حلقه: صفحهٔ معرفی می‌بیند، «ورود» می‌زند،
+      //    دوباره برمی‌گردد.
+      router.replace('/panel');
       return;
     }
 
@@ -278,7 +256,8 @@ export default function AppShell({
     //    همین دستگاه کارِ نیمه‌تمام داشته باشد.
     void clearMine();
     clearToken();
-    router.replace('/');
+    // خروج به صفحهٔ ورود، نه به صفحهٔ معرفی.
+    router.replace('/panel');
   }
 
   // صفحه‌ای که ماژولش در این محصول بالا نیامده نباید در منو دیده شود؛

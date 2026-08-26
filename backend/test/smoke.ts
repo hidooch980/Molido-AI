@@ -46,9 +46,6 @@ async function main() {
   const { AuditTrailService } = await import('../src/audit-log/audit-trail.service');
   const { NotificationsService } = await import('../src/notifications/notifications.service');
   const { AccountingService } = await import('../src/accounting/accounting.service');
-  const { FireDepartmentService } = await import('../src/fire-department/fire-department.service');
-  const { TechnicalOfficeService } = await import('../src/technical-office/technical-office.service');
-  const { MunicipalFeesService } = await import('../src/municipal-fees/municipal-fees.service');
   const { PosTerminalsService } = await import('../src/pos-terminals/pos-terminals.service');
   const { ContractsService } = await import('../src/contracts/contracts.service');
   const { AssetsService } = await import('../src/assets/assets.service');
@@ -80,9 +77,6 @@ async function main() {
   const ai = new AiService(db, llm);
   const notifications = new NotificationsService(db);
   const accounting = new AccountingService(db);
-  const fire = new FireDepartmentService(db);
-  const technical = new TechnicalOfficeService(db);
-  const municipal = new MunicipalFeesService(db, revenue, auditTrail, noopN8n);
   const pos = new PosTerminalsService(db);
   const contracts = new ContractsService(db);
   const assets = new AssetsService(db, posting);
@@ -335,70 +329,12 @@ async function main() {
     await restaurant.toggleAvailability(companyId, item.id);
   });
 
-  // ---- municipal / fire / technical ----
-  await check('technical-office flow', async () => {
-    const permit = await technical.createPermit(companyId, {
-      ownerName: 'حسن',
-      address: 'خیابان اول',
-    });
-    await technical.addInspection(permit.id, companyId, {
-      inspectorName: 'ناظر',
-      result: 'PASSED',
-    });
-    await technical.approvePermit(permit.id, companyId);
-    await technical.updatePermit(permit.id, companyId, { floors: 3 });
-    await technical.findAllPermits(companyId, { search: 'حسن' });
-    await technical.findPermit(permit.id, companyId);
-
-    const violation = await technical.createViolation(companyId, {
-      ownerName: 'حسن',
-      address: 'خیابان اول',
-      description: 'تخلف',
-    });
-    await technical.fineViolation(violation.id, companyId, 100_000);
-    await technical.findAllViolations(companyId);
-    await technical.stats(companyId);
-
-    const bill = await municipal.createFromViolation(violation.id, companyId);
-    await municipal.pay(bill.id, companyId, { cashBoxId: cashBox.id });
-    await municipal.findAll(companyId, { search: 'حسن' });
-    await municipal.findOne(bill.id, companyId);
-    await municipal.stats(companyId);
-  });
-
-  await check('fire-department flow', async () => {
-    const station = await fire.createStation(companyId, { name: 'ایستگاه ۱', code: `F-${Date.now()}` });
-    const firefighter = await fire.createFirefighter(companyId, {
-      stationId: station.id,
-      firstName: 'رضا',
-      lastName: 'محمدی',
-    });
-    await fire.updateFirefighter(firefighter.id, companyId, { isOnDuty: true });
-    const vehicle = await fire.createVehicle(companyId, {
-      stationId: station.id,
-      name: 'خودرو ۱',
-      plateNo: `P-${Date.now()}`,
-      vehicleType: 'PUMPER',
-    });
-    await fire.updateVehicle(vehicle.id, companyId, { status: 'READY' });
-    const incident = await fire.reportIncident(companyId, { address: 'خیابان دوم' });
-    await fire.dispatchIncident(incident.id, companyId, station.id);
-    await fire.updateIncidentStatus(incident.id, companyId, { status: 'RESOLVED', injuries: 1 });
-    await fire.createSafetyInspection(companyId, {
-      propertyName: 'ساختمان',
-      address: 'خیابان سوم',
-      ownerName: 'حسن',
-      result: 'PASSED',
-    });
-    await fire.findAllStations(companyId);
-    await fire.findStation(station.id, companyId);
-    await fire.findFirefighters(companyId, station.id);
-    await fire.findVehicles(companyId);
-    await fire.findIncidents(companyId, {});
-    await fire.findIncident(incident.id, companyId);
-    await fire.findSafetyInspections(companyId);
-    await fire.stats(companyId);
-  });
+  // ⚠️ آزمون‌های شهرداری، دفتر فنی و آتش‌نشانی برداشته شدند.
+  //
+  //    سه گروهِ قابلیت (`municipal`، `verticals`، `operations`) به
+  //    درخواستِ صاحبِ محصول حذف شدند — مهاجرت ۰۵۶ جدول‌هایشان را هم
+  //    برد.  نگه داشتنِ آزمونی که ماژولش وجود ندارد یعنی خطای
+  //    ساختِ ماژول، نه شکستِ مفید.
 
   await check('pos-terminals flow', async () => {
     const terminal = await pos.create(companyId, {
@@ -601,49 +537,15 @@ async function main() {
     }
   });
 
-  // ---- shared revenue layer: municipal fee actually moves money ----
-  await check('revenue: municipal fee collection', async () => {
-    const municipalFees = municipal;
-
-    const before = await cashbox.findOne(cashBox.id, companyId);
-    const bill = await municipalFees.create(companyId, {
-      payerName: 'حسن کریمی',
-      amount: 250_000,
-      type: 'RENOVATION',
-    });
-
-    const paid = await municipalFees.pay(bill.id, companyId, {
-      cashBoxId: cashBox.id,
-      method: 'CARD',
-    });
-    if (paid.status !== 'PAID') throw new Error('bill was not marked paid');
-    if (!paid.receipt?.receiptNo) throw new Error('no receipt issued');
-
-    // the cash box must actually have grown by the bill amount
-    const after = await cashbox.findOne(cashBox.id, companyId);
-    const delta = Number(after.balance) - Number(before.balance);
-    if (delta !== 250_000) throw new Error(`cash box moved by ${delta}, expected 250000`);
-
-    // a second collection must be impossible
-    let doubleCharged = false;
-    try {
-      await municipalFees.pay(bill.id, companyId, { cashBoxId: cashBox.id });
-      doubleCharged = true;
-    } catch {
-      // expected
-    }
-    if (doubleCharged) throw new Error('bill was collected twice');
-
-    // and the audit trail must show it
-    const entries = await db.query(
-      `SELECT * FROM "AuditLog" WHERE entity = 'MunicipalBill' AND "entityId" = $1`,
-      [bill.id],
-    );
-    if (!entries.length) throw new Error('no audit entry recorded');
-
-    const stats = await revenue.stats(companyId);
-    if (!stats.byEntityType.MunicipalBill) throw new Error('revenue stats missing subsystem');
-  });
+  // ⚠️ دو آزمونِ درآمد که با «قبضِ شهرداری» کار می‌کردند برداشته شدند.
+  //
+  //    خودِ لایهٔ درآمد می‌ماند و آزمونش هم — بلوکِ بعدی مقصدِ نامعتبر
+  //    و مبلغِ منفی را می‌سنجد و به هیچ ماژولِ حذف‌شده‌ای وابسته نیست.
+  //
+  //    آنچه رفت، فقط **وسیلهٔ** آزمون بود: `MunicipalBill` دیگر وجود
+  //    ندارد (مهاجرت ۰۵۶).  اگر روزی زیرسامانهٔ دیگری بخواهد از
+  //    `revenue.collect` استفاده کند، آزمونِ زنجیرهٔ کامل با همان
+  //    ساخته می‌شود.
 
   await check('revenue: rejects bad destination', async () => {
     let accepted = false;
@@ -706,30 +608,6 @@ async function main() {
 
 
   // ---- دریافت وجه مشترک ----
-  await check('revenue.collect + stats', async () => {
-    const bill = await municipal.create(companyId, {
-      payerName: 'حسن',
-      amount: 250_000,
-    });
-    const paid = await municipal.pay(bill.id, companyId, {
-      cashBoxId: cashBox.id,
-      method: 'CASH',
-    });
-    if (!paid.receipt) throw new Error('رسید صادر نشد');
-
-    // پرداخت دوباره باید رد شود
-    let rejected = false;
-    try {
-      await municipal.pay(bill.id, companyId, { cashBoxId: cashBox.id });
-    } catch {
-      rejected = true;
-    }
-    if (!rejected) throw new Error('پرداخت دوبارهٔ فیش رد نشد');
-
-    await revenue.findByEntity(companyId, 'MunicipalBill', bill.id);
-    await revenue.findAll(companyId, { entityType: 'MunicipalBill' });
-    await revenue.stats(companyId);
-  });
 
   // ---- کالابرگ ----
   await check('ration flow', async () => {

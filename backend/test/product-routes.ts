@@ -80,8 +80,6 @@ async function main(): Promise<void> {
     ['فروش دارد', has(store, '/sales')],
     ['دفتر کل دارد', has(store, '/ledger/')],
     ['رستوران ندارد', !has(store, '/restaurant')],
-    ['عوارض شهرداری ندارد', !has(store, '/municipal-fees')],
-    ['آتش‌نشانی ندارد', !has(store, '/fire-department')],
   ]);
 
   check('رستوران', [
@@ -90,14 +88,17 @@ async function main(): Promise<void> {
     ['دفتر کل دارد', has(resto, '/ledger/')],
     ['صندوق فروشگاهی ندارد', !has(resto, '/retail/')],
     ['کالابرگ ندارد', !has(resto, '/ration/')],
-    ['عوارض شهرداری ندارد', !has(resto, '/municipal-fees')],
-    ['دفتر فنی ندارد', !has(resto, '/technical-office')],
   ]);
 
+  // ⚠️ `suite` دیگر ماژولِ **اختصاصی** ندارد.
+  //
+  //    سه گروهِ `municipal`، `verticals` و `operations` کاملاً حذف
+  //    شدند (مهاجرت ۰۵۶).  پس تنها تفاوتِ نسخهٔ کامل این است که هم
+  //    صندوق فروشگاهی دارد هم رستوران — و همین دو سنجه دقیقاً همان
+  //    را می‌سنجند.
   check('نسخهٔ کامل', [
     ['رستوران دارد', has(suite, '/restaurant')],
     ['صندوق فروشگاهی دارد', has(suite, '/retail/')],
-    ['شهرداری دارد', has(suite, '/municipal-fees')],
   ]);
 
   if (suite.length > store.length && suite.length > resto.length) {

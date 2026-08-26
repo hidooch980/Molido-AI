@@ -23,7 +23,6 @@ describe('تعریف محصول', () => {
     expect(hasFeature('retail')).toBe(true);
     expect(hasFeature('ration')).toBe(true);
     expect(hasFeature('restaurant')).toBe(false);
-    expect(hasFeature('municipal')).toBe(false);
   });
 
   it('رستوران صندوق فروشگاهی و کالابرگ را ندارد', () => {
@@ -33,7 +32,6 @@ describe('تعریف محصول', () => {
     expect(hasFeature('catalogue')).toBe(true);
     expect(hasFeature('retail')).toBe(false);
     expect(hasFeature('ration')).toBe(false);
-    expect(hasFeature('municipal')).toBe(false);
   });
 
   it('نسخهٔ کامل همه‌چیز را دارد', () => {
@@ -42,7 +40,8 @@ describe('تعریف محصول', () => {
       expect(hasFeature(feature)).toBe(true);
     }
     expect(PRODUCTS.suite.features).toContain('restaurant');
-    expect(PRODUCTS.suite.features).toContain('municipal');
+    expect(PRODUCTS.suite.features).toContain('retail');
+    expect(PRODUCTS.suite.features).toContain('restaurant');
   });
 
   it('هر محصول قابلیت تکراری ندارد', () => {

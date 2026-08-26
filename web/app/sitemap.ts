@@ -47,11 +47,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   return [
+    // ⚠️ ریشه تا امروز اینجا نبود — و درست بود، چون صفحهٔ ورودِ پنل
+    //    ایندکس‌شدنی نیست.  حالا صفحهٔ معرفیِ شرکت است و باید نخستین
+    //    و مهم‌ترین ورودیِ نقشه باشد.
+    {
+      url: base,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 1,
+    },
     {
       url: `${base}/shop`,
       lastModified: now,
       changeFrequency: 'daily',
-      priority: 1,
+      // ⚠️ ۰٫۹ نه ۱: با دو صفحهٔ هم‌اولویت، خزنده خودش انتخاب می‌کند
+      //    کدام «اصلی» است.  ریشه باید صریحاً بالاتر باشد.
+      priority: 0.9,
     },
     // دسته‌ها از کالاها مهم‌ترند برای خزنده: چند صفحهٔ پرمحتوا که به
     // بقیه لینک می‌دهند.

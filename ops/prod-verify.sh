@@ -63,7 +63,11 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 #    و همین حالا کارش را کرد: پس از استقرار ۱۸۷ دید و متوقف شد.  پیش
 #    از بالا بردنِ عدد، هر هفت جدول به مهاجرتِ سازنده‌اش برگردانده شد —
 #    وگرنه بالا بردنِ کورِ عدد یعنی سنجه را خاموش کردن، نه رفع کردن.
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "187"
+#
+#    ۱۸۷ -> ۱۳۴ با مهاجرت ۰۵۶: حذفِ کاملِ سه گروهِ قابلیت به درخواستِ
+#    صاحبِ محصول.  ۵۳ جدول رفت — فهرستشان با بستارِ وابستگی ساخته شد
+#    نه با شمردنِ دستی، و پیش از حذف تأیید شد که همه صفر سطر دارند.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "134"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

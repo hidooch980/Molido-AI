@@ -17,7 +17,6 @@ type StateRow = {
   nonce: string;
   codeVerifier: string;
   audience: GovAudience;
-  companyId: string | null;
   redirectTo: string | null;
   usedAt: Date | null;
 };
@@ -47,7 +46,6 @@ export class GovSsoService {
    */
   async start(input: {
     audience: GovAudience;
-    companyId?: string | null;
     redirectTo?: string | null;
   }): Promise<{ url: string }> {
     const state = randomBytes(24).toString('base64url');
@@ -65,15 +63,14 @@ export class GovSsoService {
     await runAsSystem(() =>
       this.db.execute(
         `INSERT INTO "GovSsoState"
-           (id, state, nonce, "codeVerifier", audience, "companyId", "redirectTo", "expiresAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, now() + interval '${STATE_TTL_MS} milliseconds')`,
+           (id, state, nonce, "codeVerifier", audience, "redirectTo", "expiresAt")
+         VALUES ($1, $2, $3, $4, $5, $6, now() + interval '${STATE_TTL_MS} milliseconds')`,
         [
           randomUUID(),
           state,
           nonce,
           codeVerifier,
           input.audience,
-          input.companyId ?? null,
           // ⚠️ فقط مسیرِ نسبی پذیرفته می‌شود؛ دلیلش در `safeRedirect`.
           safeRedirect(input.redirectTo),
         ],
@@ -97,7 +94,7 @@ export class GovSsoService {
         `UPDATE "GovSsoState"
             SET "usedAt" = now()
           WHERE state = $1 AND "usedAt" IS NULL AND "expiresAt" > now()
-        RETURNING id, state, nonce, "codeVerifier", audience, "companyId", "redirectTo", "usedAt"`,
+        RETURNING id, state, nonce, "codeVerifier", audience, "redirectTo", "usedAt"`,
         [state],
       ),
     );

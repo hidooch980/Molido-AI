@@ -49,21 +49,12 @@ export class GovSsoController {
   async start(
     @Query('audience') audience?: string,
     @Query('redirectTo') redirectTo?: string,
-    @Req() req?: Request,
   ) {
     if (!isGovAudience(audience)) {
       throw new BadRequestException('مخاطبِ ورود نامعتبر است');
     }
 
-    // شناسهٔ شرکت از پیکربندیِ سرور می‌آید، نه از درخواست — همان
-    // استدلالِ `ShopTenantMiddleware`: خواندنش از پارامتر یعنی هرکس
-    // می‌تواند شرکتِ دلخواهش را هدف بگیرد.
-    const companyId =
-      (req as { shopCompanyId?: string } | undefined)?.shopCompanyId ??
-      process.env.SHOP_COMPANY_ID?.trim() ??
-      null;
-
-    return this.sso.start({ audience, companyId, redirectTo: redirectTo ?? null });
+    return this.sso.start({ audience, redirectTo: redirectTo ?? null });
   }
 
   /**
@@ -102,7 +93,7 @@ export class GovSsoController {
         userAgent: req?.headers?.['user-agent'] as string | undefined,
       };
 
-      const result = await this.issueFor(audience, identity, row.companyId, meta);
+      const result = await this.issueFor(audience, identity, targetCompany(), meta);
       const target = row.redirectTo ?? defaultLanding(audience);
 
       // ⚠️ توکن در پارامترِ نشانی می‌رود و صفحهٔ وب بی‌درنگ از نوار
@@ -180,6 +171,23 @@ function webBase(): string {
  *    یعنی ورودِ موفق کاربر را به صفحهٔ ۴۰۴ می‌برد، با توکنی که هیچ‌کس
  *    نمی‌خواندش.  با اجرای واقعیِ جریان دیده شد، نه با خواندنِ کد.
  */
+/**
+ * شرکتِ مقصد برای مسیرهای عمومی.
+ *
+ * ⚠️ در لحظهٔ بازگشت خوانده می‌شود، نه از سطرِ `state`.
+ *
+ *    پیش‌تر روی همان سطر ذخیره می‌شد و ستونِ `companyId` باعث شد
+ *    نگهبانِ RLS در `integration` قرمز شود.  ولی مقدارش هرگز از
+ *    کاربر نمی‌آمد — فقط از پیکربندیِ سرور — پس ذخیره‌اش یک نسخهٔ
+ *    دومِ همان مقدار بود که می‌توانست کهنه شود.
+ *
+ *    خواندن از محیط هم امن است هم ساده‌تر: کاربر هیچ راهی برای
+ *    عوض کردنش ندارد.
+ */
+function targetCompany(): string | null {
+  return process.env.SHOP_COMPANY_ID?.trim() || null;
+}
+
 function defaultLanding(audience: GovAudience): string {
   if (audience === 'staff') return '/';
   return '/shop';

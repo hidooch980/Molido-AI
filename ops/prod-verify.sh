@@ -45,12 +45,25 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 # ⚠️ این عدد با هر مهاجرتی که جدول می‌سازد باید دستی بالا برود.
 #
 #    ۱۷۹ -> ۱۸۰ با مهاجرت ۰۳۹ (`RolePermission`).
+#    ۱۸۰ -> ۱۸۷ با هفت مهاجرت که هر کدام یک جدول ساختند:
+#
+#        ۰۴۱  PhoneVerification
+#        ۰۴۳  LoginAttempt
+#        ۰۴۴  MfaRecoveryCode
+#        ۰۴۵  IdempotencyKey
+#        ۰۵۰  ProductReview
+#        ۰۵۱  BudgetCommitment
+#        ۰۵۴  GovSsoState
 #
 #    وسوسه‌اش هست که این سنجه برداشته شود چون «هر بار باید دست بخورد».
 #    ولی کارش دقیقاً همین است: جدولی که بی‌خبر پیدا یا گم شود، باید
 #    کسی را متوقف کند.  عددِ ثابت یعنی تغییرِ ساختار عمدی باشد، نه
 #    اتفاقی.
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "180"
+#
+#    و همین حالا کارش را کرد: پس از استقرار ۱۸۷ دید و متوقف شد.  پیش
+#    از بالا بردنِ عدد، هر هفت جدول به مهاجرتِ سازنده‌اش برگردانده شد —
+#    وگرنه بالا بردنِ کورِ عدد یعنی سنجه را خاموش کردن، نه رفع کردن.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "187"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

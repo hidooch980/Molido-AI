@@ -35,6 +35,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/sql ./sql
 COPY package*.json ./
 
+# ⚠️ `scripts/` لازم است، وگرنه `npm run seed` در تولید فایل را پیدا
+#    نمی‌کند.  خودِ `seed` از `dist` اجرا می‌شود، ولی راه‌اندازش اینجاست.
+COPY --from=builder /app/scripts ./scripts
+
 RUN mkdir -p uploads
 
 EXPOSE 3000

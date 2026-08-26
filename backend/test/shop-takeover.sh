@@ -111,7 +111,19 @@ echo '--- ۳) کدِ درست می‌پذیرد و نامِ اصلی را نگه
 #    سه سنجهٔ دیگر هم افتاد.
 #
 #    شمارهٔ تلفن ASCII است، در همان خط می‌آید، و مختصِ همین آزمون است.
-CODE=$(docker logs molido-store-backend-1 --tail 200 2>&1 \
+# ⚠️ نامِ کانتینر سیم‌کشی نمی‌شود.
+#
+#    پیش‌تر molido-store-backend-1 نوشته شده بود.  در نمایهٔ suite
+#    کانتینر molido-suite-backend-1 نام دارد، پس docker logs خالی
+#    برمی‌گشت، CODE تهی می‌ماند و دو سنجه می‌افتاد — با پیامی
+#    («کد درست توکن می‌دهد got=no») که شبیه رخنهٔ امنیتی به نظر
+#    می‌رسید و هیچ ربطی به آن نداشت.
+#
+#    $C همان چیزی است که بقیهٔ فایل با آن به پایگاه‌داده می‌زند، پس
+#    همیشه به همان پشتهٔ در حال آزمون اشاره می‌کند.
+BE=$($C ps -q backend 2>/dev/null | tr -d '\r' | head -1)
+[ -z "$BE" ] && echo "  ⚠️ کانتینر backend پیدا نشد؛ کدِ تأیید خوانده نشد"
+CODE=$([ -n "$BE" ] && docker logs "$BE" --tail 200 2>&1 \
        | grep "$VICTIM" | grep -oE '[0-9]{6}[^0-9]*$' | grep -oE '[0-9]{6}' | tail -1)
 if [ -n "$CODE" ]; then
   R=$(curl -s -X POST "$A/shop/register" -H 'Content-Type: application/json' \

@@ -337,11 +337,18 @@ feat_rc=${PIPESTATUS[0]}
 #    نمی‌سازد.  غیابْ چیزی برای دیدن ندارد؛ باید فعالانه شمرده شود.
 echo '--- suite registration ---'
 unregistered=''
+# ⚠️ فاصله‌ها یکدست می‌شوند، وگرنه نامِ **آخرِ هر خط** پیدا نمی‌شود.
+#
+#    `SUITES` چندخطی است؛ پس از `accounts`، `import` و `e2e-resto`
+#    خطِ جدید می‌آید نه فاصله، و الگوی `" $n "` نمی‌خورد.  نخستین
+#    نسخهٔ همین نگهبان دقیقاً همان سه نام را «ثبت‌نشده» گزارش کرد در
+#    حالی که هر سه در فهرست بودند.
+suites_flat=" $(printf '%s' "$SUITES" | tr -s '[:space:]' ' ') "
 for f in backend/test/*.sh; do
   n=$(basename "$f" .sh)
   # `leak-check` ابزارِ کمکی است نه مجموعه؛ خودش از بیرون صدا زده می‌شود.
   [ "$n" = "leak-check" ] && continue
-  case " $SUITES " in *" $n "*) ;; *) unregistered="$unregistered $n" ;; esac
+  case "$suites_flat" in *" $n "*) ;; *) unregistered="$unregistered $n" ;; esac
 done
 if [ -n "$unregistered" ]; then
   printf '  FAIL مجموعهٔ ثبت‌نشده:%s

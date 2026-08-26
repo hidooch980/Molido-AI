@@ -191,10 +191,27 @@ export default function BudgetCyclePage() {
       ) : null}
 
       <div style={{ ...box, marginBottom: 14 }}>
-        <label style={{ display: 'block', fontSize: 12.5, marginBottom: 6 }}>
+        {/*
+          ⚠️ برچسب باید ورودی را **در بر بگیرد** یا با `htmlFor` به آن
+             وصل شود.
+
+             پیش‌تر `<label>` کنارِ `<select>` بود، نه دورش — یعنی هیچ
+             ارتباطی بینشان نبود و صفحه‌خوان یک فهرستِ بی‌نام اعلام
+             می‌کرد.  چشمی درست به نظر می‌رسید و همین پنهانش کرده بود.
+
+             `verify-labels` گرفتش.
+        */}
+        <label
+          htmlFor="budget-select"
+          style={{ display: 'block', fontSize: 12.5, marginBottom: 6 }}
+        >
           {t('budget')}
         </label>
-        <select value={budgetId} onChange={(e) => setBudgetId(e.target.value)}>
+        <select
+          id="budget-select"
+          value={budgetId}
+          onChange={(e) => setBudgetId(e.target.value)}
+        >
           {budgets.length === 0 ? <option value="">{t('noData')}</option> : null}
           {budgets.map((b) => (
             <option key={b.id} value={b.id}>

@@ -62,6 +62,28 @@ chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; el
 psql() { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }
 psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
 
+# ⚠️ ماژول صندوق فروشگاهی در این محصول هست؟
+#
+#    `RetailModule` فقط در قابلیتِ `retail` است و نمایهٔ رستوران آن را
+#    ندارد.  بدونِ این بررسی، اجرای رستوران ۱۴ شکست می‌داد
+#    (`parked got=no`، `listed got=`، …) که هیچ‌کدام عیب نبودند — فقط
+#    ۴۰۴ از ماژولی که عمداً بار نشده.
+#
+#    `restaurant.sh` قرینهٔ همین بررسی را برای نمایهٔ فروشگاه دارد؛
+#    این یکی جا افتاده بود.
+#
+#    پیش از پاک‌سازیِ پایگاه‌داده می‌آید: دست زدن به جدول‌های صندوق در
+#    محصولی که صندوق ندارد بی‌معنی است.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/retail/parked" -H "$AU")" = "404" ]; then
+  echo "  ماژول صندوق فروشگاهی در این محصول فعال نیست (MOLIDO_PRODUCT=resto)"
+  echo "  برای آزمون: MOLIDO_PRODUCT=store یا suite"
+  echo
+  printf "   PASS: 0   FAIL: 0   SKIPPED
+"
+  exit 0
+fi
+
+
 psql "DELETE FROM \"ParkedSale\";
       UPDATE \"Company\" SET \"maxLineDiscountPercent\" = 0;
       UPDATE \"Inventory\" SET quantity = 10000 WHERE \"productId\" LIKE 'seed-%';

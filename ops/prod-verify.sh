@@ -24,7 +24,19 @@ chk "۰۳۵ اجرا شد" "$(q "SELECT count(*) FROM schema_migrations WHERE na
 chk "۰۳۶ اجرا شد" "$(q "SELECT count(*) FROM schema_migrations WHERE name LIKE '036%'")" "1"
 
 echo '--- ۲) قیدها درست‌اند ---'
-# فقط سه استثنای هویتی باید سراسری مانده باشند.
+# ⚠️ چهار استثنا، و هر کدام دلیلِ خودش را دارد:
+#
+#    `User.email` و `User.phone` — ورود با ایمیل بدونِ شرطِ شرکت
+#    انجام می‌شود؛ اگر یکتایی درون‌شرکتی بود، دو شرکت می‌توانستند
+#    کاربری با یک ایمیل داشته باشند و ورود مبهم می‌شد.
+#
+#    `ApiKey.keyHash` — کلید پیش از دانستنِ شرکت راستی‌آزمایی می‌شود.
+#
+#    `SitePurchase.trackingCode` — خریدارِ سایت توکن ندارد و با همین
+#    کد وضعیتش را می‌بیند.  اگر یکتایی درون‌شرکتی بود، دو شرکت
+#    می‌توانستند کدِ یکسان بدهند و پیگیری سطرِ اشتباه را برمی‌گرداند.
+#
+#    این سنجه **درست کار کرد**: `SitePurchase` را همان روزِ اول گرفت.
 chk "قید سراسری ناخواسته نمانده" \
   "$(q "SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
         WHERE c.contype='u'
@@ -32,7 +44,8 @@ chk "قید سراسری ناخواسته نمانده" \
           AND EXISTS (SELECT 1 FROM information_schema.columns col
                       WHERE col.table_name=t.relname AND col.column_name='companyId')
           AND NOT (t.relname='User' AND pg_get_constraintdef(c.oid) IN ('UNIQUE (email)','UNIQUE (phone)'))
-          AND NOT (t.relname='ApiKey' AND pg_get_constraintdef(c.oid)='UNIQUE (\"keyHash\")')")" "0"
+          AND NOT (t.relname='ApiKey' AND pg_get_constraintdef(c.oid)='UNIQUE (\"keyHash\")')
+          AND NOT (t.relname='SitePurchase' AND pg_get_constraintdef(c.oid)='UNIQUE (\"trackingCode\")')")" "0"
 # و هویت سراسری مانده — ورود با ایمیل بدون شرط شرکت انجام می‌شود.
 chk "ورود با ایمیل سراسری" \
   "$(q "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='User_email_key'")" "UNIQUE (email)"
@@ -67,7 +80,10 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 #    ۱۸۷ -> ۱۳۴ با مهاجرت ۰۵۶: حذفِ کاملِ سه گروهِ قابلیت به درخواستِ
 #    صاحبِ محصول.  ۵۳ جدول رفت — فهرستشان با بستارِ وابستگی ساخته شد
 #    نه با شمردنِ دستی، و پیش از حذف تأیید شد که همه صفر سطر دارند.
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "134"
+#
+#    ۱۳۴ -> ۱۳۶ با مهاجرت ۰۵۷: `SiteModule` و `SitePurchase` برای
+#    فروشِ ماژول از سایتِ معرفی.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "136"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

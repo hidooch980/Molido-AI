@@ -24,6 +24,8 @@ set -u
 
 API="${1:-}"
 PANEL="${2:-}"
+# ⚠️ نشانیِ خودِ سایت — با نشانیِ API و پنل فرق دارد.
+SITE="${3:-}"
 
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
 step() { printf '\n── %s\n' "$*"; }
@@ -122,7 +124,27 @@ window.MOLIDO_CONFIG = {
 CFG
 
 # نشانیِ واقعی در robots و sitemap
-HOSTONLY=$(printf '%s' "$PANEL" | sed -E 's|^(https://[^/]+).*|\1|')
+# ⚠️ نشانیِ **سایت**، نه نشانیِ پنل.
+#
+#    نسخهٔ اول این را از $PANEL می‌گرفت.  با تقسیمِ دامنه
+#    (molido.ir سایت، app.molido.ir پنل) نتیجه‌اش این شد که
+#    canonical و نقشهٔ سایت به app.molido.ir اشاره کنند — یعنی
+#    موتور جست‌وجو سایت را زیرِ دامنه‌ای ایندکس می‌کرد که اصلاً
+#    سایت نیست.
+#
+#    وقتی داده نشود، از نشانیِ API مشتق می‌شود و پیشوندِ app. — اگر
+#    باشد — برداشته می‌شود.  حدس است، پس چاپ می‌شود تا دیده شود.
+if [ -n "$SITE" ]; then
+  HOSTONLY=$(printf '%s' "$SITE" | sed -E 's|^(https://[^/]+).*|\1|')
+else
+  HOSTONLY=$(printf '%s' "$API" | sed -E 's|^https://(app\.)?([^/]+).*|https://\2|')
+  printf '  ⚠️ نشانیِ سایت داده نشد؛ حدس: %s
+' "$HOSTONLY"
+  printf '     اگر درست نیست، آرگومانِ سوم را بدهید.
+'
+fi
+printf '  سایت: %s
+' "$HOSTONLY"
 sed -i "s|https://molido.ir|$HOSTONLY|g" "$OUT/robots.txt" "$OUT/sitemap.xml" 2>/dev/null || true
 
 # ⚠️ ارجاعِ باقی‌مانده به `molido.ir` در HTML هم درست می‌شود، وگرنه

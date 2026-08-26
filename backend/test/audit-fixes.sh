@@ -47,6 +47,26 @@ trap reset_finish EXIT
 
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
+
+# ⚠️ ماژول صندوق فروشگاهی در این محصول هست؟
+#
+#    این مجموعه با باز کردنِ شیفتِ صندوق‌دار شروع می‌شود، و
+#    RetailModule فقط در قابلیتِ retail است — نمایهٔ رستوران آن را
+#    ندارد، پس /retail/shifts عمداً ۴۰۴ می‌دهد.
+#
+#    بدونِ این بررسی، اجرای رستوران با «باز کردن شیفت ناموفق» نیمه‌کاره
+#    می‌مرد و کلِ اجرا را قرمز می‌کرد — بی‌آنکه چیزی خراب باشد.
+#
+#    pos-workflow، ration و quick-keys همین نگهبان را دارند؛ این یکی
+#    جا افتاده بود.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/retail/shifts" -H "$AU")" = "404" ]; then
+  echo "  ماژول صندوق فروشگاهی در این محصول فعال نیست"
+  echo "  برای آزمون: MOLIDO_PRODUCT=store یا suite"
+  echo
+  printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+  exit 0
+fi
+
 psql()  { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }
 psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
 

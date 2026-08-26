@@ -153,6 +153,8 @@ export const NAV: NavItem[] = [
   { href: '/operations', group: 'system', label: 'menuOperations', icon: 'alert' },
   { href: '/settings', group: 'system', label: 'menuSettings', icon: 'settings' },
   { href: '/api-keys', group: 'system', label: 'menuApiKeys', icon: 'shield' },
+  { href: '/revenue', group: 'money', label: 'menuRevenue', icon: 'coins' },
+  { href: '/insights', group: 'main', label: 'menuInsights', icon: 'chart' },
   { href: '/users', group: 'people', label: 'menuUsers', icon: 'user' },
 ];
 

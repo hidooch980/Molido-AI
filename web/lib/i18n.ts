@@ -1565,6 +1565,7 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   menuInsights: { fa: 'تحلیل‌ها', en: 'Insights', ar: 'التحليلات' },
   menuComplaints: { fa: 'شکایات شهروندی', en: 'Citizen complaints', ar: 'شكاوى المواطنين' },
   menuMunicipalFees: { fa: 'عوارض و قبوض', en: 'Municipal fees', ar: 'الرسوم البلدية' },
+  menuTechnicalOffice: { fa: 'دفتر فنی', en: 'Technical office', ar: 'المكتب الفني' },
   invColCode: { fa: 'کد کالا', en: 'Code', ar: 'رمز الصنف' },
   invColBarcode: { fa: 'بارکد', en: 'Barcode', ar: 'الباركود' },
   invColQty: { fa: 'مقدار', en: 'Qty', ar: 'الكمية' },

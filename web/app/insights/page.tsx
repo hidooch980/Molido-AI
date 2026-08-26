@@ -128,13 +128,13 @@ export default function InsightsPage() {
     <AppShell title={t('menuInsights')}>
       <div style={{ display: 'grid', gap: 16 }}>
         {/* ─── خلاصهٔ روز ─── */}
-        <Section title="خلاصهٔ امروز" state={brief}>
+        <Section title={t('inTodaySummary')} state={brief}>
           {brief.data ? (
             <>
               <div style={STATS}>
-                <Stat label="فروش امروز" value={money(brief.data.today.salesTotal)} />
-                <Stat label="تعداد فاکتور" value={money(brief.data.today.salesCount)} />
-                <Stat label="ارزش موجودی" value={money(brief.data.today.inventoryValue)} />
+                <Stat label={t('inTodaySales')} value={money(brief.data.today.salesTotal)} />
+                <Stat label={t('inInvoiceCount')} value={money(brief.data.today.salesCount)} />
+                <Stat label={t('inInventoryValue')} value={money(brief.data.today.inventoryValue)} />
               </div>
               {brief.data.highlights.length ? (
                 <ul style={{ margin: 0, paddingInlineStart: 18, display: 'grid', gap: 6 }}>
@@ -151,7 +151,7 @@ export default function InsightsPage() {
 
         {/* ─── سرمایهٔ خوابیده ─── */}
         <Section
-          title="کالای بی‌حرکت"
+          title={t('inDeadStock')}
           state={dead}
           note={
             dead.data
@@ -161,7 +161,7 @@ export default function InsightsPage() {
         >
           {dead.data ? (
             dead.data.count === 0 ? (
-              <p style={EMPTY}>هیچ کالایی بی‌حرکت نمانده است.</p>
+              <p style={EMPTY}>{t('inNoDeadStock')}</p>
             ) : (
               <>
                 {/* بزرگ‌ترین عددِ صفحه، چون بزرگ‌ترین تصمیم را می‌سازد. */}
@@ -170,7 +170,7 @@ export default function InsightsPage() {
                     {money(dead.data.tiedUpCapital)}
                   </span>{' '}
                   <span style={{ fontSize: 14, color: 'var(--muted)' }}>
-                    ریال سرمایهٔ خوابیده
+                    {t('inTiedCapital')}
                   </span>
                 </p>
                 <Table
@@ -189,13 +189,13 @@ export default function InsightsPage() {
 
         {/* ─── سفارشِ خرید ─── */}
         <Section
-          title="پیشنهاد سفارش"
+          title={t('inReorderSuggestion')}
           state={reorder}
           note={reorder.data ? `${reorder.data.period} — مهلت تأمین ${reorder.data.leadTimeDays} روز` : undefined}
         >
           {reorder.data ? (
             reorder.data.count === 0 ? (
-              <p style={EMPTY}>چیزی نیاز به سفارش ندارد.</p>
+              <p style={EMPTY}>{t('inNoReorder')}</p>
             ) : (
               <>
                 <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
@@ -222,15 +222,15 @@ export default function InsightsPage() {
 
         {/* ─── پیش‌بینی ─── */}
         <Section
-          title="پیش‌بینی فروش"
+          title={t('inSalesForecast')}
           state={forecast}
           note={forecast.data ? forecast.data.window : undefined}
         >
           {forecast.data ? (
             <>
               <div style={STATS}>
-                <Stat label="میانگین روزانه" value={money(forecast.data.dailyAverage)} />
-                <Stat label="برآورد هفتهٔ آینده" value={money(forecast.data.expectedTotal)} />
+                <Stat label={t('inDailyAverage')} value={money(forecast.data.dailyAverage)} />
+                <Stat label={t('inNextWeekEstimate')} value={money(forecast.data.expectedTotal)} />
               </div>
               <Table
                 head={['روز', 'تاریخ', 'برآورد فروش']}
@@ -259,6 +259,11 @@ function Section({
   state: { error: string; loading: boolean };
   children: React.ReactNode;
 }) {
+  // ⚠️ `Section` کامپوننتِ جداست، پس `t` والد را نمی‌بیند و هوکِ
+  //    خودش را لازم دارد.  اسکریپتِ انتقالِ i18n این را نمی‌دانست و
+  //    `tsc` گرفتش — یعنی خطا در همان لحظه دیده شد، نه در مرورگر.
+  const { t } = useI18n();
+
   return (
     <section style={CARD}>
       <h2 style={H2}>
@@ -268,7 +273,7 @@ function Section({
         ) : null}
       </h2>
       {state.loading ? (
-        <p style={EMPTY}>در حال محاسبه…</p>
+        <p style={EMPTY}>{t('ttComputing')}</p>
       ) : state.error ? (
         // ⚠️ خطای یک بخش، بقیهٔ صفحه را نمی‌بندد.  ۴۰۳ اینجا طبیعی
         //    است و پیامش هم همان را می‌گوید.

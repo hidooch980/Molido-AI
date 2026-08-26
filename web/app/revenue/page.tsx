@@ -146,24 +146,24 @@ export default function RevenuePage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>بازه</h2>
+          <h2 style={H2}>{t('rvRange')}</h2>
           <div style={FORM}>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>از</span>
+              <span style={LABEL}>{t('ttFrom')}</span>
               <input style={INPUT} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>تا</span>
+              <span style={LABEL}>{t('ttTo')}</span>
               <input style={INPUT} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>زیرسامانه</span>
+              <span style={LABEL}>{t('ttSubsystem')}</span>
               <select
                 style={INPUT}
                 value={entityType}
                 onChange={(e) => setEntityType(e.target.value)}
               >
-                <option value="">همه</option>
+                <option value="">{t('ttAll')}</option>
                 {breakdown.map(([key]) => (
                   <option key={key} value={key}>
                     {ENTITY_FA[key] ?? key}
@@ -184,11 +184,11 @@ export default function RevenuePage() {
             </h2>
             <p style={{ margin: 0, fontSize: 26, fontWeight: 700 }}>
               {money(stats.totalAmount)}{' '}
-              <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>ریال</span>
+              <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>{t('ttRial')}</span>
             </p>
 
             {breakdown.length === 0 ? (
-              <p style={EMPTY}>در این بازه دریافتی ثبت نشده است.</p>
+              <p style={EMPTY}>{t('rvNoneInRange')}</p>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
                 {breakdown.map(([key, value]) => {
@@ -230,25 +230,25 @@ export default function RevenuePage() {
             رسیدها{' '}
             {busy ? (
               <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 14 }}>
-                در حال بارگذاری…
+                {t('ttLoading')}
               </span>
             ) : null}
           </h2>
 
           {list.length === 0 && !busy ? (
-            <p style={EMPTY}>رسیدی در این بازه نیست.</p>
+            <p style={EMPTY}>{t('rvNoReceipts')}</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={TH}>شماره</th>
-                    <th style={TH}>زیرسامانه</th>
-                    <th style={TH}>پرداخت‌کننده</th>
-                    <th style={TH}>روش</th>
-                    <th style={TH}>مقصد</th>
-                    <th style={TH}>تاریخ</th>
-                    <th style={{ ...TH, textAlign: 'end' }}>مبلغ</th>
+                    <th style={TH}>{t('ttNumber')}</th>
+                    <th style={TH}>{t('ttSubsystem')}</th>
+                    <th style={TH}>{t('ttPayer')}</th>
+                    <th style={TH}>{t('ttMethod')}</th>
+                    <th style={TH}>{t('ttDestination')}</th>
+                    <th style={TH}>{t('ttDate')}</th>
+                    <th style={{ ...TH, textAlign: 'end' }}>{t('ttAmount')}</th>
                   </tr>
                 </thead>
                 <tbody>

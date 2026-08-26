@@ -216,11 +216,9 @@ export default function ApiKeysPage() {
               background: 'color-mix(in srgb, var(--success) 8%, var(--surface))',
             }}
           >
-            <h2 style={H2}>کلید ساخته شد — همین حالا کپی کنید</h2>
+            <h2 style={H2}>{t('akCreated')}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
-              این کلید فقط همین یک بار نمایش داده می‌شود. سرور تنها
-              درهم‌سازی‌اش را نگه می‌دارد، پس بازیابی‌اش ممکن نیست. اگر
-              گمش کنید باید کلید تازه بسازید.
+              {t('akOnceWarning')}
             </p>
             <code
               style={{
@@ -242,7 +240,7 @@ export default function ApiKeysPage() {
                 {copied ? 'کپی شد ✓' : 'کپی'}
               </button>
               <button type="button" style={BTN} onClick={() => setFresh(null)}>
-                برداشتم، ببند
+                {t('akGotIt')}
               </button>
             </div>
           </div>
@@ -271,19 +269,19 @@ export default function ApiKeysPage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>کلید تازه</h2>
+          <h2 style={H2}>{t('akNewKey')}</h2>
           <form style={FORM} onSubmit={submit}>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>نام</span>
+              <span style={LABEL}>{t('ttName')}</span>
               <input
                 style={INPUT}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثلاً: اپ موبایل انبار"
+                placeholder={t('akNameHint')}
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>انقضا (اختیاری)</span>
+              <span style={LABEL}>{t('akExpiryOptional')}</span>
               <input
                 style={INPUT}
                 type="date"
@@ -306,17 +304,17 @@ export default function ApiKeysPage() {
           </h2>
 
           {list.length === 0 ? (
-            <p style={EMPTY}>هنوز کلیدی ساخته نشده است.</p>
+            <p style={EMPTY}>{t('akNoKeys')}</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={TH}>نام</th>
-                    <th style={TH}>پیشوند</th>
-                    <th style={TH}>وضعیت</th>
-                    <th style={TH}>آخرین استفاده</th>
-                    <th style={TH}>انقضا</th>
+                    <th style={TH}>{t('ttName')}</th>
+                    <th style={TH}>{t('akPrefix')}</th>
+                    <th style={TH}>{t('ttStatus')}</th>
+                    <th style={TH}>{t('akLastUsed')}</th>
+                    <th style={TH}>{t('ttExpiry')}</th>
                     <th style={TH}> </th>
                   </tr>
                 </thead>
@@ -342,7 +340,7 @@ export default function ApiKeysPage() {
                         </td>
                         <td style={TD}>
                           {days === null ? (
-                            <span style={{ color: 'var(--muted)' }}>هرگز</span>
+                            <span style={{ color: 'var(--muted)' }}>{t('ttNever')}</span>
                           ) : days === 0 ? (
                             'امروز'
                           ) : (
@@ -365,7 +363,7 @@ export default function ApiKeysPage() {
                               {exp === 'expired' ? ' (منقضی)' : ''}
                             </span>
                           ) : (
-                            <span style={{ color: 'var(--muted)' }}>ندارد</span>
+                            <span style={{ color: 'var(--muted)' }}>{t('ttNone')}</span>
                           )}
                         </td>
                         <td style={{ ...TD, whiteSpace: 'nowrap' }}>
@@ -383,7 +381,7 @@ export default function ApiKeysPage() {
                             disabled={busy === key.id}
                             onClick={() => void remove(key)}
                           >
-                            حذف
+                            {t('ttDelete')}
                           </button>
                         </td>
                       </tr>

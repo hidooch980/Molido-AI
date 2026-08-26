@@ -264,7 +264,7 @@ export default function MunicipalFeesPage() {
 
         {summary.unpaidCount > 0 ? (
           <section style={CARD}>
-            <h2 style={H2}>معوق</h2>
+            <h2 style={H2}>{t('mfOverdue')}</h2>
             <p style={{ margin: 0 }}>
               <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--warning)' }}>
                 {money(summary.unpaidAmount)}
@@ -277,10 +277,10 @@ export default function MunicipalFeesPage() {
         ) : null}
 
         <section style={CARD}>
-          <h2 style={H2}>قبض تازه</h2>
+          <h2 style={H2}>{t('mfNewBill')}</h2>
           <form style={FORM} onSubmit={create}>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>پرداخت‌کننده</span>
+              <span style={LABEL}>{t('ttPayer')}</span>
               <input
                 style={INPUT}
                 value={draft.payerName}
@@ -288,7 +288,7 @@ export default function MunicipalFeesPage() {
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>تلفن</span>
+              <span style={LABEL}>{t('ttPhone')}</span>
               <input
                 style={INPUT}
                 value={draft.payerPhone}
@@ -296,7 +296,7 @@ export default function MunicipalFeesPage() {
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>مبلغ</span>
+              <span style={LABEL}>{t('ttAmount')}</span>
               <input
                 style={INPUT}
                 inputMode="numeric"
@@ -305,18 +305,18 @@ export default function MunicipalFeesPage() {
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>نوع</span>
+              <span style={LABEL}>{t('ttType')}</span>
               <select
                 style={INPUT}
                 value={draft.type}
                 onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               >
-                <option value="OTHER">سایر</option>
-                <option value="VIOLATION_FINE">جریمهٔ تخلف</option>
+                <option value="OTHER">{t('mfOther')}</option>
+                <option value="VIOLATION_FINE">{t('mfViolationFine')}</option>
               </select>
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={LABEL}>نشانی</span>
+              <span style={LABEL}>{t('ttAddress')}</span>
               <input
                 style={INPUT}
                 value={draft.address}
@@ -339,9 +339,9 @@ export default function MunicipalFeesPage() {
             </h2>
             <form style={FORM} onSubmit={submitPayment}>
               <label style={{ display: 'grid', gap: 6 }}>
-                <span style={LABEL}>مقصد</span>
+                <span style={LABEL}>{t('ttDestination')}</span>
                 <select style={INPUT} value={dest} onChange={(e) => setDest(e.target.value)}>
-                  <option value="">انتخاب کنید</option>
+                  <option value="">{t('ttChoose')}</option>
                   {boxes.map((b) => (
                     <option key={b.id} value={`box:${b.id}`}>
                       صندوق: {b.name}
@@ -355,7 +355,7 @@ export default function MunicipalFeesPage() {
                 </select>
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
-                <span style={LABEL}>روش</span>
+                <span style={LABEL}>{t('ttMethod')}</span>
                 <select style={INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
                   {METHOD_FA.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -365,7 +365,7 @@ export default function MunicipalFeesPage() {
                 </select>
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
-                <span style={LABEL}>شمارهٔ پیگیری</span>
+                <span style={LABEL}>{t('mfReference')}</span>
                 <input
                   style={INPUT}
                   value={reference}
@@ -373,10 +373,10 @@ export default function MunicipalFeesPage() {
                 />
               </label>
               <button type="submit" style={BTN_PRIMARY} disabled={busy === paying.id}>
-                ثبت دریافت
+                {t('mfRecordPayment')}
               </button>
               <button type="button" style={BTN} onClick={() => setPaying(null)}>
-                انصراف
+                {t('ttCancelBtn')}
               </button>
             </form>
           </section>
@@ -401,22 +401,22 @@ export default function MunicipalFeesPage() {
               style={{ ...INPUT, flex: '1 1 180px' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="شمارهٔ قبض، نام، تلفن یا نشانی"
+              placeholder={t('mfSearch')}
             />
           </div>
 
           {shown.length === 0 ? (
-            <p style={EMPTY}>قبضی مطابق این صافی نیست.</p>
+            <p style={EMPTY}>{t('mfNoBills')}</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={TH}>شماره</th>
-                    <th style={TH}>پرداخت‌کننده</th>
-                    <th style={TH}>نوع</th>
-                    <th style={TH}>وضعیت</th>
-                    <th style={{ ...TH, textAlign: 'end' }}>مبلغ</th>
+                    <th style={TH}>{t('ttNumber')}</th>
+                    <th style={TH}>{t('ttPayer')}</th>
+                    <th style={TH}>{t('ttType')}</th>
+                    <th style={TH}>{t('ttStatus')}</th>
+                    <th style={{ ...TH, textAlign: 'end' }}>{t('ttAmount')}</th>
                     <th style={TH}> </th>
                   </tr>
                 </thead>
@@ -447,7 +447,7 @@ export default function MunicipalFeesPage() {
                                 setError('');
                               }}
                             >
-                              دریافت
+                              {t('mfCollect')}
                             </button>{' '}
                             <button
                               type="button"
@@ -455,7 +455,7 @@ export default function MunicipalFeesPage() {
                               disabled={busy === b.id}
                               onClick={() => void cancel(b)}
                             >
-                              ابطال
+                              {t('mfVoid')}
                             </button>
                           </>
                         ) : (

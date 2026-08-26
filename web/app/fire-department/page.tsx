@@ -304,11 +304,11 @@ export default function FireDepartmentPage() {
 
         <section style={CARD}>
           <div style={STATS}>
-            <Stat label="حادثهٔ باز" value={String(summary.live)} tone={summary.live ? 'bad' : undefined} />
-            <Stat label="آتش‌نشان کشیک" value={String(summary.onDuty)} />
-            <Stat label="خودروی آماده" value={String(summary.readyVehicles)} />
+            <Stat label={t('fdOpenIncidents')} value={String(summary.live)} tone={summary.live ? 'bad' : undefined} />
+            <Stat label={t('fdOnDuty')} value={String(summary.onDuty)} />
+            <Stat label={t('fdReadyVehicles')} value={String(summary.readyVehicles)} />
             <Stat
-              label="خودروی خراب"
+              label={t('fdBrokenVehicles')}
               value={String(summary.brokenVehicles)}
               tone={summary.brokenVehicles ? 'warn' : undefined}
             />
@@ -322,14 +322,14 @@ export default function FireDepartmentPage() {
               style={tab === 'incidents' ? CHIP_ON : CHIP}
               onClick={() => setTab('incidents')}
             >
-              حادثه‌ها
+              {t('fdIncidents')}
             </button>
             <button
               type="button"
               style={tab === 'resources' ? CHIP_ON : CHIP}
               onClick={() => setTab('resources')}
             >
-              ایستگاه و ناوگان
+              {t('fdStationsFleet')}
             </button>
             <button
               type="button"
@@ -349,7 +349,7 @@ export default function FireDepartmentPage() {
                 checked={onlyLive}
                 onChange={(e) => setOnlyLive(e.target.checked)}
               />
-              فقط حادثه‌های باز
+              {t('fdOnlyOpen')}
             </label>
 
             {shown.length === 0 ? (
@@ -436,7 +436,7 @@ export default function FireDepartmentPage() {
                               disabled={busy === inc.id}
                               onClick={() => dispatch(inc)}
                             >
-                              اعزام
+                              {t('fdDispatch')}
                             </button>
                           ) : null}
                           {(NEXT[inc.status] ?? []).map((step) => (
@@ -465,7 +465,7 @@ export default function FireDepartmentPage() {
             <section style={CARD}>
               <h2 style={H2}>ایستگاه‌ها ({stations.length})</h2>
               {stations.length === 0 ? (
-                <p style={EMPTY}>ایستگاهی ثبت نشده.</p>
+                <p style={EMPTY}>{t('fdNoStations')}</p>
               ) : (
                 <Table
                   head={['کد', 'نام', 'نشانی', 'تلفن', 'آتش‌نشان کشیک']}
@@ -485,7 +485,7 @@ export default function FireDepartmentPage() {
             <section style={CARD}>
               <h2 style={H2}>ناوگان ({vehicles.length})</h2>
               {vehicles.length === 0 ? (
-                <p style={EMPTY}>خودرویی ثبت نشده.</p>
+                <p style={EMPTY}>{t('fdNoVehicles')}</p>
               ) : (
                 <Table
                   head={['پلاک', 'نام', 'نوع', 'ایستگاه', 'وضعیت']}
@@ -504,7 +504,7 @@ export default function FireDepartmentPage() {
             <section style={CARD}>
               <h2 style={H2}>آتش‌نشانان ({fighters.filter((f) => f.isActive).length})</h2>
               {fighters.length === 0 ? (
-                <p style={EMPTY}>آتش‌نشانی ثبت نشده.</p>
+                <p style={EMPTY}>{t('fdNoFighters')}</p>
               ) : (
                 <Table
                   head={['نام', 'درجه', 'ایستگاه', 'تلفن', 'کشیک']}
@@ -525,9 +525,9 @@ export default function FireDepartmentPage() {
 
         {tab === 'inspections' ? (
           <section style={CARD}>
-            <h2 style={H2}>بازرسی ایمنی</h2>
+            <h2 style={H2}>{t('fdSafetyInspections')}</h2>
             {inspections.length === 0 ? (
-              <p style={EMPTY}>بازرسی‌ای ثبت نشده.</p>
+              <p style={EMPTY}>{t('fdNoInspections')}</p>
             ) : (
               <Table
                 head={['ملک', 'مالک', 'نشانی', 'نتیجه', 'گواهی', 'اعتبار تا']}

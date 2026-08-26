@@ -324,7 +324,7 @@ export default function TechnicalOfficePage() {
           >
             <span style={{ flex: 1 }}>{billNote}</span>
             <button type="button" style={BTN_SM} onClick={() => setBillNote('')}>
-              باشه
+              {t('ttOk')}
             </button>
           </div>
         ) : null}
@@ -370,7 +370,7 @@ export default function TechnicalOfficePage() {
               style={{ ...INPUT, flex: '1 1 180px' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="شماره، مالک یا نشانی"
+              placeholder={t('toSearch')}
             />
           </div>
         </section>
@@ -378,19 +378,19 @@ export default function TechnicalOfficePage() {
         {tab === 'permits' ? (
           <section style={CARD}>
             {shownPermits.length === 0 ? (
-              <p style={EMPTY}>پروانه‌ای نیست.</p>
+              <p style={EMPTY}>{t('toNoPermits')}</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
-                      <th style={TH}>شماره</th>
-                      <th style={TH}>مالک</th>
-                      <th style={TH}>نشانی</th>
-                      <th style={{ ...TH, textAlign: 'end' }}>مساحت</th>
-                      <th style={{ ...TH, textAlign: 'end' }}>طبقات</th>
-                      <th style={TH}>وضعیت</th>
-                      <th style={TH}>انقضا</th>
+                      <th style={TH}>{t('ttNumber')}</th>
+                      <th style={TH}>{t('ttOwner')}</th>
+                      <th style={TH}>{t('ttAddress')}</th>
+                      <th style={{ ...TH, textAlign: 'end' }}>{t('toArea')}</th>
+                      <th style={{ ...TH, textAlign: 'end' }}>{t('toFloors')}</th>
+                      <th style={TH}>{t('ttStatus')}</th>
+                      <th style={TH}>{t('ttExpiry')}</th>
                       <th style={TH}> </th>
                     </tr>
                   </thead>
@@ -444,7 +444,7 @@ export default function TechnicalOfficePage() {
                                   disabled={busy === p.id}
                                   onClick={() => approve(p)}
                                 >
-                                  تأیید
+                                  {t('toApprove')}
                                 </button>{' '}
                                 <button
                                   type="button"
@@ -452,7 +452,7 @@ export default function TechnicalOfficePage() {
                                   disabled={busy === p.id}
                                   onClick={() => reject(p)}
                                 >
-                                  رد
+                                  {t('toReject')}
                                 </button>{' '}
                               </>
                             ) : null}
@@ -462,7 +462,7 @@ export default function TechnicalOfficePage() {
                               disabled={busy === p.id}
                               onClick={() => inspect(p)}
                             >
-                              بازرسی
+                              {t('toInspect')}
                             </button>
                           </td>
                         </tr>
@@ -476,18 +476,18 @@ export default function TechnicalOfficePage() {
         ) : (
           <section style={CARD}>
             {shownViolations.length === 0 ? (
-              <p style={EMPTY}>تخلفی ثبت نشده.</p>
+              <p style={EMPTY}>{t('toNoViolations')}</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
-                      <th style={TH}>پرونده</th>
-                      <th style={TH}>مالک</th>
-                      <th style={TH}>نشانی</th>
-                      <th style={TH}>شرح</th>
-                      <th style={TH}>وضعیت</th>
-                      <th style={{ ...TH, textAlign: 'end' }}>جریمه</th>
+                      <th style={TH}>{t('toCase')}</th>
+                      <th style={TH}>{t('ttOwner')}</th>
+                      <th style={TH}>{t('ttAddress')}</th>
+                      <th style={TH}>{t('ttDescription')}</th>
+                      <th style={TH}>{t('ttStatus')}</th>
+                      <th style={{ ...TH, textAlign: 'end' }}>{t('toFine')}</th>
                       <th style={TH}> </th>
                     </tr>
                   </thead>
@@ -518,7 +518,7 @@ export default function TechnicalOfficePage() {
                               disabled={busy === v.id}
                               onClick={() => fine(v)}
                             >
-                              ثبت جریمه
+                              {t('toSetFine')}
                             </button>
                           ) : (
                             <span style={{ color: 'var(--muted)', fontSize: 13 }}>—</span>

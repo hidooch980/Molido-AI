@@ -271,7 +271,7 @@ export default function ComplaintsPage() {
               style={{ ...INPUT, flex: '1 1 180px' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="کد رهگیری، موضوع، نام یا تلفن"
+              placeholder={t('cmSearch')}
             />
           </div>
         </section>
@@ -285,7 +285,7 @@ export default function ComplaintsPage() {
           </h2>
 
           {shown.length === 0 ? (
-            <p style={EMPTY}>شکایتی مطابق این صافی نیست.</p>
+            <p style={EMPTY}>{t('cmNoMatch')}</p>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {shown.map((c) => {
@@ -363,7 +363,7 @@ export default function ComplaintsPage() {
                         disabled={busy === c.id}
                         onClick={() => void refer(c)}
                       >
-                        ارجاع
+                        {t('cmRefer')}
                       </button>
                       {(NEXT[c.status] ?? []).map((step) => (
                         <button

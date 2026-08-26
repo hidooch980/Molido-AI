@@ -101,6 +101,7 @@ import { SalesAgentsModule } from './sales-agents/sales-agents.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { CustomerTicketsModule } from './customer-tickets/customer-tickets.module';
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
+import { GovSsoModule } from './gov-sso/gov-sso.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
@@ -247,6 +248,10 @@ const CORE_MODULES = [
   UploadsModule,
   WebhooksModule,
   ApiKeysModule,
+  // ⚠️ ماژولِ هسته: ورودِ دولتی برای هر سه محصول معنا دارد —
+  //    شهروند، مشتریِ فروشگاه و کارمند.  پشتِ `FEATURE_MODULES`
+  //    نمی‌رود چون به قابلیتِ خاصی وابسته نیست.
+  GovSsoModule,
   HealthModule,
 ];
 

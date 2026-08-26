@@ -47,6 +47,10 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   email: { fa: 'ایمیل', en: 'Email', ar: 'البريد الإلكتروني' },
   password: { fa: 'رمز عبور', en: 'Password', ar: 'كلمة المرور' },
   signIn: { fa: 'ورود', en: 'Sign in', ar: 'دخول' },
+  or: { fa: 'یا', en: 'or', ar: 'أو' },
+  govSsoSignIn: { fa: 'ورود با درگاه دولت', en: 'Sign in with the national gateway', ar: 'الدخول عبر البوابة الحكومية' },
+  govSsoCancelled: { fa: 'ورود با درگاه دولت لغو شد', en: 'Government sign-in was cancelled', ar: 'تم إلغاء الدخول الحكومي' },
+  govSsoFailed: { fa: 'ورود با درگاه دولت ناموفق بود', en: 'Government sign-in failed', ar: 'فشل الدخول الحكومي' },
   signingIn: { fa: 'در حال ورود…', en: 'Signing in…', ar: 'جارٍ الدخول…' },
   loginError: { fa: 'خطا در ورود', en: 'Login failed', ar: 'فشل تسجيل الدخول' },
 

@@ -178,6 +178,21 @@ export class ShopService {
    *    وضعیت `isActive` را **زنده** بخواند — وگرنه مسدود کردنِ مشتری
    *    تا سی روز بی‌اثر می‌ماند.
    */
+  /**
+   * ⚠️ عمومی شد تا ورودِ دولتی هم از **همین** تابع استفاده کند.
+   *
+   *    نسخهٔ دومِ صدورِ توکن در ماژولِ دیگر یعنی دو تعریف از «مشتریِ
+   *    وارد شده» — و روزی که یکی عوض شود، دیگری بی‌صدا عقب می‌ماند.
+   *    همان درسی که `unitCostOf` در فروش داد.
+   */
+  issueTokenForCustomer(customer: {
+    id: string;
+    companyId: string;
+    phone: string;
+  }): string {
+    return this.issueToken(customer);
+  }
+
   private issueToken(customer: {
     id: string;
     companyId: string;

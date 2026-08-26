@@ -120,6 +120,18 @@ services:
       ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
       # نشانیِ عمومیِ سایت — بازگشتِ درگاه به همین‌جا برمی‌گردد.
       SITE_URL: ${SITE_URL:-http://${HOST_IP:-localhost}:${WEB_PORT:-3001}}
+      # ⚠️ همان دامِ `ADMIN_PASSWORD` و `ZARINPAL_*`: بودن در `.env`
+      #    کافی نیست، باید صریح به کانتینر پاس شود.
+      GOV_SSO_CLIENT_ID: ${GOV_SSO_CLIENT_ID:-}
+      GOV_SSO_CLIENT_SECRET: ${GOV_SSO_CLIENT_SECRET:-}
+      GOV_SSO_AUTHORIZE_URL: ${GOV_SSO_AUTHORIZE_URL:-}
+      GOV_SSO_TOKEN_URL: ${GOV_SSO_TOKEN_URL:-}
+      GOV_SSO_USERINFO_URL: ${GOV_SSO_USERINFO_URL:-}
+      GOV_SSO_REDIRECT_URI: ${GOV_SSO_REDIRECT_URI:-}
+      GOV_SSO_SCOPE: ${GOV_SSO_SCOPE:-openid profile}
+      GOV_SSO_TIMEOUT_MS: ${GOV_SSO_TIMEOUT_MS:-15000}
+      # شرکتِ مقصد برای مسیرهای عمومی (فروشگاه و ورودِ شهروند).
+      SHOP_COMPANY_ID: ${SHOP_COMPANY_ID:-}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:

@@ -43,9 +43,92 @@ export default function LoginPage() {
   const [challenge, setChallenge] = useState('');
   const [code, setCode] = useState('');
 
+  /** آیا این نصب ورودِ دولتی دارد؟ از سرور پرسیده می‌شود، نه حدس. */
+  const [ssoAvailable, setSsoAvailable] = useState(false);
+
   useEffect(() => {
     setLang(getLang());
   }, []);
+
+  useEffect(() => {
+    // ⚠️ شکستِ این درخواست خطا نمی‌دهد: نبودِ دکمه بهتر از پیامِ خطا
+    //    روی صفحهٔ ورود است.
+    api<{ configured: boolean }>('/gov-sso/status')
+      .then((r) => setSsoAvailable(Boolean(r?.configured)))
+      .catch(() => setSsoAvailable(false));
+  }, []);
+
+  /**
+   * بازگشت از درگاه.
+   *
+   * ⚠️ نتیجه در **قطعهٔ نشانی** (`#`) می‌آید، نه در query.
+   *
+   *    قطعه هرگز به سرور فرستاده نمی‌شود، پس توکن در لاگِ وب‌سرور و
+   *    پروکسی نمی‌نشیند.  با `?token=...` همان توکن در هر لاگِ میانی
+   *    ثبت می‌شد.
+   *
+   * ⚠️ بلافاصله از نوارِ نشانی پاک می‌شود.
+   *
+   *    وگرنه با کپی کردنِ نشانی، توکن هم کپی می‌شد — و در تاریخچهٔ
+   *    مرورگر هم می‌ماند.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash);
+    if (params.get('sso') !== 'ok') return;
+
+    const access = params.get('accessToken');
+    const mfaChallenge = params.get('challenge');
+
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (access) {
+      setToken(access);
+      router.replace('/dashboard');
+      return;
+    }
+    // ورودِ دولتی گذشت ولی عاملِ دوم مانده — همان صفحهٔ کدِ همیشگی.
+    if (mfaChallenge) setChallenge(mfaChallenge);
+  }, [router]);
+
+  /**
+   * خطا یا انصراف از درگاه.
+   *
+   * ⚠️ این‌ها در query می‌آیند نه در قطعه — چون رازی در کار نیست و
+   *    باید در لاگِ سرور هم دیده شوند.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const sso = q.get('sso');
+    if (sso !== 'error' && sso !== 'cancelled') return;
+
+    setError(
+      sso === 'cancelled'
+        ? t('govSsoCancelled', getLang())
+        : q.get('reason') || t('govSsoFailed', getLang()),
+    );
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+
+  /**
+   * شروعِ جریان.
+   *
+   * ⚠️ `window.location.assign` و نه `router.push`: مقصد بیرونِ
+   *    برنامه است و ناوبریِ Next آن را نمی‌شناسد.
+   */
+  const startGovSso = async () => {
+    setError('');
+    try {
+      const { url } = await api<{ url: string }>('/gov-sso/start?audience=staff');
+      window.location.assign(url);
+    } catch (caught) {
+      setError((caught as Error).message);
+    }
+  };
 
   useEffect(() => {
     document.documentElement.dir = dirFor(lang);
@@ -222,6 +305,46 @@ export default function LoginPage() {
             </button>
           </form>
           )}
+
+          {/*
+            ⚠️ دکمهٔ ورودِ دولتی فقط وقتی دیده می‌شود که سرور بگوید
+               پیکربندی شده است.
+
+               نمایشِ همیشگی‌اش یعنی کاربر روی چیزی کلیک می‌کند که به
+               خطای ۵۰۳ می‌رسد — و چون بیشترِ نصب‌ها اعتبارنامهٔ دولتی
+               ندارند، حالتِ رایج همان خطا می‌شد.
+
+            ⚠️ در مرحلهٔ دومِ MFA نشان داده نمی‌شود: آنجا کاربر وسطِ
+               ورود است و شروعِ دوبارهٔ جریان فقط گیجش می‌کند.
+          */}
+          {!challenge && ssoAvailable ? (
+            <>
+              <div
+                aria-hidden
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  margin: '18px 0 14px',
+                  color: 'var(--muted)',
+                  fontSize: 12.5,
+                }}
+              >
+                <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                {t('or', lang)}
+                <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              <button
+                type="button"
+                className="ghost"
+                style={{ width: '100%' }}
+                onClick={() => void startGovSso()}
+              >
+                {t('govSsoSignIn', lang)}
+              </button>
+            </>
+          ) : null}
 
           {/*
             رمز مدیر روی صفحهٔ ورود چاپ نمی‌شود.

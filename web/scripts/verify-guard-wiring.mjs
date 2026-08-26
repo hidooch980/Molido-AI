@@ -65,6 +65,16 @@ const PUBLIC_OK = new Set([
   'health/liveness.controller.ts',
   'n8n/n8n.controller.ts',
   'shop/shop.controller.ts',
+  // ⚠️ ورودِ دولتی **باید** عمومی باشد.
+  //
+  //    کسی که هنوز وارد نشده توکن ندارد؛ نگهبانِ ورود روی این مسیرها
+  //    یعنی هیچ‌کس هرگز نمی‌تواند وارد شود.
+  //
+  //    محافظتش جای دیگری است و ضعیف‌تر نیست: `state` یک‌بارمصرف و
+  //    مهلت‌دار در پایگاه‌داده، PKCE، بررسیِ `nonce`، و از همه مهم‌تر
+  //    اینکه کاربرِ پنل هرگز خودکار ساخته نمی‌شود.  `backend/test/gov-sso.sh`
+  //    هر چهار مورد را می‌سنجد.
+  'gov-sso/gov-sso.controller.ts',
 ]);
 
 for (const file of walk(SRC)) {

@@ -223,6 +223,55 @@ export class AuthService {
   }
 
   /**
+   * ورودِ کاربرِ پنل از راهِ ورودِ یکپارچهٔ دولت.
+   *
+   * ⚠️ همان مسیرِ پایانیِ ورودِ رمزی را می‌رود، نه مسیرِ میان‌بر.
+   *
+   *    وسوسه این بود که مستقیم توکن صادر شود — درگاهِ دولت خودش قوی
+   *    است.  ولی آن‌وقت سه چیز دور زده می‌شد: ثبتِ تلاش در تاریخچه،
+   *    برداشتنِ قفل، و مهم‌تر از همه **MFA**.
+   *
+   * ⚠️ MFA دور زده نمی‌شود، حتی با هویتِ دولتی.
+   *
+   *    کاربری که عمداً عاملِ دوم را روشن کرده، انتظار دارد همیشه
+   *    خواسته شود.  اگر ورودِ دولتی از کنارش رد شود، هر کسی که به
+   *    حسابِ دولتیِ او دسترسی پیدا کند، عاملِ دوم را بی‌اثر کرده —
+   *    یعنی افزودنِ یک راهِ ورود، محافظتِ موجود را **کم** کرده است.
+   *
+   *    پس همان `mfaRequired` و همان چالش برمی‌گردد و رابط همان مرحلهٔ
+   *    دومِ همیشگی را نشان می‌دهد.
+   */
+  async loginWithGovIdentity(
+    userId: string,
+    meta?: { ip?: string; userAgent?: string },
+  ) {
+    const rows = await this.db.query<UserRow>(
+      'SELECT * FROM "User" WHERE id = $1 LIMIT 1',
+      [userId],
+    );
+    const user = rows[0];
+    if (!user) throw new UnauthorizedException('حساب کاربری یافت نشد');
+
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      await this.recordAttempt(user.email, false, 'LOCKED', meta);
+      throw new UnauthorizedException('حساب شما موقتاً قفل شده است');
+    }
+
+    if (user.mfaEnabledAt) {
+      await this.recordAttempt(user.email, false, 'MFA_PENDING', meta);
+      return {
+        mfaRequired: true,
+        challenge: this.jwtService.sign(
+          { sub: user.id, stage: 'mfa' },
+          { secret: this.mfaChallengeSecret(), expiresIn: '5m' },
+        ),
+      };
+    }
+
+    return this.finalizeLogin(user, meta);
+  }
+
+  /**
    * کلیدِ امضای توکنِ چالش — جدا از توکنِ دسترسی.
    *
    * ⚠️ جدا بودنش تمامِ محافظت است.  با کلیدِ مشترک، مرحلهٔ دوم قابل

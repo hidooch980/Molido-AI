@@ -1,6 +1,0 @@
-User-Agent: *
-Allow: /
-Disallow: /result.html
-Disallow: /track.html
-
-Sitemap: https://194.5.176.140/sitemap.xml

@@ -152,3 +152,8 @@ mcp/node_modules/
 # فقط می‌تواند کهنه و گمراه‌کننده باشد.
 molido-deploy.tar.gz
 *.deploy.tar.gz
+
+# خروجیِ ساختِ سایت — با ops/build-site.sh ساخته می‌شود.
+dist-site/
+molido-site.zip
+molido-site.tar.gz

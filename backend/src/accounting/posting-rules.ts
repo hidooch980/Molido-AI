@@ -260,7 +260,7 @@ export function collectionEntry(input: {
 
   return [
     {
-      accountCode: accountForMethod(input.method),
+      accountCode: accountForMethod(input.method ?? 'CASH'),
       debit: amount,
       description: input.description ?? 'وصول از مشتری',
     },
@@ -386,6 +386,48 @@ export function purchaseReturnEntry(input: {
     accountCode: ACCOUNTS.inputVat,
     credit: Number(input.tax),
     description: 'برگشت مالیات خرید',
+  });
+
+  return lines;
+}
+
+/**
+ * خریدِ دارایی ثابت: دارایی بدهکار، منبعِ پرداخت بستانکار.
+ *
+ * ⚠️ این قاعده **وجود نداشت** و نبودنش دفتر کل را غلط می‌کرد.
+ *
+ *    `AssetDisposal` و `AssetDepreciation` هر دو سند می‌زدند، ولی
+ *    ثبتِ خودِ دارایی هیچ سندی نمی‌زد.  نتیجه در تراز آزمایشی دیده
+ *    شد: حساب ۱۲۰۱ «اموال و تجهیزات» — که یک **دارایی** است —
+ *    ماندهٔ **بستانکار** داشت.
+ *
+ *    یعنی دفاتر می‌گفتند دارایی‌هایی واگذار شده‌اند که هرگز خریداری
+ *    نشده بودند.  ترازنامه هم به همان اندازه کم‌ارزش می‌شد.
+ *
+ *    هیچ آزمونی این را نمی‌گرفت چون تراز **صفر** می‌ماند: هر دو طرفِ
+ *    سندِ واگذاری درست بودند؛ چیزی که کم بود، سندِ **قبلی** بود.
+ */
+export function assetAcquisitionEntry(input: {
+  cost: number;
+  /** نقد، بانک، یا نسیه.  پیش‌فرض نقد. */
+  method?: string;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+  const cost = Number(input.cost);
+
+  push(lines, {
+    accountCode: ACCOUNTS.fixedAsset,
+    debit: cost,
+    description: 'خرید دارایی ثابت',
+  });
+
+  // ⚠️ منبعِ پرداخت از همان تابعی می‌آید که بقیهٔ ماژول‌ها استفاده
+  //    می‌کنند.  نوشتنِ «۱۱۰۱» دستی یعنی روزی که کدینگ عوض شود،
+  //    اینجا عقب می‌ماند.
+  push(lines, {
+    accountCode: accountForMethod(input.method ?? 'CASH'),
+    credit: cost,
+    description: 'پرداخت بابت خرید دارایی',
   });
 
   return lines;

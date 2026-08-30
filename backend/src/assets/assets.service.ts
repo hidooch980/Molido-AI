@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 
 import { DatabaseService } from '../database/database.service';
 import { PostingService } from '../accounting/posting.service';
+import { assetAcquisitionEntry } from '../accounting/posting-rules';
 import {
   assetDisposalEntry,
   depreciationEntry,
@@ -82,11 +83,26 @@ export class AssetsService {
     return { ...rows[0], depreciation: history };
   }
 
-  async create(companyId: string, dto: Record<string, unknown>) {
+  /**
+   * ثبتِ دارایی — **و سندش**.
+   *
+   * ⚠️ تا امروز این تابع فقط `INSERT` می‌کرد و هیچ سندی نمی‌زد.
+   *
+   *    واگذاری و استهلاک هر دو سند می‌زدند، ولی خودِ خرید نه.  ایراد
+   *    در تراز آزمایشیِ زنده دیده شد: حساب ۱۲۰۱ «اموال و تجهیزات» —
+   *    که دارایی است — ماندهٔ **بستانکار** داشت.  یعنی دفاتر می‌گفتند
+   *    دارایی‌هایی واگذار شده‌اند که هرگز خریداری نشده بودند.
+   *
+   *    هیچ آزمونی نگرفتش چون تراز **صفر** می‌ماند: هر دو طرفِ سندِ
+   *    واگذاری درست بود؛ چیزی که کم بود سندِ **قبلی** بود.  «تراز صفر
+   *    است» با «دفتر درست است» یکی نیست.
+   */
+  async create(companyId: string, dto: Record<string, unknown>, userId?: string) {
     const assetNo =
       (dto.assetNo as string) ?? (await this.nextAssetNo(companyId));
 
-    const rows = await this.db.query<Row>(
+    return this.db.transaction(async (tx) => {
+      const created = await tx.query<Row>(
       `INSERT INTO "Asset"
          (id, "companyId", "assetNo", name, category, location, "assignedTo",
           "purchaseDate", "purchasePrice", "salvageValue", "usefulLifeYears",
@@ -124,7 +140,36 @@ export class AssetsService {
       ],
     );
 
-    return rows[0];
+      const asset = created.rows[0];
+      const cost = Number(asset?.purchasePrice ?? 0);
+
+    // ⚠️ داراییِ بی‌بها سند نمی‌خواهد.
+    //
+    //    ثبتِ سندِ صفر فقط دفتر را شلوغ می‌کند.  و بهای منفی هم رد
+    //    می‌شود: سندش تراز را می‌شکند بی‌آنکه چیزی خطا بدهد.
+      // ⚠️ دارایی و سندش در **یک** تراکنش.
+      //
+      //    اگر سند جدا صادر می‌شد و شکست می‌خورد، داراییِ بی‌سند
+      //    می‌ماند — دقیقاً همان حالتی که این اصلاح برای رفعش نوشته
+      //    شده.  یا هر دو، یا هیچ‌کدام.
+      if (cost > 0) {
+        await this.posting.postAuto(tx, companyId, {
+          sourceType: 'AssetAcquisition',
+          sourceId: String(asset.id),
+          description: `خرید دارایی ${assetNo}`,
+          userId: userId ?? null,
+          entryDate: new Date(
+            (dto.purchaseDate as string | undefined) ?? Date.now(),
+          ),
+          lines: assetAcquisitionEntry({
+            cost,
+            method: (dto.paymentMethod as string | undefined) ?? 'CASH',
+          }),
+        });
+      }
+
+      return asset;
+    });
   }
 
   async update(companyId: string, id: string, dto: Record<string, unknown>) {

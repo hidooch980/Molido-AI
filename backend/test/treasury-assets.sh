@@ -238,6 +238,65 @@ code -X POST "$A/assets/depreciation/run" -H "$AU" -H "$JS" -d '{"period":"2026-
 chk "بدون ردیف تازه" \
   "$(Q "SELECT count(*) FROM \"AssetDepreciation\" WHERE \"assetId\"='$AID';")" "$BEFORE_D"
 
+echo '--- ۱۳) خریدِ دارایی سند می‌زند ---'
+#
+# ⚠️ این ایراد در **تراز آزمایشیِ زنده** دیده شد، نه در آزمون.
+#
+#    `AssetDisposal` و `AssetDepreciation` هر دو سند می‌زدند، ولی
+#    ثبتِ خودِ دارایی هیچ سندی نمی‌زد.  نتیجه: حساب ۱۲۰۱ «اموال و
+#    تجهیزات» — که یک دارایی است — ماندهٔ **بستانکار** داشت.  یعنی
+#    دفاتر می‌گفتند دارایی‌هایی واگذار شده‌اند که هرگز خریداری نشده
+#    بودند، و ترازنامه به همان اندازه کم‌ارزش می‌شد.
+#
+# ⚠️ چرا هیچ آزمونی نگرفتش؟
+#
+#    چون تراز **صفر** می‌ماند.  هر دو طرفِ سندِ واگذاری درست بود؛
+#    چیزی که کم بود سندِ **قبلی** بود.  «تراز صفر است» با «دفتر درست
+#    است» یکی نیست — و تنها سنجه‌ای که این را می‌گیرد، نگاه به
+#    **علامتِ ماندهٔ** حسابِ دارایی است.
+
+NA=$(curl -s -X POST $A/assets -H "$AU" -H "$JS" \
+     -d '{"name":"UT-Asset-Acq","purchasePrice":12000000,"usefulLifeYears":5}' | JID)
+chk "دارایی ساخته شد" "$([ -n "$NA" ] && echo yes || echo no)" "yes"
+
+chk "سندِ خرید صادر شد" \
+  "$(Q "SELECT count(*) FROM \"JournalEntry\" WHERE \"sourceType\"='AssetAcquisition' AND \"sourceId\"='$NA';")" "1"
+
+chk "دارایی بدهکار شد" \
+  "$(Q "SELECT round(sum(l.debit))::bigint FROM \"JournalLine\" l
+        JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+        JOIN \"Account\" a ON a.id=l.\"accountId\"
+        WHERE e.\"sourceType\"='AssetAcquisition' AND e.\"sourceId\"='$NA' AND a.code='1201';")" "12000000"
+
+# ⚠️ سنجهٔ اصلی: خریدِ دارایی حسابِ ۱۲۰۱ را **بدهکار** می‌کند.
+#
+#    نسخهٔ اول ماندهٔ **کلِ** حساب را می‌سنجید و روی پایگاه‌دادهٔ
+#    توسعه همیشه قرمز می‌ماند: ۲۸ سندِ واگذاریِ قدیمی از اجراهای
+#    پیشین آنجا بود که سندِ خریدشان هرگز صادر نشده بود — دقیقاً همان
+#    ایرادی که این اصلاح بست، ولی داده‌اش تاریخی است و کدِ امروز
+#    پاکش نمی‌کند.
+#
+#    سنجه باید کاری را بیازماید که **همین اجرا** انجام داده، نه بدهیِ
+#    دادهٔ گذشته را.  وگرنه قرمزی می‌ماند که هیچ‌کس نمی‌تواند سبزش کند،
+#    و همان چیزی است که آدم را به بی‌اعتنایی به قرمز عادت می‌دهد.
+chk "خرید، ۱۲۰۱ را بدهکار می‌کند" \
+  "$(Q "SELECT CASE WHEN COALESCE(sum(l.debit),0) > COALESCE(sum(l.credit),0)
+                    THEN 'ok' ELSE 'credit' END
+        FROM \"JournalLine\" l
+        JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+        JOIN \"Account\" a ON a.id=l.\"accountId\"
+        WHERE a.code='1201' AND e.\"sourceId\"='$NA';")" "ok"
+
+# ⚠️ داراییِ بی‌بها سند نمی‌خواهد — سندِ صفر فقط دفتر را شلوغ می‌کند.
+ZA=$(curl -s -X POST $A/assets -H "$AU" -H "$JS" \
+     -d '{"name":"UT-Asset-Zero","purchasePrice":0,"usefulLifeYears":5}' | JID)
+chk "داراییِ بی‌بها سند نمی‌زند" \
+  "$(Q "SELECT count(*) FROM \"JournalEntry\" WHERE \"sourceType\"='AssetAcquisition' AND \"sourceId\"='$ZA';")" "0"
+
+Q "DELETE FROM \"JournalLine\" WHERE \"entryId\" IN (SELECT id FROM \"JournalEntry\" WHERE \"sourceId\" IN ('$NA','$ZA'));" >/dev/null
+Q "DELETE FROM \"JournalEntry\" WHERE \"sourceId\" IN ('$NA','$ZA');" >/dev/null
+Q "DELETE FROM \"Asset\" WHERE id IN ('$NA','$ZA');" >/dev/null
+
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

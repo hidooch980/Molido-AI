@@ -137,10 +137,36 @@ echo '--- ۸b) اثرِ واقعی روی کاربرِ آن نقش ---'
 curl -s -X POST $A/users -H "$AU" -H "$JS" -d '{
   "email":"roletest@molido.ai","password":"Test-Role-1",
   "firstName":"Role","lastName":"Test","role":"CASHIER"}' >/dev/null
-CT=$(curl -s -X POST $A/auth/login -H "$JS" \
-  -d '{"email":"roletest@molido.ai","password":"Test-Role-1"}' \
-  | P "d.get('accessToken','')")
-chk "صندوق‌دار وارد شد" "$([ -n "$CT" ] && echo yes || echo no)" "yes"
+# ⚠️ این ورودِ **دوم** است و از نگهبانِ سهمیهٔ `run-tests.sh` بی‌خبر.
+#
+#    `ensure_token` فقط توکنِ مدیر را مدیریت می‌کند.  ورودِ صندوق‌دار
+#    مستقیم زده می‌شد، و در انتهای یک اجرای کامل به سقفِ ~۱۰ در دقیقهٔ
+#    `/auth/login` می‌خورد.  نتیجه: توکنِ خالی و پنج سنجهٔ ۴۰۱ که
+#    هیچ‌کدام دربارهٔ نقش‌ها نبودند.
+#
+#    شکستی که فقط در اجرای کامل می‌آمد و تنهایی سبز بود.
+CT=''
+for attempt in 1 2 3 4 5 6; do
+  LOGIN=$(curl -s -D /tmp/roles-hdr.$$ -X POST $A/auth/login -H "$JS" \
+    -d '{"email":"roletest@molido.ai","password":"Test-Role-1"}')
+  CT=$(printf '%s' "$LOGIN" | P "d.get('accessToken','')")
+  [ -n "$CT" ] && break
+
+  # `Retry-After` را خودِ سرور می‌گوید؛ حدس زدنش یا کند است یا بی‌فایده.
+  WAIT=$(grep -i '^retry-after' /tmp/roles-hdr.$$ 2>/dev/null | tr -dc '0-9' | head -c 3)
+  sleep "${WAIT:-6}"
+done
+rm -f /tmp/roles-hdr.$$
+
+# ⚠️ اگر باز هم نشد، **کدِ وضعیت** گزارش می‌شود نه یک «no» خنثی.
+#    «no» چیزی دربارهٔ علت نمی‌گفت و وقت گرفت تا معلوم شود ۴۲۹ بوده.
+if [ -z "$CT" ]; then
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST $A/auth/login -H "$JS" \
+    -d '{"email":"roletest@molido.ai","password":"Test-Role-1"}')
+  chk "صندوق‌دار وارد شد" "ورود نشد (HTTP $CODE)" "yes"
+else
+  chk "صندوق‌دار وارد شد" "yes" "yes"
+fi
 
 CAU="Authorization: Bearer $CT"
 FAKE=00000000-0000-0000-0000-000000000000

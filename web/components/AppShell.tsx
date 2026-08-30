@@ -79,6 +79,9 @@ export const NAV: NavItem[] = [
   { href: '/restaurant', group: 'sell', label: 'menuRestaurant', icon: 'restaurant', primary: true, feature: 'restaurant' as FeatureKey },
   { href: '/restaurant/kitchen', group: 'sell', label: 'menuKitchen', icon: 'kitchen', feature: 'restaurant' as FeatureKey },
   { href: '/restaurant/menu', group: 'sell', label: 'menuMenuAdmin', icon: 'menuBook', feature: 'restaurant' as FeatureKey },
+  // ⚠️ بدونِ این ورودی، صفحهٔ QR ساخته می‌شد ولی کسی پیدایش نمی‌کرد.
+  //    صفحه‌ای که در ناوبری نیست، برای کاربر وجود ندارد.
+  { href: '/restaurant/qr', group: 'sell', label: 'tableQrTitle', icon: 'qrCode', feature: 'restaurant' as FeatureKey },
   { href: '/restaurant/reservations', group: 'sell', label: 'menuReservations', icon: 'calendar', feature: 'restaurant' as FeatureKey },
   { href: '/restaurant/shift', group: 'sell', label: 'menuShift', icon: 'chart', feature: 'restaurant' as FeatureKey },
   { href: '/restaurant/setup', group: 'sell', label: 'menuFloorSetup', icon: 'building', feature: 'restaurant' as FeatureKey },

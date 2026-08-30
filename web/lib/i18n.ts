@@ -208,6 +208,18 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   tabKitchen: { fa: 'آشپزخانه', en: 'Kitchen', ar: 'المطبخ' },
   tabMenu: { fa: 'منو', en: 'Menu', ar: 'القائمة' },
   table: { fa: 'میز', en: 'Table', ar: 'طاولة' },
+  tableQrTitle: { fa: 'کد QR میزها', en: 'Table QR codes', ar: 'رموز QR للطاولات' },
+  tableQrHint: {
+    fa: 'هر کد را روی میز خودش بچسبانید. مهمان با اسکن آن، منو را می‌بیند.',
+    en: 'Stick each code on its own table. Guests scan it to see the menu.',
+    ar: 'ألصق كل رمز على طاولته. يمسحه الضيف ليرى القائمة.',
+  },
+  tableQrMissing: {
+    fa: 'این میز کد ندارد — دوباره ذخیره‌اش کنید',
+    en: 'This table has no code — save it again',
+    ar: 'لا يوجد رمز لهذه الطاولة — احفظها مرة أخرى',
+  },
+  scanForMenu: { fa: 'برای دیدن منو اسکن کنید', en: 'Scan to see the menu', ar: 'امسح لرؤية القائمة' },
   tableFree: { fa: 'آزاد', en: 'Free', ar: 'شاغرة' },
   tableOccupied: { fa: 'مشغول', en: 'Occupied', ar: 'مشغولة' },
   tableReserved: { fa: 'رزرو', en: 'Reserved', ar: 'محجوزة' },

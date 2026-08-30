@@ -76,6 +76,7 @@ import { CustomerTicketsModule } from './customer-tickets/customer-tickets.modul
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { GovSsoModule } from './gov-sso/gov-sso.module';
 import { ShahkarModule } from './shahkar/shahkar.module';
+import { SelfOrderModule } from './self-order/self-order.module';
 import { SiteModule } from './site/site.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
@@ -133,6 +134,11 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
 
   restaurant: [
     RestaurantModule,
+    // ⚠️ منوی دیجیتال پشتِ همان قابلیت است، نه ماژولِ هسته.
+    //
+    //    در نمایهٔ فروشگاه هیچ میزی وجود ندارد، پس مسیرِ عمومیِ
+    //    `/menu/:token` آنجا فقط سطحِ حمله است بی‌آنکه کاری بکند.
+    SelfOrderModule,
   ],
 
   hr: [

@@ -400,7 +400,26 @@ export class RestaurantService {
    * ثبت سفارش جدید.
    * قیمت هر قلم از منو خوانده می‌شود مگر اینکه صراحتاً ارسال شده باشد.
    */
-  async createOrder(companyId: string, userId: string, dto: CreateOrderDto) {
+  /**
+   * ⚠️ `options` مسیرِ منوی دیجیتال را از مسیرِ گارسون جدا می‌کند.
+   *
+   *    وسوسه این بود که منوی دیجیتال تابعِ خودش را بنویسد.  ولی
+   *    آن‌وقت دو تعریف از «سفارش» می‌داشتیم و روزی که یکی عوض
+   *    می‌شد — مالیات، سرویس، ارسال به آشپزخانه — دیگری بی‌صدا عقب
+   *    می‌ماند.  همان استدلالی که `GovSsoModule` را به `AuthModule`
+   *    وصل نگه داشت.
+   */
+  async createOrder(
+    companyId: string,
+    userId: string | null,
+    dto: CreateOrderDto,
+    options: {
+      trustClient?: boolean;
+      source?: string;
+      guestCode?: string;
+      guestPhone?: unknown;
+    } = {},
+  ) {
     if (!dto.items?.length) {
       throw new BadRequestException('سفارش باید حداقل یک قلم داشته باشد');
     }
@@ -421,9 +440,15 @@ export class RestaurantService {
       }
     }
 
-    const { itemsData, subtotal } = await this.buildItems(companyId, dto.items);
+    const trustClient = options.trustClient !== false;
+    const { itemsData, subtotal } = await this.buildItems(companyId, dto.items, {
+      trustClient,
+    });
 
-    const discount = dto.discount ?? 0;
+    // ⚠️ تخفیفِ کلِ سفارش هم فقط از کارکنان پذیرفته می‌شود.
+    //    بدونِ این، مشتری `discount` برابرِ جمعِ سفارش می‌فرستد و
+    //    غذا رایگان می‌شود — قیمتِ اقلام درست، جمعِ نهایی صفر.
+    const discount = trustClient ? (dto.discount ?? 0) : 0;
     const deliveryFee = type === 'DELIVERY' ? (dto.deliveryFee ?? 0) : 0;
     const net = subtotal - discount;
     if (net < 0) throw new BadRequestException('تخفیف بیش از مبلغ سفارش است');
@@ -437,8 +462,9 @@ export class RestaurantService {
         `INSERT INTO "RestaurantOrder"
            (id, "companyId", "orderNo", type, status, "tableId", "customerId", "waiterId",
             "guestCount", subtotal, discount, "serviceCharge", tax, "deliveryFee", total,
-            "deliveryAddress", "deliveryPhone", note)
-         VALUES ($1, $2, $3, $4, 'OPEN', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            "deliveryAddress", "deliveryPhone", note, source, "guestCode", "guestPhone")
+         VALUES ($1, $2, $3, $4, 'OPEN', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                 $18, $19, $20)
          RETURNING *`,
         [
           randomUUID(),
@@ -458,6 +484,9 @@ export class RestaurantService {
           dto.deliveryAddress ?? null,
           dto.deliveryPhone ?? null,
           dto.note ?? null,
+          options.source ?? 'STAFF',
+          options.guestCode ?? null,
+          options.guestPhone ? String(options.guestPhone).slice(0, 20) : null,
         ],
       );
       const row = created.rows[0];
@@ -1109,7 +1138,27 @@ export class RestaurantService {
   }
 
   /** ساخت اقلام سفارش با قیمت‌گذاری از منو */
-  private async buildItems(companyId: string, items: OrderItemDto[]) {
+  /**
+   * ساختِ اقلامِ سفارش.
+   *
+   * ⚠️ `trustClient` تفاوتِ بینِ گارسون و مشتری است، و **حیاتی**.
+   *
+   *    مسیرِ کارکنان عمداً اجازه می‌دهد قیمت و تخفیفِ موردی از درخواست
+   *    بیاید: گارسون گاهی باید قیمت را دستی بزند و اختیارش را دارد.
+   *
+   *    ولی مسیرِ منوی دیجیتال **عمومی** است.  همان اجازه آنجا یعنی
+   *    مشتری `unitPrice: 0` بفرستد و غذا رایگان شود — بی‌آنکه چیزی
+   *    خطا بدهد، چون از نظر کد همه‌چیز معتبر است.
+   *
+   *    همین خانوادهٔ اشکال یک بار در فروشِ ماژولِ سایت دیده شد.  آنجا
+   *    درس این بود: قیمت از پایگاه‌داده خوانده شود، نه از درخواست.
+   */
+  private async buildItems(
+    companyId: string,
+    items: OrderItemDto[],
+    options: { trustClient?: boolean } = {},
+  ) {
+    const trustClient = options.trustClient !== false;
     const ids = items
       .map((item) => item.menuItemId)
       .filter((value): value is string => Boolean(value));
@@ -1140,8 +1189,14 @@ export class RestaurantService {
       const name = menu?.name ?? item.name;
       if (!name) throw new BadRequestException('نام قلم سفارش مشخص نیست');
 
-      const unitPrice = item.unitPrice ?? Number(menu?.price ?? 0);
-      const discount = item.discount ?? 0;
+      // ⚠️ در مسیرِ عمومی، قیمت **فقط** از منو می‌آید.
+      if (!trustClient && !menu) {
+        throw new BadRequestException('این قلم در منو نیست');
+      }
+      const unitPrice = trustClient
+        ? (item.unitPrice ?? Number(menu?.price ?? 0))
+        : Number(menu?.price ?? 0);
+      const discount = trustClient ? (item.discount ?? 0) : 0;
       const total = Math.round((unitPrice * item.qty - discount) * 100) / 100;
       if (total < 0) throw new BadRequestException(`تخفیف قلم «${name}» نامعتبر است`);
 

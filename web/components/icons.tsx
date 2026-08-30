@@ -25,6 +25,7 @@ export type IconName =
   | 'graduation'
   | 'kitchen'
   | 'menuBook'
+  | 'qrCode'
   | 'shield'
   | 'truck'
   | 'coins'
@@ -112,6 +113,7 @@ const PATHS: Record<IconName, string> = {
   graduation: 'M22 9 12 5 2 9l10 4 10-4ZM6 11.5V16c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4.5',
   kitchen: 'M6 3v8a2 2 0 0 0 2 2h1v8M6 3v5M9 3v5M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9',
   menuBook: 'M4 4h7v16H6a2 2 0 0 1-2-2V4ZM13 4h7v14a2 2 0 0 1-2 2h-5V4ZM7 8h1M16 8h1',
+  qrCode: 'M4 4h6v6H4V4ZM14 4h6v6h-6V4ZM4 14h6v6H4v-6ZM14 14h2v2h-2v-2ZM18 14h2v2h-2v-2ZM14 18h2v2h-2v-2ZM18 18h2v2h-2v-2Z',
   shield: 'M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3ZM9.5 12l2 2 3.5-4',
   truck: 'M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM18 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',
   coins: 'M8 13a5 3 0 1 0 0-6 5 3 0 0 0 0 6ZM3 10v4c0 1.7 2.2 3 5 3s5-1.3 5-3v-4M16 8a5 3 0 1 0 0 6 5 3 0 0 0 0-6ZM11 15v2c0 1.7 2.2 3 5 3s5-1.3 5-3v-4',

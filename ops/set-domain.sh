@@ -61,16 +61,31 @@ resolve() {
 }
 
 A_MAIN=$(resolve "$DOMAIN")
-A_WWW=$(resolve "www.$DOMAIN")
-
 printf '  %-20s %s\n' "$DOMAIN" "${A_MAIN:-(رکورد A ندارد)}"
-printf '  %-20s %s\n' "www.$DOMAIN" "${A_WWW:-(رکورد A ندارد)}"
+
+# ⚠️ `www` فقط برای دامنهٔ اصلی معنا دارد.
+#
+#    با `app.molido.ir` نسخهٔ پیشین سراغ `www.app.molido.ir` را
+#    می‌گرفت — نامی که قرار نیست وجود داشته باشد — و خطِ «رکورد A
+#    ندارد» چاپ می‌کرد.  هشداری که خودش اشتباه است، اعتماد به
+#    هشدارهای درست را هم از بین می‌برد.
+IS_APEX=no
+case "$DOMAIN" in
+  *.*.*) ;;
+  *.*) IS_APEX=yes ;;
+esac
+
+if [ "$IS_APEX" = yes ]; then
+  A_WWW=$(resolve "www.$DOMAIN")
+  printf '  %-20s %s\n' "www.$DOMAIN" "${A_WWW:-(رکورد A ندارد)}"
+else
+  printf '  %-20s %s\n' "www" "(زیردامنه است — بررسی نشد)"
+fi
 
 [ -n "$A_MAIN" ] || die "دامنهٔ «$DOMAIN» رکورد A ندارد.
 
      در پنلِ DNS یک رکورد A بسازید:
-         نام:    @        مقدار: $SERVER_IP
-         نام:    www      مقدار: $SERVER_IP
+         نام:    $([ "$IS_APEX" = yes ] && echo '@ (و www)' || echo "${DOMAIN%%.*}")        مقدار: $SERVER_IP
 
      سپس چند دقیقه صبر کنید و دوباره اجرا کنید.
      تا آن موقع سایت روی آی‌پی سالم کار می‌کند."

@@ -65,7 +65,19 @@ echo '--- 1) ordinary 4xx is NOT recorded ---'
 curl -s "$A/products/no-such-product-id" -H "$AU" >/dev/null
 curl -s -X POST $A/warehouses -H "$AU" -H "$JS" -d '{"name":""}' >/dev/null
 sleep 1
-chk "4xx not recorded" "$(psqlv "SELECT COUNT(*) FROM \"ErrorGroup\"")" "0"
+
+# ⚠️ «جدول خالی باشد» سنجهٔ درستی نبود.
+#
+#    ۴۲۹ و ۴۰۹ **عمداً** ثبت می‌شوند (`isWorthRecording`) چون نشانهٔ
+#    مشکل واقعی‌اند.  در اجرای کامل، محدودکنندهٔ نرخ همین دو درخواستِ
+#    آزمون را می‌تواند به ۴۲۹ تبدیل کند — و آن‌وقت سنجه قرمز می‌شد
+#    بی‌آنکه چیزی در محصول خراب باشد.  در اجرای تنها سبز بود، که
+#    بدترین حالت است: شکستی که فقط گاهی می‌آید.
+#
+#    ادعای واقعی این است: ۴۰۰ و ۴۰۴ ثبت **نمی‌شوند**.  همان را
+#    می‌سنجیم، نه چیزی بیشتر.
+chk "4xx not recorded" \
+  "$(psqlv "SELECT COUNT(*) FROM \"ErrorGroup\" WHERE \"statusCode\" IN (400,404)")" "0"
 
 echo '--- 2) a real server error is recorded and grouped ---'
 # سرریز عددی یک ۵۰۰ واقعی می‌سازد.  سه بار صدا زده می‌شود تا گروه‌بندی هم

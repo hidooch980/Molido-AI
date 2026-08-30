@@ -50,22 +50,45 @@ except ValueError:
 print($1)"; }
 Q() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
 
+# ⚠️ این نگهبان **درونِ بدنهٔ `chk()`** افتاده بود.
+#
+#    یعنی هرگز پیش از سنجه‌ها اجرا نمی‌شد، و شرطش هم فقط ۴۰۴ را
+#    می‌دید.  در اجرای فروشگاه، `$A` به درگاهی اشاره می‌کند که کسی
+#    پشتش نیست ⇒ پاسخ `000`، نه ۴۰۴ ⇒ نگهبان ساکت و ۱۵ شکستِ بی‌معنی
+#    با بدنهٔ خالی.
+#
+# ⚠️ چرا خودِ ورود جلویش را نگرفت؟
+#
+#    `run-tests.sh` متغیرِ `MOLIDO_TOKEN` را صادر می‌کند.  این فایل
+#    وقتی توکن از محیط بیاید اصلاً وارد نمی‌شود، پس بررسیِ «سرویس
+#    پاسخ می‌دهد؟» که در بلوکِ ورود بود، دور زده می‌شد.  توکنِ به‌ارث
+#    رسیده باعث می‌شد فایل فکر کند وصل است.
+PROBE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$A/restaurant/stats" -H "$AU")
+case "$PROBE" in
+  200) ;;
+  000)
+    echo "  سرویس روی $A پاسخ نمی‌دهد — این مجموعه روی نصبِ resto اجرا می‌شود"
+    echo "  MOLIDO_API=http://localhost:3201 MOLIDO_COMPOSE=\"docker compose -f docker-compose.yml -f docker-compose.resto.yml\""
+    echo
+    printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+    exit 0 ;;
+  404)
+    echo "  ماژول رستوران در این محصول فعال نیست (MOLIDO_PRODUCT=store)"
+    echo "  برای آزمون: MOLIDO_PRODUCT=resto یا suite"
+    echo
+    printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+    exit 0 ;;
+  *)
+    # ⚠️ هر چیزِ دیگری (۴۰۱، ۴۲۹، ۵۰۰) **شکست** است، نه رد شدن.
+    #    «رد شدنِ بی‌صدا» همان چیزی است که این فایل را ماه‌ها پنهان کرد.
+    echo "  ✗ پاسخِ غیرمنتظرهٔ $PROBE از $A/restaurant/stats"
+    echo
+    printf "   PASS: 0   FAIL: 1\n"
+    exit 1 ;;
+esac
+
 pass=0; fail=0
 chk() {
-
-# ⚠️ ماژول رستوران در این محصول هست؟
-#
-#    `RestaurantModule` فقط در قابلیتِ `restaurant` است.  این فایل تا
-#    امروز در `SUITES` نبود، پس نبودِ این بررسی به چشم نیامده بود؛
-#    به‌محضِ ثبت، اجرای فروشگاه ۲۳ شکستِ بی‌معنی می‌داد.
-if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/restaurant/stats" -H "$AU")" = "404" ]; then
-  echo "  ماژول رستوران در این محصول فعال نیست (MOLIDO_PRODUCT=store)"
-  echo "  برای آزمون: MOLIDO_PRODUCT=resto یا suite"
-  echo
-  printf "   PASS: 0   FAIL: 0   SKIPPED\n"
-  exit 0
-fi
-
   if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"
   else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi
 }

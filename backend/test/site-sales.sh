@@ -53,6 +53,31 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
+# ─────────────────────── درگاهِ ساختگی ───────────────────────
+#
+# ⚠️ **پیش از** هر سنجه‌ای بالا می‌آید، نه فقط برای بخشِ ۷.
+#
+#    نسخهٔ اول فقط در بخشِ ۷ روشنش می‌کرد، و بخش‌های ۳ تا ۵ — که
+#    خودشان سفارش می‌سازند — با درگاهِ خاموش شش سنجه قرمز می‌دادند.
+#    خرابی‌ای که ربطی به کدِ محصول نداشت و وقت می‌گرفت تا فهمیده شود.
+ZBASE="${ZARINPAL_BASE_URL:-$(grep -E '^ZARINPAL_BASE_URL=' .env 2>/dev/null | cut -d= -f2- | tr -d '"')}"
+FAKE=$(printf '%s' "$ZBASE" | grep -oE '[0-9]+$')
+CTL=""
+if [ -n "$FAKE" ]; then
+  CTL="http://localhost:$FAKE/__control"
+  # اگر بالا نیست، خودمان بالا می‌آوریم — «یادم رفت سرور را روشن کنم»
+  # نباید به شکستِ سنجه ترجمه شود.
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 -X POST "$CTL" -H "$JS" -d '{"underpay":false}')" != "200" ]; then
+    python3 backend/test/lib/fake-zarinpal.py "$FAKE" >/dev/null 2>&1 &
+    FAKE_PID=$!
+    trap 'cleanup; kill '"$FAKE_PID"' 2>/dev/null' EXIT
+    for _ in 1 2 3 4 5; do
+      sleep 1
+      [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 -X POST "$CTL" -H "$JS" -d '{"underpay":false}')" = "200" ] && break
+    done
+  fi
+fi
+
 echo '--- ۱) کاتالوگ ---'
 chk "کاتالوگ ۲۰۰ می‌دهد" "$CODE" "200"
 N=$(curl -s "$A/site/modules" | P "len(d)")
@@ -115,6 +140,56 @@ chk "کد نامعتبر ۴۰۴" \
 echo '--- ۶) بازگشتِ جعلی ---'
 chk "بازگشت با کدِ ناشناخته سفارشی نمی‌سازد" \
   "$(curl -s -o /dev/null "$A/site/purchase/callback?code=MO-ghost-$$"; Q "SELECT count(*) FROM \"SitePurchase\" WHERE \"trackingCode\"='MO-ghost-$$';")" "0"
+
+# ─────────────────────────────────────────────────────────────────────
+echo '--- ۷) مبلغِ پاسخِ درگاه ---'
+#
+# ⚠️ **مهم‌ترین بخشِ این فایل**، و تا امروز هرگز اجرا نشده بود.
+#
+#    سنجهٔ کم‌پرداختی به درگاهی نیاز دارد که بشود وادارش کرد دروغ
+#    بگوید.  درگاهِ واقعی اعتبارنامهٔ پذیرنده می‌خواهد، پس این سنجه
+#    عملاً روی هیچ ماشینی اجرا نمی‌شد — یعنی نگهبانِ گران‌بهایی داشتیم
+#    که فقط روی کاغذ بود.
+#
+#    `lib/fake-zarinpal.py` همان درگاه است، با کلیدی که واداردش مبلغی
+#    کمتر از آنچه گرفته گزارش کند.
+# نشانیِ درگاه از `.env` خوانده می‌شود — همان چیزی که بک‌اند می‌بیند.
+# پرسیدنش از محیطِ پوسته گمراه‌کننده بود: آنجا معمولاً تنظیم نیست.
+if [ -z "$FAKE" ]; then
+  echo "  ZARINPAL_BASE_URL به درگاهِ ساختگی اشاره نمی‌کند — از این بخش گذشتیم"
+  echo "  (ZARINPAL_BASE_URL=http://host.docker.internal:8899 در .env)"
+else
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -X POST "$CTL" -H "$JS" -d '{"underpay":false}')" != "200" ]; then
+    fail=$((fail+1)); printf '  FAIL درگاهِ ساختگی روی %s پاسخ نمی‌دهد\n' "$CTL"
+  else
+    mk() {
+      curl -s -X POST "$A/site/purchase" -H "$JS" \
+        -d "{\"name\":\"SITETEST-$1\",\"phone\":\"09120000003\",\"slugs\":[\"$SLUG\"]}" \
+        | P "d.get('trackingCode','')"
+    }
+
+    # ۷الف) پرداختِ درست ⇒ PAID
+    T_OK=$(mk ok)
+    curl -s -o /dev/null "$A/site/purchase/callback?code=$T_OK"
+    chk "پرداختِ کامل PAID می‌شود" \
+      "$(Q "SELECT status FROM \"SitePurchase\" WHERE \"trackingCode\"='$T_OK';")" "PAID"
+    chk "شمارهٔ پیگیریِ بانک ثبت شد" \
+      "$(Q "SELECT count(*) FROM \"SitePurchase\" WHERE \"trackingCode\"='$T_OK' AND \"bankRef\" IS NOT NULL;")" "1"
+
+    # ۷ب) درگاه «موفق» می‌گوید ولی مبلغ کمتر است ⇒ باید رد شود
+    curl -s -o /dev/null -X POST "$CTL" -H "$JS" -d '{"underpay":true}'
+    T_BAD=$(mk under)
+    curl -s -o /dev/null "$A/site/purchase/callback?code=$T_BAD"
+    curl -s -o /dev/null -X POST "$CTL" -H "$JS" -d '{"underpay":false}'
+
+    chk "کم‌پرداختی PAID نمی‌شود" \
+      "$(Q "SELECT status FROM \"SitePurchase\" WHERE \"trackingCode\"='$T_BAD';")" "FAILED"
+    # ⚠️ نبودِ `bankRef` جداگانه سنجیده می‌شود: سفارشی که رد شده ولی
+    #    شمارهٔ بانکی دارد، در گزارش‌ها «پرداخت‌شده» به نظر می‌رسد.
+    chk "کم‌پرداختی شمارهٔ بانک نمی‌گیرد" \
+      "$(Q "SELECT count(*) FROM \"SitePurchase\" WHERE \"trackingCode\"='$T_BAD' AND \"bankRef\" IS NOT NULL;")" "0"
+  fi
+fi
 
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"

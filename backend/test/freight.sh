@@ -71,7 +71,13 @@ PID=$(echo "$PU" | P "d.get('id','')")
 chk "purchase created" "$(echo "$PU" | P "'yes' if d.get('id') else 'no'")" "yes"
 
 echo '--- 2) receive => freight allocated by value ---'
-curl -s -X PATCH "$A/purchases/$PID/receive" -H "$AU" -H "$JS" -d '{}' >/dev/null
+# ⚠️ پاسخِ دریافت دور ریخته نمی‌شود.
+#
+#    نسخهٔ قبلی `>/dev/null` می‌کرد، و وقتی این فراخوان شکست می‌خورد
+#    شش سنجهٔ بعدی «۰ به‌جای ۱۰۰۰۰» می‌دادند — عددی که هیچ نمی‌گوید
+#    چرا.  وقتِ زیادی صرفِ حدس زدنِ علتی شد که خودِ پاسخ گفته بود.
+RCV=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$A/purchases/$PID/receive" -H "$AU" -H "$JS" -d '{}')
+chk "receive accepted" "$RCV" "200"
 chk "share of cheap item" "$(Q "SELECT COALESCE(\"freightShare\",0)::bigint FROM \"PurchaseItem\" WHERE \"purchaseId\"='$PID' AND \"productId\"='seed-p1';")" "10000"
 chk "share of costly item" "$(Q "SELECT COALESCE(\"freightShare\",0)::bigint FROM \"PurchaseItem\" WHERE \"purchaseId\"='$PID' AND \"productId\"='seed-p2';")" "30000"
 

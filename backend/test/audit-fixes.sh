@@ -189,7 +189,18 @@ chk "هیچ قید یکتای سراسریِ ناخواسته نمانده"   "$
                           WHERE col.table_name=t.relname AND col.column_name='companyId')
               AND NOT (t.relname='User' AND pg_get_constraintdef(c.oid) IN
                          ('UNIQUE (email)','UNIQUE (phone)'))
-              AND NOT (t.relname='ApiKey' AND pg_get_constraintdef(c.oid)='UNIQUE (\"keyHash\")')")" "0"
+              AND NOT (t.relname='ApiKey' AND pg_get_constraintdef(c.oid)='UNIQUE (\"keyHash\")')
+              AND NOT (t.relname='SitePurchase' AND pg_get_constraintdef(c.oid)='UNIQUE (\"trackingCode\")')")" "0"
+
+# ⚠️ `SitePurchase.trackingCode` چهارمین استثنای عمدی است.
+#
+#    خریدارِ سایت حساب و توکن ندارد و **تنها** با همین کد وضعیتش را
+#    می‌بیند؛ یعنی کد پیش از دانستنِ شرکت جست‌وجو می‌شود — همان
+#    استدلالِ ایمیل و کلید API.  اگر یکتایی درون‌شرکتی بود، دو شرکت
+#    می‌توانستند کدِ یکسان بدهند و پیگیری سطرِ اشتباه را برمی‌گرداند.
+chk "کد رهگیریِ خریدِ سایت سراسری یکتا مانده" \
+  "$(psqlv "SELECT count(*) FROM pg_constraint
+            WHERE conname='SitePurchase_trackingCode_key'")" "1"
 
 # و استثناها واقعاً سرِ جایشان‌اند — «صفر قید ناخواسته» با محدود کردنِ
 # هویت هم برآورده می‌شود، که دقیقاً همان اشتباه ۰۳۵ بود.

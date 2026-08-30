@@ -59,6 +59,18 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return {}
 
+    def do_GET(self):
+        """⚠️ فقط خواندن — کاوشِ «بالا هستی؟» نباید حالت را عوض کند.
+
+        نسخهٔ اول فقط `POST /__control` داشت، پس کاوش مجبور بود POST
+        بزند و همان کاوش `underpay` را صفر می‌کرد.  کاوشی که حالت را
+        تغییر دهد، خودش منبعِ خطاست.
+        """
+        if self.path.split('?')[0] == '/__control':
+            with LOCK:
+                return self._send(dict(STATE))
+        self._send({'errors': {'message': 'مسیر ناشناخته'}}, 404)
+
     def do_POST(self):
         path = self.path.split('?')[0]
         data = self._body()

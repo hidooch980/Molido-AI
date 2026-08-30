@@ -18,6 +18,7 @@ import {
   StationDto,
   SettleOrderDto,
 } from './dto/restaurant.dto';
+import { CashierShiftService } from '../retail/cashier-shift.service';
 
 type Row = Record<string, unknown>;
 type OrderRow = Row & {
@@ -100,6 +101,20 @@ export class RestaurantService {
   constructor(
     private readonly db: DatabaseService,
     private readonly n8n: N8nService,
+    // ⚠️ نامش `cashierShifts` است نه `shifts`.
+    //
+    //    رستوران خودش `RestaurantShift` دارد — شیفتِ **کارکنان** — و
+    //    متدِ `shifts()` همان را برمی‌گرداند.  این یکی شیفتِ **صندوق**
+    //    است و کارِ دیگری می‌کند.  هم‌نامی‌شان دو مفهومِ متفاوت را در
+    //    ذهنِ خوانندهٔ بعدی یکی می‌کرد.
+    //
+    // ⚠️ `@Optional()` نیست و نباید باشد.
+    //
+    //    اگر اختیاری بود، یک اشتباهِ سیم‌کشی به «شیفت همیشه تهی»
+    //    ترجمه می‌شد و مغایرت‌گیری بی‌صدا به همان حالتِ خرابِ امروز
+    //    برمی‌گشت.  وابستگیِ اجباری، آن اشتباه را در زمانِ بالا آمدن
+    //    آشکار می‌کند.
+    private readonly cashierShifts: CashierShiftService,
   ) {}
 
   // ═══════════════ سالن ═══════════════
@@ -652,7 +667,12 @@ export class RestaurantService {
    * - آزادسازی میز
    * - کسر خودکار مواد اولیه از انبار طبق رسپی (اگر warehouseId داده شود)
    */
-  async settle(companyId: string, id: string, dto: SettleOrderDto) {
+  async settle(
+    companyId: string,
+    id: string,
+    dto: SettleOrderDto,
+    userId?: string | null,
+  ) {
     const order = await this.order(companyId, id);
 
     if (order.status === 'PAID') {
@@ -685,6 +705,18 @@ export class RestaurantService {
       if (!cashBoxes[0]) throw new NotFoundException('صندوق یافت نشد');
     }
 
+    // ⚠️ شیفتِ باز **پیش از** تراکنش خوانده می‌شود.
+    //
+    //    تا امروز فروشِ رستوران به هیچ شیفتی نمی‌چسبید و در
+    //    مغایرت‌گیریِ صندوق دیده نمی‌شد — دلیلِ کاملش در مهاجرت ۰۶۲.
+    //
+    //    نبودِ شیفت **خطا نیست**: سفارشِ آنلاین یا تسویهٔ مدیر بیرون
+    //    از شیفت واقعاً رخ می‌دهد.  ولی آن‌وقت در شمارشِ آن شب هم
+    //    نمی‌آید، که درست است.
+    const shiftId = userId
+      ? ((await this.cashierShifts.current(companyId, userId).catch(() => null))?.id ?? null)
+      : null;
+
     const settled = await this.db.transaction(async (tx) => {
       if (dto.warehouseId) {
         await this.consumeIngredients(tx, order, dto.warehouseId);
@@ -693,9 +725,9 @@ export class RestaurantService {
       const updated = await tx.query<Row>(
         `UPDATE "RestaurantOrder"
          SET status = 'PAID', "paidAmount" = $1, "tipAmount" = $2, "paymentMethod" = $3,
-             "closedAt" = now(), "updatedAt" = now()
+             "shiftId" = $5, "closedAt" = now(), "updatedAt" = now()
          WHERE id = $4 RETURNING *`,
-        [dto.paidAmount, dto.tipAmount ?? 0, dto.paymentMethod ?? 'CASH', id],
+        [dto.paidAmount, dto.tipAmount ?? 0, dto.paymentMethod ?? 'CASH', id, shiftId],
       );
 
       await tx.query(

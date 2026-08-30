@@ -52,6 +52,14 @@ case "$PROBE" in
     echo
     printf "   PASS: 0   FAIL: 0   SKIPPED\n"
     exit 0 ;;
+  3??)
+    # ⚠️ تغییرِ مسیر یعنی **برنامهٔ دیگری** پشتِ این درگاه است.
+    #    دلیلِ کاملش در `e2e-resto.sh`.
+    echo "  درگاهِ $A را برنامهٔ دیگری گرفته (پاسخ $PROBE) — این مجموعه اجرا نشد"
+    echo "  MOLIDO_API را به درگاهِ درستِ بک‌اندِ resto بدهید."
+    echo
+    printf "   PASS: 0   FAIL: 0   SKIPPED\n"
+    exit 0 ;;
   *)
     echo "  ✗ پاسخِ غیرمنتظرهٔ $PROBE از $A/restaurant/stats"
     echo

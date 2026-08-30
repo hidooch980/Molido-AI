@@ -117,6 +117,10 @@ export class CashierShiftService {
       sales: string;
       cash: string;
       card: string;
+      roCount: string;
+      roTotal: string;
+      roCash: string;
+      roCard: string;
     }>(
       `SELECT
          (SELECT count(*)::text FROM "Sale"
@@ -130,16 +134,41 @@ export class CashierShiftService {
          (SELECT COALESCE(sum(p.amount), 0)::text
             FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
            WHERE s."shiftId" = $1 AND s.status = ANY($2)
-             AND p.status = 'COMPLETED' AND p.method <> 'CASH') AS card`,
+             AND p.status = 'COMPLETED' AND p.method <> 'CASH') AS card,
+
+         -- ⚠️ سفارشِ رستوران هم پول است و تا امروز شمرده نمی‌شد.
+         --
+         --    دلیلِ کاملش در مهاجرت ۰۶۲.  خلاصه: صندوق‌دار پول را
+         --    می‌شمرد، سامانه انتظارِ کمتری داشت، و اختلاف به‌عنوان
+         --    «اضافه» ثبت می‌شد — یعنی مغایرت‌گیری هیچ‌وقت معنا نداشت.
+         (SELECT count(*)::text FROM "RestaurantOrder"
+           WHERE "shiftId" = $1 AND status = 'PAID') AS "roCount",
+         (SELECT COALESCE(sum("paidAmount"), 0)::text FROM "RestaurantOrder"
+           WHERE "shiftId" = $1 AND status = 'PAID') AS "roTotal",
+         (SELECT COALESCE(sum("paidAmount"), 0)::text FROM "RestaurantOrder"
+           WHERE "shiftId" = $1 AND status = 'PAID'
+             AND COALESCE("paymentMethod", 'CASH') = 'CASH') AS "roCash",
+         (SELECT COALESCE(sum("paidAmount"), 0)::text FROM "RestaurantOrder"
+           WHERE "shiftId" = $1 AND status = 'PAID'
+             AND COALESCE("paymentMethod", 'CASH') <> 'CASH') AS "roCard"`,
       [shiftId, COUNTED_STATUSES],
     );
 
     const row = rows[0];
     return {
-      salesCount: Number(row?.count ?? 0),
-      salesTotal: Number(row?.sales ?? 0),
-      cashTotal: Number(row?.cash ?? 0),
-      cardTotal: Number(row?.card ?? 0),
+      salesCount: Number(row?.count ?? 0) + Number(row?.roCount ?? 0),
+      salesTotal: Number(row?.sales ?? 0) + Number(row?.roTotal ?? 0),
+      cashTotal: Number(row?.cash ?? 0) + Number(row?.roCash ?? 0),
+      cardTotal: Number(row?.card ?? 0) + Number(row?.roCard ?? 0),
+
+      // ⚠️ تفکیک هم برمی‌گردد، نه فقط جمع.
+      //
+      //    وقتی مغایرت پیدا شد، «کجا؟» اولین سؤال است.  جمعِ بی‌تفکیک
+      //    می‌گوید مشکلی هست ولی نمی‌گوید سرِ صندوق بوده یا سرِ میز.
+      breakdown: {
+        pos: { count: Number(row?.count ?? 0), total: Number(row?.sales ?? 0) },
+        restaurant: { count: Number(row?.roCount ?? 0), total: Number(row?.roTotal ?? 0) },
+      },
     };
   }
 

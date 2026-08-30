@@ -292,6 +292,105 @@ chk "trial balance" "$(Q "SELECT COALESCE(SUM(l.debit)-SUM(l.credit),0)::bigint 
 #    `reset_finish` بالای فایل جایش را گرفته: بر پایهٔ مُهرِ زمان، پس
 #    فقط چیزی می‌رود که خودِ این اجرا ساخته.
 
+echo '--- ۱۰) فروشِ رستوران در شیفتِ صندوق دیده می‌شود ---'
+#
+# ⚠️ این شکاف **واقعی بود و ماه‌ها باز ماند**.
+#
+#    `CashierShiftService.totals` فقط جدولِ `Sale` را می‌شمرد، و سفارشِ
+#    رستوران در `RestaurantOrder` می‌نشیند.  نتیجه: صندوق‌دار آخرِ شب
+#    پول را می‌شمرد، سامانه انتظارِ کمتری داشت، و اختلاف به‌عنوان
+#    «اضافه» ثبت می‌شد.
+#
+#    یعنی مغایرت‌گیری هیچ‌وقت معنا نداشت — نه کسری دیده می‌شد نه اضافه.
+#    و مغایرت‌گیریِ بی‌معنا از نبودش بدتر است: کسی به عددش تکیه می‌کند.
+
+# ⚠️ شیفتِ صندوق در نمایهٔ `resto` **وجود ندارد**.
+#
+#    `retail` فقط در `store` و `suite` است.  یعنی این ادغام تنها در
+#    `suite` معنا دارد — رستورانی که صندوقِ فروشگاهی هم دارد.
+#
+#    رد شدن باید **صریح** باشد، نه سبزِ خاموش: سنجه‌ای که در نمایهٔ
+#    اشتباه بی‌صدا سبز شود، همان چیزی است که `e2e-resto` را ماه‌ها
+#    پنهان کرد.
+if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/retail/shifts/current" -H "$AU")" = "404" ]; then
+  echo "  صندوق فروشگاهی در این نمایه نیست — این بخش روی suite اجرا می‌شود"
+  echo
+  printf "   PASS: %s   FAIL: %s
+" "$pass" "$fail"
+  exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)
+fi
+
+# ⚠️ باز کردنِ شیفت **صندوق می‌خواهد** و پایگاه‌دادهٔ تازه ندارد.
+#
+#    نسخهٔ اول این را نمی‌دانست و وقتی `open` با «صندوق یافت نشد»
+#    ۴۰۴ می‌داد، به `current` عقب‌گرد می‌کرد — که آن هم تهی بود.
+#    نتیجه: سنجهٔ «شیفت باز شد» سبز می‌شد در حالی که هیچ شیفتی نبود،
+#    و پنج سنجهٔ بعدی با پیام‌هایی می‌افتادند که علت را نمی‌گفتند.
+#
+#    عقب‌گردِ خاموش، خرابی را به جای دیگری منتقل می‌کند.
+CB=$(curl -s "$A/cashbox" -H "$AU" | P "d[0]['id'] if isinstance(d,list) and d else (d.get('data',[{}])[0].get('id','') if isinstance(d,dict) else '')")
+if [ -z "$CB" ]; then
+  CB=$(curl -s -X POST $A/cashbox -H "$AU" -H "$JS" -d '{"name":"UT-CashBox","code":"UT-CB"}' | P "d.get('id','')")
+fi
+chk "صندوق آماده است" "$(printf '%s' "$CB" | grep -qiE '^[0-9a-f-]{36}$' && echo yes || echo no)" "yes"
+
+# شیفتِ صندوق (جدا از `RestaurantShift` که شیفتِ کارکنان است).
+# ⚠️ «تهی نبودنِ متغیر» با «شیفت داریم» یکی نیست.
+#
+#    وقتی شیفتِ بازی نباشد، `/retail/shifts/current` بدنهٔ **خالی**
+#    برمی‌گرداند — نه `null` و نه `{}`.  کمکیِ `P` آن را
+#    `<<پاسخ-JSON-نبود: ۰ نویسه>>` گزارش می‌کند، که رشته‌ای **ناتهی**
+#    است.  پس `[ -z "$CS" ]` غلط از آب درمی‌آمد، شیفت هرگز باز
+#    نمی‌شد، و سنجهٔ «شیفت باز شد» **سبز** می‌شد.
+#
+#    پنج سنجهٔ بعدی با نشانیِ `/retail/shifts/<<پاسخ-JSON-نبود…>>`
+#    می‌افتادند و هیچ‌کدام علت را نمی‌گفتند.
+#
+#    پس ریختِ شناسه سنجیده می‌شود، نه ناتهی بودنش.
+is_uuid() { printf '%s' "$1" | grep -qiE '^[0-9a-f-]{36}$'; }
+
+CS=$(curl -s "$A/retail/shifts/current" -H "$AU" | P "d.get('id','') if isinstance(d,dict) else ''")
+if ! is_uuid "$CS"; then
+  CS=$(curl -s -X POST $A/retail/shifts/open -H "$AU" -H "$JS" -d "{\"openingCash\":1000000,\"cashBoxId\":\"$CB\"}" | P "d.get('id','')")
+fi
+chk "شیفت صندوق باز شد" "$(is_uuid "$CS" && echo yes || echo no)" "yes"
+
+BEFORE=$(curl -s "$A/retail/shifts/$CS" -H "$AU" | P "d.get('live',{}).get('salesTotal', 0)")
+
+STB=$(curl -s -X POST $A/restaurant/tables -H "$AU" -H "$JS" -d '{"tableNo":"UT-SH1","capacity":2}' | P "d.get('id','')")
+SIT=$(curl -s -X POST $A/restaurant/menu-items -H "$AU" -H "$JS" -d '{"name":"UT-ShiftDish","price":700000}' | P "d.get('id','')")
+SOR=$(curl -s -X POST $A/restaurant/orders -H "$AU" -H "$JS" -d "{\"type\":\"DINE_IN\",\"tableId\":\"$STB\",\"items\":[{\"menuItemId\":\"$SIT\",\"qty\":1}]}" | P "d.get('id','')")
+curl -s -o /dev/null -X POST "$A/restaurant/orders/$SOR/settle" -H "$AU" -H "$JS" -d '{"paidAmount":700000,"paymentMethod":"CASH"}'
+
+chk "سفارش به شیفت چسبید" \
+  "$(Q "SELECT CASE WHEN \"shiftId\" = '$CS' THEN 'yes' ELSE 'no' END FROM \"RestaurantOrder\" WHERE id='$SOR';")" "yes"
+
+AFTER=$(curl -s "$A/retail/shifts/$CS" -H "$AU" | P "d.get('live',{}).get('salesTotal', 0)")
+chk "جمعِ شیفت ۷۰۰٬۰۰۰ بیشتر شد" \
+  "$(python3 -c "print(int(float('${AFTER:-0}') - float('${BEFORE:-0}')))")" "700000"
+
+# ⚠️ نقد و کارتخوان جدا شمرده می‌شوند، وگرنه «انتظارِ نقد» غلط است.
+chk "در جمعِ نقد آمد" \
+  "$(curl -s "$A/retail/shifts/$CS" -H "$AU" | P "int(float(d.get('live',{}).get('cashTotal',0))) >= 700000")" "True"
+
+# ⚠️ تفکیک لازم است: وقتی مغایرت پیدا شد، «کجا؟» اولین سؤال است.
+chk "تفکیکِ رستوران گزارش می‌شود" \
+  "$(curl -s "$A/retail/shifts/$CS" -H "$AU" | P "int(d.get('live',{}).get('breakdown',{}).get('restaurant',{}).get('count',0)) >= 1")" "True"
+
+# ⚠️ انتظارِ نقد در بستنِ شیفت هم باید همین را ببیند.
+# ⚠️ بستنِ شیفت `PATCH` است نه `POST` — نسخهٔ اول `POST` می‌زد و
+#    ۴۰۴ می‌گرفت، ولی چون پاسخ را فقط برای خواندنِ یک میدان استفاده
+#    می‌کرد، به‌شکلِ «میدان تهی است» ظاهر می‌شد نه «مسیر وجود ندارد».
+CLOSED=$(curl -s -X PATCH "$A/retail/shifts/$CS/close" -H "$AU" -H "$JS" -d '{"countedCash":1700000}')
+chk "شیفت بسته شد" "$(printf '%s' "$CLOSED" | P "'yes' if d.get('endedAt') else 'no'")" "yes"
+chk "انتظارِ نقد شاملِ فروشِ رستوران است" \
+  "$(printf '%s' "$CLOSED" | P "int(float(d.get('expectedCash',0))) >= 1700000")" "True"
+
+Q "DELETE FROM \"RestaurantOrderItem\" WHERE \"orderId\"='$SOR';" >/dev/null
+Q "DELETE FROM \"RestaurantOrder\" WHERE id='$SOR';" >/dev/null
+Q "DELETE FROM \"RestaurantTable\" WHERE id='$STB';" >/dev/null
+Q "DELETE FROM \"MenuItem\" WHERE id='$SIT';" >/dev/null
+
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

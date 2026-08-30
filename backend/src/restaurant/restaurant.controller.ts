@@ -241,7 +241,7 @@ export class RestaurantController {
     @Param('id') id: string,
     @Body() dto: SettleOrderDto,
   ) {
-    return this.service.settle(user.companyId!, id, dto);
+    return this.service.settle(user.companyId!, id, dto, user.userId);
   }
 
   @Post('orders/:id/cancel')

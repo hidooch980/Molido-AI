@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -46,7 +47,21 @@ export class ShahkarController {
     };
   }
 
+  /**
+   * ⚠️ سقفِ نرخ **الزامی** است، و نگهبانِ `verify-auth-throttle` درست
+   *    گرفتش.
+   *
+   *    هر استعلامِ شاهکار هزینه دارد و سهمیهٔ روزانه‌اش محدود است.
+   *    بدونِ سقف، یک کاربرِ داخلی — چه از روی بدخواهی، چه با یک
+   *    حلقهٔ اشتباه در اسکریپتِ خودش — می‌تواند سهمیهٔ کلِ روز را
+   *    در چند دقیقه بسوزاند.  آن‌وقت ثبت‌نامِ همه می‌خوابد و علتش
+   *    هیچ‌جا پیدا نیست.
+   *
+   *    بیست در دقیقه برای کاربرِ واقعی سخاوتمندانه است: اپراتور در
+   *    بهترین حالت چند پرونده در دقیقه باز می‌کند.
+   */
   @Post('verify')
+  @Throttle({ long: { ttl: 60000, limit: 20 } })
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'CASHIER', 'SALES')
   verify(
     @CurrentUser() user: AuthUser,

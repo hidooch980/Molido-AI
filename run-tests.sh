@@ -292,6 +292,14 @@ node web/scripts/verify-provider-scope.mjs 2>&1 | tail -2
 echo '--- guard wiring ---'
 node web/scripts/verify-guard-wiring.mjs 2>&1 | tail -2
 
+# ⚠️ تحلیلی که ساخته شده ولی صفحه‌ای صدایش نمی‌زند، هیچ نشانه‌ای
+#    نمی‌دهد: API سالم است، صفحه هم سالم است.  شش تحلیل ماه‌ها
+#    این‌طور نامرئی ماندند.
+echo '--- insights coverage ---'
+node web/scripts/verify-insights-coverage.mjs 2>&1 | tail -2
+ins_rc=${PIPESTATUS[0]}
+[ "$ins_rc" -eq 0 ] || broken="$broken insights-coverage"
+
 echo '--- permissions ---'
 node --experimental-strip-types web/scripts/verify-permissions.mjs 2>&1 | tail -2
 

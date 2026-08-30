@@ -9,10 +9,21 @@
  *
  * ⚠️ برخلافِ نامِ ماژول (`ai`)، این عددها از سرویسِ بیرونی نمی‌آیند.
  *
- *    آزموده شد: هر هشت نقطه بدونِ `AI_API_KEY` پاسخِ ۲۰۰ می‌دهند —
+ *    آزموده شد: هر ده نقطه بدونِ `AI_API_KEY` پاسخِ ۲۰۰ می‌دهند —
  *    همه از SQL محاسبه می‌شوند.  فقط `/ai/ask` به مدل نیاز دارد و
  *    عمداً اینجا نیست: این صفحه باید بدونِ هیچ پیکربندیِ اضافه کار
  *    کند.
+ *
+ * ⚠️ همین توضیح یک بار **دروغ** بود و کسی متوجه نشد.
+ *
+ *    می‌گفت «هر هشت نقطه» پوشش داده شده، در حالی که کد فقط چهار تا
+ *    را صدا می‌زد و شش تحلیل — تحلیل فروش، گزارش مدیریتی، پیشنهاد
+ *    قیمت، سرعت مصرف انبار، ناهنجاری صندوق، و نزدیک به انقضا —
+ *    ساخته و آزموده شده بودند و هیچ راهی به دستِ کاربر نداشتند.
+ *
+ *    توضیحی که با کد نخواند از نبودش بدتر است: خواننده باورش می‌کند
+ *    و دنبالِ شکاف نمی‌گردد.  اگر بخشی اضافه یا حذف شد، این عدد هم
+ *    باید عوض شود.
  *
  * ⚠️ چیزی که این صفحه باید بی‌درنگ جواب بدهد:
  *    **کجا پول خوابیده و کجا دارد تمام می‌شود.**
@@ -116,6 +127,82 @@ function useSection<T>(path: string) {
   return { data, error, loading };
 }
 
+/* ─────────── شش تحلیلی که ساخته شده بودند و راهی نداشتند ───────────
+   ⚠️ توضیحِ بالای همین فایل می‌گفت «هر هشت نقطه» پوشش داده شده‌اند،
+      ولی کد فقط پنج تا را صدا می‌زد.  توضیحی که با کد نخواند، از
+      نبودش بدتر است: خواننده باورش می‌کند و دنبالِ شکاف نمی‌گردد. */
+
+type SalesAnalysis = {
+  period: string;
+  totalRevenue: number;
+  invoiceCount: number;
+  averageInvoice: number;
+  growthPercent: number;
+  bestDay: string | null;
+  insights: string[];
+};
+
+type ManagerReport = {
+  source: string;
+  stats: {
+    period: string;
+    salesCount: number;
+    totalSales: number;
+    totalExpenses: number;
+    netCashFlow: number;
+    productsCount: number;
+    customersCount: number;
+  };
+  report: string;
+};
+
+type PriceSuggestion = {
+  productId: string;
+  name: string;
+  sku: string | null;
+  purchasePrice: number;
+  currentPrice: number;
+  currentMarginPercent: number;
+  suggestedPrice: number;
+  recommendation: string;
+};
+
+type InventoryAnalysis = {
+  period: string;
+  needsRestock: unknown[];
+  items: {
+    productId: string;
+    name: string;
+    sku: string | null;
+    quantity: number;
+    minStock: number;
+    dailySalesVelocity: number;
+    daysToStockout: number | null;
+    needsRestock: boolean;
+  }[];
+};
+
+type CashierAnomalies = {
+  period: string;
+  shiftsReviewed: number;
+  anomalies: {
+    shiftId?: string;
+    cashierName?: string;
+    difference?: number;
+    reason?: string;
+  }[];
+  cashiers: { name?: string; shifts?: number; totalDifference?: number }[];
+};
+
+type ExpiryItem = {
+  productId?: string;
+  name?: string;
+  batchNo?: string | null;
+  quantity?: number;
+  expiryDate?: string | null;
+  daysLeft?: number | null;
+};
+
 export default function InsightsPage() {
   const { t } = useI18n();
 
@@ -123,6 +210,16 @@ export default function InsightsPage() {
   const dead = useSection<DeadStock>('/ai/dead-stock');
   const reorder = useSection<Reorder>('/ai/reorder-suggestions');
   const forecast = useSection<Forecast>('/ai/sales-forecast');
+
+  // ⚠️ هر کدام جداگانه بارگذاری می‌شوند — همان قاعدهٔ بالای فایل:
+  //    انباردار «ناهنجاریِ صندوق» را نمی‌بیند و ۴۰۳ گرفتن طبیعی است،
+  //    ولی نباید بقیهٔ صفحه را از کار بیندازد.
+  const sales = useSection<SalesAnalysis>('/ai/sales-analysis');
+  const manager = useSection<ManagerReport>('/ai/manager-report');
+  const prices = useSection<PriceSuggestion[]>('/ai/price-suggestions');
+  const stock = useSection<InventoryAnalysis>('/ai/inventory-analysis');
+  const cashier = useSection<CashierAnomalies>('/ai/cashier-anomalies');
+  const expiry = useSection<ExpiryItem[]>('/ai/expiry-analysis');
 
   return (
     <AppShell title={t('menuInsights')}>
@@ -241,6 +338,179 @@ export default function InsightsPage() {
                 ])}
               />
             </>
+          ) : null}
+        </Section>
+
+        {/* ─── تحلیل فروش ─── */}
+        <Section title={t('inSalesAnalysis')} state={sales} note={sales.data?.period}>
+          {sales.data ? (
+            <>
+              <div style={STATS}>
+                <Stat label={t('inRevenue')} value={money(sales.data.totalRevenue)} />
+                <Stat label={t('inInvoiceCount')} value={money(sales.data.invoiceCount)} />
+                <Stat label={t('inAvgInvoice')} value={money(sales.data.averageInvoice)} />
+                {/*
+                  ⚠️ رشد رنگ دارد چون علامتش تصمیم می‌سازد.
+                     عددِ بی‌رنگ در فهرستی از عددها گم می‌شود.
+                */}
+                <Stat
+                  label={t('inGrowth')}
+                  value={`${money(sales.data.growthPercent)}٪`}
+                />
+              </div>
+              {sales.data.bestDay ? (
+                <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
+                  {t('inBestDay')}: <b style={{ color: 'var(--text)' }}>{sales.data.bestDay}</b>
+                </p>
+              ) : null}
+              {sales.data.insights?.length ? (
+                <ul style={{ margin: 0, paddingInlineStart: 18, display: 'grid', gap: 6 }}>
+                  {sales.data.insights.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : null}
+        </Section>
+
+        {/* ─── گزارش مدیر ─── */}
+        <Section
+          title={t('inManagerReport')}
+          state={manager}
+          note={manager.data?.stats.period}
+        >
+          {manager.data ? (
+            <>
+              <div style={STATS}>
+                <Stat label={t('inTotalSales')} value={money(manager.data.stats.totalSales)} />
+                <Stat label={t('inExpenses')} value={money(manager.data.stats.totalExpenses)} />
+                <Stat label={t('inNetCashFlow')} value={money(manager.data.stats.netCashFlow)} />
+                <Stat label={t('inCustomers')} value={money(manager.data.stats.customersCount)} />
+              </div>
+              {manager.data.report ? (
+                <p style={{ margin: 0, lineHeight: 1.9 }}>{manager.data.report}</p>
+              ) : null}
+            </>
+          ) : null}
+        </Section>
+
+        {/* ─── پیشنهاد قیمت ─── */}
+        <Section
+          title={t('inPriceSuggestions')}
+          state={prices}
+          // ⚠️ عددِ خام گمراه‌کننده بود: «۱۱۴» کلِ کالاها بود، در حالی
+          //    که جدول فقط مواردِ نیازمندِ تغییر را نشان می‌دهد.
+          //    برچسبِ بی‌واحد هم در مرورگر «پیشنهاد قیمت 114» می‌شد.
+          note={
+            prices.data
+              ? `${prices.data.filter((r) => r.suggestedPrice !== r.currentPrice).length} از ${prices.data.length} کالا`
+              : undefined
+          }
+        >
+          {prices.data ? (
+            prices.data.length === 0 ? (
+              <p style={EMPTY}>{t('inNoPriceSuggestion')}</p>
+            ) : (
+              // ⚠️ فقط مواردی که پیشنهادشان با قیمتِ فعلی فرق دارد.
+              //
+              //    فهرستِ صدوچهارده‌تایی که بیشترش «مناسب است» می‌گوید،
+              //    خوانده نمی‌شود.  چیزی که خوانده نشود، تصمیمی
+              //    نمی‌سازد.
+              <Table
+                head={[t('product'), t('purchasePrice'), t('currentPrice'), t('inMargin'), t('inSuggested')]}
+                rows={prices.data
+                  .filter((row) => row.suggestedPrice !== row.currentPrice)
+                  .slice(0, 30)
+                  .map((row) => [
+                    row.name,
+                    money(row.purchasePrice),
+                    money(row.currentPrice),
+                    `${money(row.currentMarginPercent)}٪`,
+                    money(row.suggestedPrice),
+                  ])}
+              />
+            )
+          ) : null}
+        </Section>
+
+        {/* ─── سرعت مصرف انبار ─── */}
+        <Section title={t('inStockVelocity')} state={stock} note={stock.data?.period}>
+          {stock.data ? (
+            stock.data.items.length === 0 ? (
+              <p style={EMPTY}>{t('inNoStockData')}</p>
+            ) : (
+              <Table
+                head={[t('product'), t('quantity'), t('inDailyVelocity'), t('inDaysToStockout')]}
+                // ⚠️ کم‌ترین «روز تا اتمام» اول: همان چیزی که فردا
+                //    مشکل می‌سازد، نه چیزی که الفبایی اول است.
+                rows={[...stock.data.items]
+                  .sort((a, b) => (a.daysToStockout ?? 1e9) - (b.daysToStockout ?? 1e9))
+                  .slice(0, 30)
+                  .map((row) => [
+                    row.name,
+                    money(row.quantity),
+                    money(row.dailySalesVelocity),
+                    row.daysToStockout === null ? '—' : money(Math.round(row.daysToStockout)),
+                  ])}
+              />
+            )
+          ) : null}
+        </Section>
+
+        {/* ─── ناهنجاری صندوق ─── */}
+        <Section
+          title={t('inCashierAnomalies')}
+          state={cashier}
+          note={
+            cashier.data
+              ? `${cashier.data.period} — ${money(cashier.data.shiftsReviewed)} شیفت بررسی شد`
+              : undefined
+          }
+        >
+          {cashier.data ? (
+            cashier.data.anomalies.length === 0 ? (
+              // ⚠️ «چیزی پیدا نشد» با «بررسی نشد» فرق دارد و باید
+              //    دیده شود: تعدادِ شیفت‌های بررسی‌شده در `note` است.
+              <p style={EMPTY}>{t('inNoAnomaly')}</p>
+            ) : (
+              <Table
+                head={[t('cashier'), t('inDifference'), t('reason')]}
+                rows={cashier.data.anomalies.map((row) => [
+                  row.cashierName ?? '—',
+                  money(row.difference ?? 0),
+                  row.reason ?? '—',
+                ])}
+                // هر ناهنجاری به‌خودیِ‌خود هشدار است.
+                danger={cashier.data.anomalies.map(() => true)}
+              />
+            )
+          ) : null}
+        </Section>
+
+        {/* ─── نزدیک به انقضا ─── */}
+        <Section title={t('inExpiring')} state={expiry}>
+          {expiry.data ? (
+            expiry.data.length === 0 ? (
+              <p style={EMPTY}>{t('inNoExpiring')}</p>
+            ) : (
+              <Table
+                head={[t('product'), t('batchNo'), t('quantity'), t('inDaysLeft')]}
+                rows={expiry.data.slice(0, 30).map((row) => [
+                  row.name ?? '—',
+                  row.batchNo ?? '—',
+                  money(row.quantity ?? 0),
+                  row.daysLeft === null || row.daysLeft === undefined
+                    ? '—'
+                    : money(row.daysLeft),
+                ])}
+                // ⚠️ زیر هفت روز قرمز — نه هر قلمی که در فهرست است.
+                //    اگر همه قرمز باشند، قرمز معنایش را از دست می‌دهد.
+                danger={expiry.data
+                  .slice(0, 30)
+                  .map((row) => (row.daysLeft ?? 999) <= 7)}
+              />
+            )
           ) : null}
         </Section>
       </div>

@@ -1660,6 +1660,56 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   inInvoiceCount: { fa: 'تعداد فاکتور', en: 'Invoices', ar: 'عدد الفواتير' },
   inInventoryValue: { fa: 'ارزش موجودی', en: 'Inventory value', ar: 'قيمة المخزون' },
   inDeadStock: { fa: 'کالای بی‌حرکت', en: 'Dead stock', ar: 'بضائع راكدة' },
+
+  // ─── شش تحلیلی که API داشتند و صفحه‌ای صدایشان نمی‌زد ───
+  inSalesAnalysis: { fa: 'تحلیل فروش', en: 'Sales analysis', ar: 'تحليل المبيعات' },
+  inRevenue: { fa: 'درآمد', en: 'Revenue', ar: 'الإيرادات' },
+  inAvgInvoice: { fa: 'میانگین فاکتور', en: 'Average invoice', ar: 'متوسط الفاتورة' },
+  inGrowth: { fa: 'رشد', en: 'Growth', ar: 'النمو' },
+  inBestDay: { fa: 'پرفروش‌ترین روز', en: 'Best day', ar: 'أفضل يوم' },
+
+  inManagerReport: { fa: 'گزارش مدیریتی', en: 'Manager report', ar: 'تقرير الإدارة' },
+  inTotalSales: { fa: 'کل فروش', en: 'Total sales', ar: 'إجمالي المبيعات' },
+  inExpenses: { fa: 'هزینه‌ها', en: 'Expenses', ar: 'المصروفات' },
+  inNetCashFlow: { fa: 'جریان نقدی خالص', en: 'Net cash flow', ar: 'صافي التدفق النقدي' },
+  inCustomers: { fa: 'مشتریان', en: 'Customers', ar: 'العملاء' },
+
+  inPriceSuggestions: { fa: 'پیشنهاد قیمت', en: 'Price suggestions', ar: 'اقتراحات السعر' },
+  inNoPriceSuggestion: {
+    fa: 'قیمت‌گذاری همهٔ کالاها مناسب است.',
+    en: 'All prices look appropriate.',
+    ar: 'تسعير جميع الأصناف مناسب.',
+  },
+  inMargin: { fa: 'حاشیه سود', en: 'Margin', ar: 'هامش الربح' },
+  inSuggested: { fa: 'قیمت پیشنهادی', en: 'Suggested price', ar: 'السعر المقترح' },
+  currentPrice: { fa: 'قیمت فعلی', en: 'Current price', ar: 'السعر الحالي' },
+
+  inStockVelocity: { fa: 'سرعت مصرف انبار', en: 'Stock velocity', ar: 'سرعة استهلاك المخزون' },
+  inDailyVelocity: { fa: 'مصرف روزانه', en: 'Daily velocity', ar: 'الاستهلاك اليومي' },
+  inDaysToStockout: { fa: 'روز تا اتمام', en: 'Days to stockout', ar: 'أيام حتى النفاد' },
+  inNoStockData: {
+    fa: 'داده‌ای برای تحلیل انبار نیست.',
+    en: 'No inventory data to analyse.',
+    ar: 'لا توجد بيانات مخزون للتحليل.',
+  },
+
+  inCashierAnomalies: { fa: 'ناهنجاری صندوق', en: 'Cashier anomalies', ar: 'تباينات الصندوق' },
+  inDifference: { fa: 'مغایرت', en: 'Difference', ar: 'الفرق' },
+  inNoAnomaly: {
+    fa: 'مغایرتی در شیفت‌های بررسی‌شده پیدا نشد.',
+    en: 'No anomalies in the reviewed shifts.',
+    ar: 'لا توجد تباينات في الورديات المراجَعة.',
+  },
+  cashier: { fa: 'صندوق‌دار', en: 'Cashier', ar: 'أمين الصندوق' },
+
+  inExpiring: { fa: 'نزدیک به انقضا', en: 'Expiring soon', ar: 'قرب انتهاء الصلاحية' },
+  inDaysLeft: { fa: 'روز باقی‌مانده', en: 'Days left', ar: 'الأيام المتبقية' },
+  inNoExpiring: {
+    fa: 'کالایی نزدیک به انقضا نیست.',
+    en: 'Nothing is expiring soon.',
+    ar: 'لا توجد أصناف قرب انتهاء الصلاحية.',
+  },
+  batchNo: { fa: 'شماره بچ', en: 'Batch no.', ar: 'رقم الدفعة' },
   inReorderSuggestion: { fa: 'پیشنهاد سفارش', en: 'Reorder suggestion', ar: 'اقتراح إعادة الطلب' },
   inSalesForecast: { fa: 'پیش‌بینی فروش', en: 'Sales forecast', ar: 'توقعات المبيعات' },
   inDailyAverage: { fa: 'میانگین روزانه', en: 'Daily average', ar: 'المعدل اليومي' },

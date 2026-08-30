@@ -194,6 +194,59 @@ chk "سفارشِ بالاتر از سقف رد می‌شود" \
 chk "سفارشِ ردشده باز نمی‌ماند" \
   "$(Q "SELECT count(*) FROM \"RestaurantOrder\" WHERE source='SELF' AND status='OPEN' AND round(total) = 1250000;")" "0"
 
+echo '--- ۷) پرداختِ آنلاینِ سرِ میز ---'
+#
+# ⚠️ مسیرِ پول است و مسیرِ **عمومی** — یعنی همان دو خطری که در فروشِ
+#    ماژولِ سایت دیدیم، اینجا کنارِ هم‌اند:
+#
+#      • مبلغ از درخواست پذیرفته شود ⇒ غذا رایگان.
+#      • درگاه «موفق» بگوید و مبلغ سنجیده نشود ⇒ سفارشِ پانصدهزاری
+#        با هزار ریال تأیید می‌شود.
+#
+#    هر دو سنجیده می‌شوند.
+
+. "$(dirname "$0")/lib/fake-server.sh"
+if fake_up zarinpal; then
+  ZCTL="http://localhost:$FAKE_PORT/__control"
+  curl -s -o /dev/null -X POST "$ZCTL" -H "$JS" -d '{"underpay":false}'
+
+  PT=$(curl -s -X POST "$A/menu/$TOKEN/order" -H "$JS" \
+       -d "{\"items\":[{\"menuItemId\":\"$ITEM\",\"qty\":1}]}" | P "d.get('guestCode','')")
+  chk "سفارشِ پرداختی ساخته شد" "$([ -n "$PT" ] && echo yes || echo no)" "yes"
+
+  PAY=$(curl -s -X POST "$A/menu/order/$PT/pay" -H "$JS" -d '{"amount":1}')
+  chk "نشانی درگاه برمی‌گردد" \
+    "$(printf '%s' "$PAY" | P "'yes' if d.get('paymentUrl') else 'no'")" "yes"
+
+  # ⚠️ مبلغِ تحمیلی در بدنه باید نادیده برود.
+  chk "مبلغ از پایگاه‌داده می‌آید" "$(printf '%s' "$PAY" | P "d.get('amount','?')")" "250000"
+
+  curl -s -o /dev/null "$A/menu/pay/callback?code=$PT"
+  chk "پس از تأیید، PAID ثبت شد" \
+    "$(Q "SELECT round(\"paidAmount\")::bigint FROM \"RestaurantOrder\" WHERE \"guestCode\"='$PT';")" "250000"
+  chk "شمارهٔ بانک ثبت شد" \
+    "$(Q "SELECT count(*) FROM \"RestaurantOrder\" WHERE \"guestCode\"='$PT' AND \"bankRef\" IS NOT NULL;")" "1"
+  chk "پرداختِ دوباره رد می‌شود" \
+    "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/menu/order/$PT/pay" -H "$JS" -d '{}')" "400"
+
+  # ─── کم‌پرداختی ───
+  # ⚠️ مهم‌ترین سنجهٔ این بخش.
+  curl -s -o /dev/null -X POST "$ZCTL" -H "$JS" -d '{"underpay":true}'
+  UT=$(curl -s -X POST "$A/menu/$TOKEN/order" -H "$JS" \
+       -d "{\"items\":[{\"menuItemId\":\"$ITEM\",\"qty\":1}]}" | P "d.get('guestCode','')")
+  curl -s -o /dev/null -X POST "$A/menu/order/$UT/pay" -H "$JS" -d '{}'
+  curl -s -o /dev/null "$A/menu/pay/callback?code=$UT"
+  curl -s -o /dev/null -X POST "$ZCTL" -H "$JS" -d '{"underpay":false}'
+
+  chk "کم‌پرداختی ثبت نمی‌شود" \
+    "$(Q "SELECT round(COALESCE(\"paidAmount\",0))::bigint FROM \"RestaurantOrder\" WHERE \"guestCode\"='$UT';")" "0"
+  chk "کم‌پرداختی شمارهٔ بانک نمی‌گیرد" \
+    "$(Q "SELECT count(*) FROM \"RestaurantOrder\" WHERE \"guestCode\"='$UT' AND \"bankRef\" IS NOT NULL;")" "0"
+else
+  echo "  درگاهِ ساختگی پیکربندی نشده — از این بخش گذشتیم"
+  echo "  (ZARINPAL_BASE_URL=http://host.docker.internal:8899 در .env)"
+fi
+
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

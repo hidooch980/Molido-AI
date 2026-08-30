@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { DatabaseModule } from '../database/database.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
+import { PaymentModule } from '../payment/payment.module';
 import { SelfOrderController } from './self-order.controller';
 import { SelfOrderService } from './self-order.service';
 
@@ -14,7 +15,7 @@ import { SelfOrderService } from './self-order.service';
  *    آشپزخانه — دیگری بی‌صدا عقب بماند.
  */
 @Module({
-  imports: [DatabaseModule, RestaurantModule],
+  imports: [DatabaseModule, RestaurantModule, PaymentModule],
   controllers: [SelfOrderController],
   providers: [SelfOrderService],
   exports: [SelfOrderService],

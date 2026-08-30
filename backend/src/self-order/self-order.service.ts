@@ -4,11 +4,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service';
 import { runInTenant, runWithTrackCode } from '../database/tenant-context';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { ZarinpalGateway } from '../payment/zarinpal.gateway';
 import { OrderTypeDto } from '../restaurant/dto/restaurant.dto';
 
 type TableRow = {
@@ -55,6 +57,7 @@ export class SelfOrderService {
   constructor(
     private readonly db: DatabaseService,
     private readonly restaurant: RestaurantService,
+    private readonly gateway: ZarinpalGateway,
   ) {}
 
   /**
@@ -265,9 +268,11 @@ export class SelfOrderService {
         status: string;
         total: string;
         paidAmount: string;
+        bankRef: string | null;
+        paidAt: Date | null;
         createdAt: Date;
       }>(
-        `SELECT "orderNo", status, total, "paidAmount", "createdAt"
+        `SELECT "orderNo", status, total, "paidAmount", "bankRef", "paidAt", "createdAt"
            FROM "RestaurantOrder" WHERE "guestCode" = $1`,
         [code],
       ),
@@ -283,9 +288,161 @@ export class SelfOrderService {
       status: row.status,
       total: Number(row.total),
       paidAmount: Number(row.paidAmount ?? 0),
+      bankRef: row.bankRef ?? null,
+      paidAt: row.paidAt ?? null,
       createdAt: row.createdAt,
     };
   }
+
+  /**
+   * شروعِ پرداختِ آنلاین برای سفارشِ سرِ میز.
+   *
+   * ⚠️ مبلغ از **پایگاه‌داده** خوانده می‌شود، نه از درخواست.
+   *
+   *    همان درسی که فروشِ ماژولِ سایت داد.  اینجا حتی بدتر بود:
+   *    مسیر عمومی است و کسی که کدِ مهمان را دارد می‌توانست مبلغِ
+   *    دلخواهش را بفرستد.
+   *
+   * ⚠️ سفارشِ **پرداخت‌شده** دوباره به درگاه نمی‌رود.
+   *
+   *    بدونِ این، مشتری می‌توانست دو بار پرداخت کند و پولِ دومش
+   *    جایی ثبت نمی‌شد — چون تأیید مبلغ را با کلِ سفارش می‌سنجد و
+   *    بارِ دوم هم درست از آب درمی‌آمد.
+   */
+  async startPayment(guestCode: string, returnBase?: string) {
+    const { row, companyId } = await this.orderByGuestCode(guestCode);
+
+    if (row.status === 'PAID' || Number(row.paidAmount ?? 0) > 0) {
+      throw new BadRequestException('این سفارش قبلاً پرداخت شده است');
+    }
+    if (row.status === 'CANCELLED') {
+      throw new BadRequestException('سفارش لغو شده قابل پرداخت نیست');
+    }
+
+    const amount = Number(row.total);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('مبلغ سفارش معتبر نیست');
+    }
+
+    const base = (returnBase || apiBase()).replace(/\/+$/, '');
+    const started = await this.gateway.start({
+      amount,
+      orderNo: row.orderNo,
+      callbackUrl: `${base}/menu/pay/callback?code=${encodeURIComponent(guestCode)}`,
+      description: `پرداخت سفارش ${row.orderNo}`,
+    });
+
+    if (!started.ok || !started.redirectUrl) {
+      throw new ServiceUnavailableException(
+        started.error || 'اتصال به درگاه پرداخت ممکن نشد',
+      );
+    }
+
+    await runInTenant({ companyId, userId: null }, () =>
+      this.db.execute(
+        `UPDATE "RestaurantOrder" SET "paymentRef" = $1, "updatedAt" = now() WHERE id = $2`,
+        [started.reference ?? null, row.id],
+      ),
+    );
+
+    return { paymentUrl: started.redirectUrl, amount };
+  }
+
+  /**
+   * بازگشت از درگاه — تأیید **سمتِ سرور**.
+   *
+   * ⚠️ حرفِ درگاه در پارامترِ نشانی ملاک نیست؛ فقط پاسخِ `verify` از
+   *    کانالِ پشتی.  نشانی در دستِ کاربر است.
+   */
+  async completePayment(guestCode: string) {
+    const { row, companyId } = await this.orderByGuestCode(guestCode);
+
+    if (row.status === 'PAID') {
+      return { ok: true, guestCode, alreadyPaid: true };
+    }
+    if (!row.paymentRef) {
+      throw new BadRequestException('این سفارش به درگاه نرفته است');
+    }
+
+    const amount = Number(row.total);
+    const result = await this.gateway.verify(row.paymentRef, amount);
+
+    if (!result.ok) {
+      return { ok: false, guestCode, error: result.error ?? 'پرداخت تأیید نشد' };
+    }
+
+    // ⚠️ تطبیقِ مبلغ، حتی وقتی درگاه «موفق» گفته.
+    //
+    //    بدونش سفارشِ پانصدهزاری با پرداختِ هزارتومانی تأیید می‌شود.
+    //    و مبلغِ **نامعلوم** هم رد می‌شود: نبودِ عدد اثباتِ چیزی نیست.
+    if (typeof result.paidAmount !== 'number' || result.paidAmount !== amount) {
+      return {
+        ok: false,
+        guestCode,
+        error:
+          typeof result.paidAmount === 'number'
+            ? `مبلغ پرداختی با مبلغ سفارش نمی‌خواند (${result.paidAmount} در برابر ${amount})`
+            : 'درگاه مبلغ پرداختی را تأیید نکرد',
+      };
+    }
+
+    // ⚠️ `paidAt` جدا از `closedAt` — دلیلش در مهاجرت ۰۶۳.
+    //    میز اینجا آزاد نمی‌شود: مشتری هنوز سرِ میز نشسته.
+    await runInTenant({ companyId, userId: null }, () =>
+      this.db.execute(
+        `UPDATE "RestaurantOrder"
+            SET "paidAmount" = $1, "bankRef" = $2, "paidAt" = now(),
+                "paymentMethod" = 'ONLINE', "updatedAt" = now()
+          WHERE id = $3`,
+        [amount, result.trackingCode ?? null, row.id],
+      ),
+    );
+
+    return { ok: true, guestCode, bankRef: result.trackingCode ?? null, amount };
+  }
+
+  /**
+   * سفارش را از کدِ مهمان می‌گیرد — با شرکتش.
+   *
+   * ⚠️ روزنهٔ عمومی فقط `SELECT` است، پس برای نوشتن باید شرکت را
+   *    بدانیم و از `runInTenant` برویم.  همان الگوی `tableByToken`.
+   */
+  private async orderByGuestCode(guestCode: string) {
+    const code = String(guestCode ?? '').trim();
+    if (!code) throw new NotFoundException('کد پیگیری نیست');
+
+    const rows = await runWithTrackCode(code, () =>
+      this.db.query<{
+        id: string;
+        companyId: string;
+        orderNo: string;
+        status: string;
+        total: string;
+        paidAmount: string | null;
+        paymentRef: string | null;
+      }>(
+        `SELECT id, "companyId", "orderNo", status, total, "paidAmount", "paymentRef"
+           FROM "RestaurantOrder" WHERE "guestCode" = $1`,
+        [code],
+      ),
+    );
+
+    if (!rows[0]) throw new NotFoundException('سفارشی با این کد یافت نشد');
+    return { row: rows[0], companyId: rows[0].companyId };
+  }
+}
+
+/**
+ * نشانیِ عمومیِ API — بازگشتِ درگاه به همین‌جا می‌آید.
+ *
+ * ⚠️ از پیکربندی، نه از سربرگِ `Host`: خواندنش از درخواست یعنی مهاجم
+ *    می‌تواند کاربر را پس از پرداخت به سایتِ خودش ببرد.
+ */
+function apiBase(): string {
+  return (
+    process.env.API_PUBLIC_URL?.trim() ||
+    'http://localhost:3000'
+  ).replace(/\/+$/, '');
 }
 
 type PublicItem = Record<string, unknown>;

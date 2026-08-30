@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Redirect } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
 import { SelfOrderService } from './self-order.service';
@@ -46,4 +46,62 @@ export class SelfOrderController {
   status(@Param('code') code: string) {
     return this.service.status(code);
   }
+
+  /**
+   * شروعِ پرداختِ آنلاین.
+   *
+   * ⚠️ مبلغ در بدنه پذیرفته **نمی‌شود** و اگر بفرستند نادیده می‌رود:
+   *    سرور خودش از پایگاه‌داده می‌خواندش.
+   */
+  @Post('order/:code/pay')
+  pay(@Param('code') code: string) {
+    return this.service.startPayment(code);
+  }
+
+  /**
+   * بازگشت از درگاه.
+   *
+   * ⚠️ تغییرِ مسیر، نه JSON: کاربر با ناوبریِ مرورگر برمی‌گردد و
+   *    صفحهٔ متنِ خام هیچ راهی جلوی پایش نمی‌گذارد.
+   */
+  @Get('pay/callback')
+  @Redirect()
+  async payCallback(@Query('code') code?: string) {
+    const site = publicSite();
+    const guestCode = String(code ?? '');
+
+    try {
+      const result = await this.service.completePayment(guestCode);
+      const params = new URLSearchParams({
+        code: guestCode,
+        paid: result.ok ? 'ok' : 'failed',
+        ...(result.ok && 'bankRef' in result && result.bankRef
+          ? { ref: String(result.bankRef) }
+          : {}),
+        ...(!result.ok && 'error' in result && result.error
+          ? { reason: String(result.error) }
+          : {}),
+      });
+      return { url: `${site}/menu/receipt?${params.toString()}` };
+    } catch (caught) {
+      const reason = caught instanceof Error ? caught.message : 'خطای ناشناخته';
+      return {
+        url: `${site}/menu/receipt?paid=failed&reason=${encodeURIComponent(reason)}`,
+      };
+    }
+  }
+}
+
+/**
+ * نشانیِ عمومیِ پنل — صفحهٔ رسید آنجاست.
+ *
+ * ⚠️ از پیکربندی، نه از سربرگِ `Host`.  خواندنش از درخواست یعنی
+ *    مهاجم می‌تواند کاربر را پس از پرداخت به سایتِ خودش ببرد.
+ */
+function publicSite(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.SITE_URL?.trim() ||
+    'http://localhost:3001'
+  ).replace(/\/+$/, '');
 }

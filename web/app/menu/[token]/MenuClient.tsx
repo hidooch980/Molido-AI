@@ -20,6 +20,8 @@ const T = {
     viewOnly: 'برای سفارش، لطفاً گارسون را صدا کنید.',
     spicy: 'تند', vegan: 'گیاهی', kcal: 'کالری', min: 'دقیقه',
     failed: 'ثبت سفارش انجام نشد',
+    pay: 'پرداخت آنلاین', paying: 'در حال اتصال به درگاه…',
+    payHint: 'برای ارسال سفارش به آشپزخانه، پرداخت لازم است.',
   },
   en: {
     table: 'Table', add: 'Add', cart: 'in cart', order: 'Place order',
@@ -31,6 +33,8 @@ const T = {
     viewOnly: 'To order, please call a member of staff.',
     spicy: 'Spicy', vegan: 'Vegan', kcal: 'kcal', min: 'min',
     failed: 'Could not place the order',
+    pay: 'Pay online', paying: 'Connecting to gateway…',
+    payHint: 'Payment is required before the order reaches the kitchen.',
   },
   ar: {
     table: 'طاولة', add: 'إضافة', cart: 'في السلة', order: 'تأكيد الطلب',
@@ -42,6 +46,8 @@ const T = {
     viewOnly: 'للطلب، يرجى مناداة أحد العاملين.',
     spicy: 'حار', vegan: 'نباتي', kcal: 'سعرة', min: 'دقيقة',
     failed: 'تعذّر تسجيل الطلب',
+    pay: 'الدفع الإلكتروني', paying: 'جارٍ الاتصال بالبوابة…',
+    payHint: 'الدفع مطلوب قبل إرسال الطلب إلى المطبخ.',
   },
 } as const;
 
@@ -80,7 +86,11 @@ export default function MenuClient({
   const [note, setNote] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ code: string; total: number } | null>(null);
+  const [done, setDone] = useState<{
+    code: string;
+    total: number;
+    needsPrepay?: boolean;
+  } | null>(null);
   const [error, setError] = useState('');
 
   const t = T[lang];
@@ -135,13 +145,48 @@ export default function MenuClient({
         message?: string;
         guestCode?: string;
         total?: number;
+        needsPrepay?: boolean;
       };
       if (!response.ok) {
         setError(String(data?.message ?? t.failed));
         return;
       }
-      setDone({ code: data.guestCode ?? '', total: Number(data.total ?? 0) });
+      setDone({
+        code: data.guestCode ?? '',
+        total: Number(data.total ?? 0),
+        needsPrepay: data.needsPrepay === true,
+      });
       setCart({});
+    } catch {
+      setError(t.failed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * شروعِ پرداختِ آنلاین.
+   *
+   * ⚠️ مبلغ فرستاده **نمی‌شود** — سرور خودش از پایگاه‌داده می‌خواندش.
+   *    فرستادنش از اینجا یعنی مسیری که مهاجم می‌تواند دستکاری کند.
+   */
+  async function startPay(code: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(
+        `${API}/menu/order/${encodeURIComponent(code)}/pay`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+      );
+      const data = (await response.json().catch(() => ({}))) as {
+        paymentUrl?: string;
+        message?: string;
+      };
+      if (!response.ok || !data.paymentUrl) {
+        setError(String(data?.message ?? t.failed));
+        return;
+      }
+      window.location.assign(data.paymentUrl);
     } catch {
       setError(t.failed);
     } finally {
@@ -164,6 +209,28 @@ export default function MenuClient({
         <div style={{ marginTop: 14, fontSize: 15 }}>
           {t.total}: <b>{money(done.total, lang)}</b> {t.rial}
         </div>
+
+        {/*
+          ⚠️ دکمهٔ پرداخت فقط وقتی رستوران پیش‌پرداخت خواسته.
+             نشان دادنش همیشه، مهمانی را که قرار است سرِ میز نقدی
+             بدهد سردرگم می‌کند.
+        */}
+        {done.needsPrepay ? (
+          <>
+            <p style={{ opacity: 0.75, fontSize: 13, margin: '16px 0 8px' }}>
+              {t.payHint}
+            </p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void startPay(done.code)}
+              style={{ ...S.cta, maxWidth: 320, marginInline: 'auto' }}
+            >
+              {busy ? t.paying : t.pay}
+            </button>
+            {error ? <div style={S.error}>{error}</div> : null}
+          </>
+        ) : null}
       </main>
     );
   }

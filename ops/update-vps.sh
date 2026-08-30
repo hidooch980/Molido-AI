@@ -93,8 +93,30 @@ ssh -o BatchMode=yes "$HOST" "cd $REMOTE && docker compose $CF build backend web
 AFTER=$(ssh -o BatchMode=yes "$HOST" \
   "docker image inspect molido-store-web:latest --format '{{.Created}}' 2>/dev/null || echo none")
 
-[ "$BEFORE" = "$AFTER" ] && die "ایمیج وب تازه نشد (\$BEFORE) — ساخت اثری نداشت"
-echo "  ✓ ایمیج وب تازه شد: $AFTER"
+# ⚠️ «ایمیج عوض شد» سنجهٔ درستی نبود.
+#
+#    وقتی تغییرِ این دور فقط در بک‌اند یا SQL باشد، ایمیجِ وب **باید**
+#    دست‌نخورده بماند — لایه‌ها از کش می‌آیند.  شرطِ قبلی در همان حالتِ
+#    کاملاً سالم استقرار را متوقف می‌کرد.
+#
+#    ادعای واقعی این است: ایمیج نباید از منبعش قدیمی‌تر باشد.  همان را
+#    می‌سنجیم، که هم دامِ اصلی (ساختِ بی‌اثر) را می‌گیرد و هم به
+#    استقرارِ فقط-بک‌اند گیر نمی‌دهد.
+if [ "$BEFORE" = "$AFTER" ]; then
+  NEWEST=$(ssh -o BatchMode=yes "$HOST" \
+    "find $REMOTE/web -type f -not -path '*/node_modules/*' -not -path '*/.next/*' \
+       -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1")
+  IMG_EPOCH=$(ssh -o BatchMode=yes "$HOST" \
+    "date -d \"\$(docker image inspect molido-store-web:latest --format '{{.Created}}')\" +%s 2>/dev/null || echo 0")
+
+  if [ -n "$NEWEST" ] && [ "$IMG_EPOCH" -gt 0 ] && [ "$NEWEST" -gt "$IMG_EPOCH" ]; then
+    die "ایمیج وب از منبعش قدیمی‌تر است — ساخت اثری نداشت.
+     ایمیج: $AFTER"
+  fi
+  echo "  ✓ ایمیج وب دست‌نخورده (تغییری در web/ نبود) — $AFTER"
+else
+  echo "  ✓ ایمیج وب تازه شد: $AFTER"
+fi
 
 # ---------------------------------------------------------------- ۴) مهاجرت
 step "۴) مهاجرت پایگاه داده"

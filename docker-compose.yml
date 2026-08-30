@@ -120,6 +120,19 @@ services:
       ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
       # فقط برای آزمون؛ در تولید تنظیم نمی‌شود.
       ZARINPAL_BASE_URL: ${ZARINPAL_BASE_URL:-}
+      # سامانه شاهکار — بدون این خطوط، متغیرها مستند ولی بی‌اثرند.
+      SHAHKAR_URL: ${SHAHKAR_URL:-}
+      SHAHKAR_TOKEN: ${SHAHKAR_TOKEN:-}
+      SHAHKAR_PROVIDER: ${SHAHKAR_PROVIDER:-}
+      SHAHKAR_METHOD: ${SHAHKAR_METHOD:-}
+      SHAHKAR_AUTH_SCHEME: ${SHAHKAR_AUTH_SCHEME:-}
+      SHAHKAR_FIELD_NID: ${SHAHKAR_FIELD_NID:-}
+      SHAHKAR_FIELD_MOBILE: ${SHAHKAR_FIELD_MOBILE:-}
+      SHAHKAR_PATH_MATCHED: ${SHAHKAR_PATH_MATCHED:-}
+      SHAHKAR_PATH_REFERENCE: ${SHAHKAR_PATH_REFERENCE:-}
+      SHAHKAR_TIMEOUT_MS: ${SHAHKAR_TIMEOUT_MS:-}
+      SHAHKAR_ENFORCE: ${SHAHKAR_ENFORCE:-}
+      SHAHKAR_ON_ERROR: ${SHAHKAR_ON_ERROR:-}
       # ⚠️ نشانیِ عمومیِ **API** — بازگشتِ درگاه به همین‌جا می‌آید.
       #
       #    بدونش `siteBase()` به `localhost:3000` برمی‌گردد و درگاه

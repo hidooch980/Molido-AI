@@ -8,6 +8,8 @@
  * `LedgerService` هم درست از آن‌ها استفاده می‌کنند و گزارش‌ها با هم می‌خوانند.
  */
 import { randomUUID } from 'node:crypto';
+import { ShahkarService } from '../src/shahkar/shahkar.service';
+import { ShahkarProvider } from '../src/shahkar/shahkar.provider';
 import process from 'node:process';
 import { DatabaseService } from '../src/database/database.service';
 import { LedgerService } from '../src/accounting/ledger.service';
@@ -308,7 +310,13 @@ async function main(): Promise<void> {
   const noop = new Proxy({}, { get: () => async () => undefined }) as never;
   const audit = new AuditTrailService(db);
   const shifts = new CashierShiftService(db, audit);
-  const rationSvc = new RationService(db, audit);
+  // سرویسِ واقعیِ شاهکار بدونِ پیکربندی — هیچ مسیری را نمی‌بندد.
+  const emptyConfig = { get: () => undefined } as never;
+  const rationSvc = new RationService(
+    db,
+    audit,
+    new ShahkarService(db, new ShahkarProvider(emptyConfig), emptyConfig),
+  );
   const sales = new SalesService(db, noop, shifts, rationSvc, posting, new PricingService(db), null);
   const purchases = new PurchasesService(db, posting);
 

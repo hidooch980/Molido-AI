@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { BaseCrudService } from '../database/base-crud.service';
 import { DatabaseService } from '../database/database.service';
+import { ShahkarService } from '../shahkar/shahkar.service';
 
 @Injectable()
 export class CustomersService extends BaseCrudService {
@@ -8,8 +9,31 @@ export class CustomersService extends BaseCrudService {
   protected readonly notFoundMessage = 'مشتری یافت نشد';
   protected readonly searchColumns = ['firstName', 'lastName', 'phone', 'email', 'nationalCode'];
 
-  constructor(db: DatabaseService) {
+  constructor(
+    db: DatabaseService,
+    private readonly shahkar: ShahkarService,
+  ) {
     super(db);
+  }
+
+  /**
+   * ⚠️ تطبیقِ شاهکار **فقط وقتی هر دو داده شده‌اند**.
+   *
+   *    کد ملی در پروندهٔ مشتری اختیاری است و بسیارِ مشتری‌ها بدونش
+   *    ثبت می‌شوند.  اجباری کردنش اینجا یعنی فروشنده نتواند مشتریِ
+   *    حضوری را سریع ثبت کند — تصمیمی تجاری که جای گرفتنش اینجا نیست.
+   *
+   *    ولی اگر هر دو داده شد، تطبیق **باید** بخورد: کد ملیِ کسِ دیگری
+   *    روی پروندهٔ یک شماره، بدتر از نبودِ کد ملی است — چون به نظر
+   *    احراز شده می‌آید.
+   */
+  async create(companyId: string, rawData: Record<string, unknown>) {
+    const nationalCode = rawData?.nationalCode;
+    const phone = rawData?.phone;
+    if (nationalCode && phone) {
+      await this.shahkar.enforce(companyId, nationalCode, phone);
+    }
+    return super.create(companyId, rawData);
   }
 
   /**

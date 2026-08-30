@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { randomInt, randomUUID } from 'node:crypto';
+import { ShahkarService } from '../shahkar/shahkar.service';
 import * as bcrypt from 'bcrypt';
 
 import { JwtService } from '@nestjs/jwt';
@@ -44,6 +45,7 @@ export class ShopService {
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
     private readonly sms: SmsService,
+    private readonly shahkar: ShahkarService,
   ) {}
 
   // ------------------------------------------------ تأیید شمارهٔ موبایل
@@ -431,6 +433,8 @@ export class ShopService {
       lastName?: string;
       /** کدِ تأیید — فقط برای تصاحبِ رکوردِ مشتریِ حضوریِ موجود لازم است. */
       code?: string;
+      /** کد ملی — اختیاری؛ اگر بیاید با شاهکار سنجیده می‌شود. */
+      nationalCode?: string;
     },
   ) {
     const phone = String(dto.phone ?? '').trim();
@@ -444,6 +448,15 @@ export class ShopService {
     }
     if (!String(dto.firstName ?? '').trim()) {
       throw new BadRequestException('نام لازم است');
+    }
+
+    // ⚠️ تطبیقِ شاهکار **پیش از** ساختِ حساب.
+    //
+    //    اگر بعد از ساخت سنجیده شود، حسابِ ردشده هم ساخته شده و
+    //    شمارهٔ موبایل «قبلاً ثبت‌نام کرده» می‌شود — یعنی صاحبِ واقعیِ
+    //    شماره دیگر نمی‌تواند ثبت‌نام کند.
+    if (dto.nationalCode) {
+      await this.shahkar.enforce(companyId, dto.nationalCode, phone);
     }
 
     const hash = await bcrypt.hash(password, 10);

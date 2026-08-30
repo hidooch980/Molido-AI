@@ -10,6 +10,11 @@ import { DatabaseService } from '../database/database.service';
 import { Params, setClause } from '../database/sql';
 import { AuditTrailService } from '../audit-log/audit-trail.service';
 import { parseDate } from '../common/date';
+import {
+  isValidNationalCode,
+  normalizeNationalCode,
+} from '../shahkar/national-code';
+import { ShahkarService } from '../shahkar/shahkar.service';
 
 export type RationAccount = Record<string, unknown> & {
   id: string;
@@ -56,6 +61,19 @@ const ACCOUNT_WRITABLE = [
 const NATIONAL_CODE_PATTERN = /^\d{10}$/;
 
 /**
+ * ⚠️ ساخت سخت‌گیر است، جست‌وجو نه — و این تفاوت عمدی است.
+ *
+ *    `NATIONAL_CODE_PATTERN` فقط ده‌رقمی بودن را می‌سنجد.  برای
+ *    **ساخت** کافی نیست: حسابِ کالابرگ سهمیهٔ یارانه‌ای می‌گیرد و
+ *    کدِ بی‌معنا یعنی سهمیه‌ای که به هیچ‌کس تعلق ندارد.
+ *
+ *    ولی برای **جست‌وجو** سخت‌گیری اشتباه است: حساب‌هایی که پیش از
+ *    این قاعده ساخته شده‌اند ممکن است کدِ نامعتبر داشته باشند، و
+ *    ناتوانی در یافتنشان یعنی سهمیهٔ آدمِ واقعی قفل می‌شود.  داده‌ای
+ *    که قبلاً پذیرفته‌ایم را نباید با قاعدهٔ امروز غیرقابلِ دسترس کرد.
+ */
+
+/**
  * کالابرگ الکترونیکی
  *
  * دو قاعده که این را از یک کیف پول ساده جدا می‌کند و هر دو اینجا اعمال
@@ -72,6 +90,7 @@ export class RationService {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditTrailService,
+    private readonly shahkar: ShahkarService,
   ) {}
 
   // ---------- حساب‌ها ----------
@@ -132,9 +151,20 @@ export class RationService {
       note?: string;
     },
   ) {
-    const code = (data.nationalCode ?? '').trim();
-    if (!NATIONAL_CODE_PATTERN.test(code)) {
-      throw new BadRequestException('کد ملی باید ۱۰ رقم باشد');
+    const code = normalizeNationalCode(data.nationalCode);
+    if (!isValidNationalCode(code)) {
+      throw new BadRequestException('کد ملی معتبر نیست (رقم کنترلی نادرست است)');
+    }
+
+    // ⚠️ تطبیقِ موبایل و کد ملی، وقتی شماره داده شده.
+    //
+    //    کالابرگ دقیقاً جایی است که این لازم است: سهمیه به کد ملی
+    //    بسته است و بدونِ تطبیق، هرکسی می‌تواند با کد ملیِ دیگری و
+    //    شمارهٔ خودش حساب باز کند و سهمیهٔ او را بگیرد.
+    //
+    //    اگر شاهکار پیکربندی نشده باشد، `enforce` هیچ کاری نمی‌کند.
+    if (data.phone) {
+      await this.shahkar.enforce(companyId, code, data.phone);
     }
 
     try {

@@ -3,6 +3,8 @@
  * the hand-written SQL parses, binds and returns what the API promised.
  */
 import { randomUUID } from 'node:crypto';
+import { ShahkarService } from '../src/shahkar/shahkar.service';
+import { ShahkarProvider } from '../src/shahkar/shahkar.provider';
 import { DatabaseService } from '../src/database/database.service';
 
 async function main() {
@@ -60,7 +62,13 @@ async function main() {
   const auditTrail = new AuditTrailService(db);
   const posting = new PostingService(db);
   const revenue = new RevenueService(db, auditTrail, noopN8n, posting);
-  const ration = new RationService(db, auditTrail);
+  // ⚠️ سرویسِ **واقعیِ** شاهکار، نه بدل.
+  //
+  //    بدونِ پیکربندی خودش هیچ مسیری را نمی‌بندد، پس رفتارِ smoke
+  //    عوض نمی‌شود — ولی اگر روزی `enforce` اشتباه صدا زده شود،
+  //    اینجا دیده می‌شود.  بدلِ همیشه-ساکت آن روز را پنهان می‌کرد.
+  const shahkar = new ShahkarService(db, new ShahkarProvider(emptyConfig), emptyConfig);
+  const ration = new RationService(db, auditTrail, shahkar);
   const shiftService = new CashierShiftService(db, auditTrail);
   const llm = new LlmService(emptyConfig);
 

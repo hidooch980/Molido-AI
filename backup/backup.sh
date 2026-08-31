@@ -76,6 +76,33 @@ if ! gzip -cd "$TMP" | grep -q 'CREATE TABLE public\."Company"'; then
   exit 1
 fi
 
+# ⚠️ «یک جدولِ نمونه هست» با «همهٔ جدول‌ها هستند» یکی نیست.
+#
+#    امروز پشتیبانی دیده شد با ۱۳۶ جدول در حالی که پایگاه‌داده ۱۳۸
+#    داشت — `ShahkarVerification` و `SelfOrderSetting` غایب بودند.
+#    هر سه سنجهٔ بالا سبز بودند: gzip سالم، اندازه معقول، `Company`
+#    موجود.  پس فایل «خوب» به نظر می‌آمد و ذخیره شد.
+#
+#    بازیابی از چنین فایلی، دو جدول را بی‌صدا از دست می‌دهد — و آن
+#    روزی معلوم می‌شود که دیگر نسخهٔ درستی نمانده.
+#
+# ⚠️ شمارش با خودِ پایگاه‌داده مقایسه می‌شود، نه با عددِ ثابت.
+#
+#    عددِ ثابت با هر مهاجرتی کهنه می‌شود و کسی به‌روزش نمی‌کند —
+#    آن‌وقت یا همیشه قرمز است یا همیشه سبز، و هر دو بی‌معنا.
+COUNT_SQL="SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"
+
+DB_TABLES="$(psql --host="$PGHOST" --port="${PGPORT:-5432}" \
+  --username="$PGUSER" --dbname="$PGDATABASE" -tAc "$COUNT_SQL" 2>/dev/null | tr -d ' \r')"
+
+BAK_TABLES="$(gzip -cd "$TMP" | grep -c '^CREATE TABLE ' || true)"
+
+if [ -n "$DB_TABLES" ] && [ "$BAK_TABLES" -lt "$DB_TABLES" ]; then
+  log "✗ پشتیبان ناقص است: $BAK_TABLES جدول در برابر $DB_TABLES در پایگاه‌داده — دور انداخته شد"
+  rm -f "$TMP"
+  exit 1
+fi
+
 mv "$TMP" "$OUT"
 log "✓ روزانه: $(basename "$OUT") — $((SIZE / 1024)) کیلوبایت"
 

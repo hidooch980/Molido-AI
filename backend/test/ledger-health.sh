@@ -115,6 +115,37 @@ chk "خطِ دوعلامتی نیست" \
 chk "خطِ صفر-صفر نیست" \
   "$(Q "SELECT count(*) FROM \"JournalLine\" WHERE COALESCE(debit,0) = 0 AND COALESCE(credit,0) = 0;")" "0"
 
+echo '--- ۵) سلامتِ انبار و بهای تمام‌شده ---'
+#
+# ⚠️ این‌ها هم مثل دفتر کل **بی‌صدا** خراب می‌شوند.
+#
+#    موجودیِ منفی یعنی کالایی فروخته شده که نبود.  بهای منفی یعنی
+#    میانگین موزون جایی شکسته.  و قلمِ فروشِ بی‌بها یعنی سودِ ناخالص
+#    از بهای **امروز** حساب می‌شود نه بهای آن روز — که هیچ خطایی
+#    نمی‌دهد، چون گزارش عقب‌گردِ `COALESCE` دارد.
+
+chk "موجودیِ منفی نیست" \
+  "$(Q 'SELECT count(*) FROM "Inventory" WHERE quantity < 0;')" "0"
+
+chk "بهای میانگینِ منفی نیست" \
+  "$(Q 'SELECT count(*) FROM "Inventory" WHERE "avgCost" < 0;')" "0"
+
+chk "موجودیِ بی‌کالا نیست" \
+  "$(Q 'SELECT count(*) FROM "Inventory" i
+        WHERE NOT EXISTS (SELECT 1 FROM "Product" p WHERE p.id = i."productId");')" "0"
+
+chk "موجودیِ بی‌انبار نیست" \
+  "$(Q 'SELECT count(*) FROM "Inventory" i
+        WHERE NOT EXISTS (SELECT 1 FROM "Warehouse" w WHERE w.id = i."warehouseId");')" "0"
+
+# ⚠️ اقلامی که کالایشان هم بهای خرید ندارد استثنا می‌شوند: نوشتنِ صفر
+#    برایشان بدتر از تهی است — صفر یعنی «رایگان فروختیم» و سود را
+#    صددرصد نشان می‌دهد.
+chk "قلمِ فروشِ بی‌بها نمانده" \
+  "$(Q 'SELECT count(*) FROM "SaleItem" si
+        JOIN "Product" p ON p.id = si."productId"
+        WHERE si."unitCost" IS NULL AND COALESCE(p."purchasePrice", 0) > 0;')" "0"
+
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

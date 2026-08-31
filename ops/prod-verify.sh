@@ -83,7 +83,15 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 #
 #    ۱۳۴ -> ۱۳۶ با مهاجرت ۰۵۷: `SiteModule` و `SitePurchase` برای
 #    فروشِ ماژول از سایتِ معرفی.
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "136"
+#
+#    ۱۳۶ -> ۱۳۸ با مهاجرت‌های ۰۶۰ و ۰۶۱: `ShahkarVerification`
+#    (حافظهٔ استعلامِ تطبیقِ موبایل و کد ملی) و `SelfOrderSetting`
+#    (تنظیماتِ منوی دیجیتالِ هر رستوران).
+#
+#    ⚠️ فهرست پیش از بالا بردنِ عدد **سنجیده شد**: مهاجرت‌های ۰۵۸ تا
+#       ۰۶۵ گرفته شدند و فقط همین دو `CREATE TABLE` داشتند.  بالا
+#       بردنِ کورِ عدد یعنی خاموش کردنِ سنجه، نه رفعِ آن.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "138"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \
@@ -98,6 +106,53 @@ done
 
 echo '--- ۵) API سالم است ---'
 chk "auth بدون توکن ۴۰۱" "$(code /api/products)" "401"
+
+echo '--- ۶) سلامتِ دفتر کل ---'
+#
+# ⚠️ «تراز صفر است» با «دفتر درست است» یکی نیست.
+#
+#    امروز دو ایرادِ واقعی پیدا شد که هر دو تراز را **صفر** نگه
+#    می‌داشتند: خریدِ دارایی سند نمی‌زد (حسابِ داراییِ بستانکار)، و
+#    ۲۶۴۰ قلمِ فروش بهای تمام‌شده نداشتند (سودِ گذشته با بهای امروز).
+#
+#    هیچ‌کدام خطا نمی‌دادند.  تنها راهِ دیدنشان، سنجشِ **علامتِ ماندهٔ**
+#    حساب‌ها بود.  استقرار باید همین را روی تولید هم ببیند، وگرنه
+#    خرابیِ داده ماه‌ها بی‌صدا می‌ماند.
+
+chk "تراز آزمایشی صفر"   "$(q "SELECT CASE WHEN round(COALESCE(sum(l.debit),0) - COALESCE(sum(l.credit),0)) = 0
+                    THEN 'ok' ELSE 'off' END
+        FROM \"JournalLine\" l JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+        WHERE e.status <> 'REVERSED'")" "ok"
+
+# ⚠️ حساب‌های کاهنده عمداً وارونه‌اند — دلیلشان در `ledger-health.sh`.
+#
+# ⚠️ اینجا برخلافِ `ledger-health.sh` هیچ استثنای «دادهٔ آزمون» نیست.
+#
+#    آنجا `1102` بانک استثنا شد چون آزمون‌ها پرداختِ حقوق می‌زنند
+#    بی‌آنکه واریزی ثبت کنند.  روی **تولید** چنین چیزی عذر نیست:
+#    اگر ماندهٔ بانک وارونه باشد، یعنی واقعاً پولی خرج شده که ثبت
+#    نشده — و آن باید استقرار را متوقف کند.
+chk "حسابِ وارونه نیست"   "$(q "SELECT COALESCE(string_agg(code, ','), 'none') FROM (
+          SELECT a.code FROM \"JournalLine\" l
+          JOIN \"JournalEntry\" e ON e.id = l.\"entryId\"
+          JOIN \"Account\" a ON a.id = l.\"accountId\"
+          WHERE e.status <> 'REVERSED'
+            AND e.\"sourceType\" NOT IN ('REVERSAL','FiscalYearClose')
+            AND a.code NOT IN ('4102','1202','4105')
+          GROUP BY a.code, a.type
+          HAVING (a.type IN ('ASSET','EXPENSE') AND sum(l.credit) > sum(l.debit))
+              OR (a.type IN ('LIABILITY','EQUITY','REVENUE') AND sum(l.debit) > sum(l.credit))
+        ) x")" "none"
+
+chk "سندِ نامتراز نیست"   "$(q "SELECT count(*) FROM (
+          SELECT l.\"entryId\" FROM \"JournalLine\" l
+          JOIN \"JournalEntry\" e ON e.id = l.\"entryId\"
+          WHERE e.status <> 'REVERSED'
+          GROUP BY l.\"entryId\"
+          HAVING round(sum(l.debit) - sum(l.credit)) <> 0
+        ) x")" "0"
+
+chk "موجودیِ منفی نیست"   "$(q "SELECT count(*) FROM \"Inventory\" WHERE quantity < 0")" "0"
 
 echo
 printf '   PASS: %s   FAIL: %s\n' "$pass" "$fail"

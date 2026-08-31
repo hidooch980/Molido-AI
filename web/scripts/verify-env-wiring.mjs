@@ -25,7 +25,7 @@
  *    برای همان `IGNORE` هست: استثنای **نام‌دار** با دلیل، نه سکوت.
  */
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,7 +53,23 @@ const root = join(here, '..', '..');
 const IGNORE = new Map([]);
 
 const example = readFileSync(join(root, '.env.example'), 'utf8');
-const compose = readFileSync(join(root, 'docker-compose.yml'), 'utf8');
+/**
+ * ⚠️ **همهٔ** فایل‌های compose خوانده می‌شوند، نه فقط پایه.
+ *
+ *    نسخهٔ اول فقط `docker-compose.yml` را می‌دید.  متغیری که در یک
+ *    overlay پاس می‌شود — مثل نصبِ دوم — «نمی‌رسد» گزارش می‌شد:
+ *    مثبتِ کاذب.
+ *
+ *    وسوسه این بود که استثنا اضافه شود.  ولی آن‌وقت هر متغیرِ
+ *    overlay از دیدِ نگهبان پنهان می‌ماند و همان خرابیِ بی‌صدایی که
+ *    این ابزار برای گرفتنش نوشته شده، در overlayها آزاد می‌شد.
+ *
+ *    خواندنِ همهٔ فایل‌ها پوشش را **بیشتر** می‌کند، نه کمتر.
+ */
+const compose = readdirSync(root)
+  .filter((name) => /^docker-compose[\w.-]*\.ya?ml$/.test(name))
+  .map((name) => readFileSync(join(root, name), 'utf8'))
+  .join('\n');
 
 /** نامِ متغیرها از فایلِ نمونه — کامنت و خطِ خالی کنار می‌روند. */
 const documented = [

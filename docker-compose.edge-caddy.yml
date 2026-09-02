@@ -1,0 +1,71 @@
+# Caddyِ چند‌زیردامنه‌ای.
+#
+# جایگزینِ بلوکِ caddy در `docker-compose.vps.yml` وقتی هر محصول
+# زیردامنهٔ خودش را دارد.
+#
+# ⚠️ **پیش‌فرض‌ها اینجا `.invalid`اند، و این حیاتی است.**
+#
+#    وسوسه این بود که مثل بقیهٔ متغیرها `${VAR:-}` نوشته شود.  ولی
+#    Caddy برای متغیرِ **تهی** پیش‌فرضِ `{$VAR:x}` را اعمال نمی‌کند —
+#    فقط برای متغیرِ **تعریف‌نشده**.  سنجیده شد، هر سه حالت:
+#
+#      تعریف‌نشده        → پیش‌فرض اعمال می‌شود  ✓
+#      تهی (`VAR=`)      → بلوکِ بی‌نشانی، کلِ پیکربندی باطل  ✗
+#      مقدارِ .invalid   → معتبر  ✓
+#
+#    و compose دقیقاً حالتِ وسط را می‌سازد: `${VAR:-}` متغیر را
+#    **تعریف‌شده و تهی** پاس می‌دهد.  یعنی نوشتنِ الگوی معمول، سایت را
+#    می‌خواباند — با خطایی که هیچ اشاره‌ای به متغیر ندارد.
+#
+#    `.invalid` طبق RFC 2606 هرگز دامنهٔ واقعی نمی‌شود: بلوک ساخته
+#    می‌شود، پیکربندی معتبر می‌ماند، و هیچ‌کس به آن نمی‌رسد.
+#
+# ⚠️ **چرا شبکهٔ سومِ بیرونی لازم است.**
+#
+#    فروشگاه و رستوران دو پروژهٔ جدا با `name:` متفاوت‌اند، و Docker
+#    برای هر پروژه شبکهٔ خودش را می‌سازد.  Caddy در یکی از آن‌ها
+#    می‌نشیند و اصلاً راهی به دیگری ندارد — «connection refused» که
+#    شبیه خرابیِ بک‌اند به نظر می‌رسد، در حالی که دو کانتینر فقط
+#    همدیگر را نمی‌بینند.
+#
+#    ساختِ شبکه — یک بار روی سرور (اسکریپت خودش می‌سازد):
+#      docker network create molido_edge
+#
+# ⚠️ **و چرا نامِ مستعار اجباری است.**
+#
+#    هر دو پروژه سرویسی به نامِ `backend` دارند.  روی یک شبکهٔ مشترک،
+#    نامِ `backend` به **یکی از دو** کانتینر حل می‌شود — کدام‌یک، به
+#    ترتیبِ بالا آمدن بستگی دارد.  یعنی زیردامنهٔ فروشگاه گاهی دادهٔ
+#    رستوران را نشان می‌دهد و هیچ خطایی هم نمی‌دهد.
+#
+#    نامِ مستعارِ صریح (`store-backend`، `resto-backend`) ابهام را از
+#    بین می‌برد؛ در `docker-compose.edge-store.yml` و
+#    `docker-compose.edge-resto.yml` تعریف شده‌اند.  Caddy فقط با
+#    همین نام‌ها کار می‌کند، هرگز با `backend`.
+
+services:
+  caddy:
+    volumes:
+      - ./Caddyfile.subdomains:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    environment:
+      MOLIDO_HOST: ${MOLIDO_HOST}
+      MOLIDO_TLS: ${MOLIDO_TLS:-}
+      MOLIDO_ACME: ${MOLIDO_ACME:-}
+      # ⚠️ پیش‌فرضش `tls internal` است و این عمدی است — بلوکِ بدونِ
+      #    دستورِ tls سراغ Let's Encrypt می‌رود، شکست می‌خورد، و
+      #    زیردامنه **هیچ گواهی‌ای** نمی‌گیرد.  با DNS-01 خالی‌اش کنید.
+      MOLIDO_TLS_SUB: ${MOLIDO_TLS_SUB-tls internal}
+      MOLIDO_HOST_STORE: ${MOLIDO_HOST_STORE:-store.invalid}
+      MOLIDO_HOST_RESTO: ${MOLIDO_HOST_RESTO:-resto.invalid}
+      # کدام محصول روی نشانیِ پایه (آی‌پی) سرو شود.
+      MOLIDO_EDGE_DEFAULT: ${MOLIDO_EDGE_DEFAULT:-store}
+    networks:
+      - molido_net
+      - molido_edge
+
+networks:
+  molido_edge:
+    external: true

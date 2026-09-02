@@ -133,6 +133,9 @@ services:
       SHAHKAR_TIMEOUT_MS: ${SHAHKAR_TIMEOUT_MS:-}
       SHAHKAR_ENFORCE: ${SHAHKAR_ENFORCE:-}
       SHAHKAR_ON_ERROR: ${SHAHKAR_ON_ERROR:-}
+      CATALOG_REMOTE: ${CATALOG_REMOTE:-}
+      CATALOG_TIMEOUT_MS: ${CATALOG_TIMEOUT_MS:-}
+      CATALOG_OFF_URL: ${CATALOG_OFF_URL:-}
       # ⚠️ نشانیِ عمومیِ **API** — بازگشتِ درگاه به همین‌جا می‌آید.
       #
       #    بدونش `siteBase()` به `localhost:3000` برمی‌گردد و درگاه

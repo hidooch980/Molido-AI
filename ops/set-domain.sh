@@ -2,7 +2,18 @@
 #
 # تعویضِ نشانیِ عمومی از آی‌پی به دامنه.
 #
-#   bash ops/set-domain.sh molido.ir [میزبان-ssh]
+#   bash ops/set-domain.sh shop.molido.ir [میزبان-ssh]
+#
+# ⚠️ دامنهٔ **اصلی** را اینجا ندهید.
+#
+#    `molido.ir` وب‌سایتِ اصلی است و روی سرورِ دیگری (194.5.178.154)
+#    میزبانی می‌شود.  دادنش به این اسکریپت یعنی Caddyِ مولیدو خودش را
+#    صاحبِ آن نام بداند و بخواهد برایش گواهی بگیرد — کاری که هم شکست
+#    می‌خورد و هم `PUBLIC_URL` و CORS را به سایتی می‌برد که مالِ ما
+#    نیست.
+#
+#    سنجشِ DNS پایین جلویش را می‌گیرد، ولی بهتر است اصلاً امتحان نشود.
+#    برای چند محصول از `ops/set-subdomains.sh` استفاده کنید.
 #
 # ⚠️ چرا اسکریپت و نه ویرایشِ دستیِ `.env`؟
 #
@@ -29,7 +40,7 @@ REMOTE="${MOLIDO_REMOTE_DIR:-/opt/molido}"
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
 step() { printf '\n── %s\n' "$*"; }
 
-[ -n "$DOMAIN" ] || die "دامنه را بدهید:  bash ops/set-domain.sh molido.ir"
+[ -n "$DOMAIN" ] || die "دامنه را بدهید:  bash ops/set-domain.sh shop.molido.ir"
 
 case "$DOMAIN" in
   *.*) ;;

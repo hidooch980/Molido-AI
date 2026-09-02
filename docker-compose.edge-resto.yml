@@ -1,0 +1,50 @@
+# اتصالِ رستوران به لبهٔ مشترک.
+#
+# ⚠️ جدا از `docker-compose.resto.yml` است تا نصبِ تک‌محصولی — که
+#    شبکهٔ مشترک ندارد — دست‌نخورده کار کند.  اضافه کردنِ شبکهٔ
+#    `external` به فایلِ اصلی یعنی هر کسی که فقط رستوران را بالا
+#    می‌آورد اول باید شبکه بسازد، وگرنه خطای نامفهوم می‌گیرد.
+
+services:
+  backend:
+    environment:
+      # ⚠️ نشانیِ بازگشتِ درگاه از این ساخته می‌شود.  اگر نشانیِ
+      #    زیردامنه نباشد، مشتری پس از پرداخت جای دیگری برمی‌گردد —
+      #    پول کم می‌شود و سفارش «در انتظار» می‌ماند.
+      SITE_URL: https://${MOLIDO_HOST_RESTO:?زیردامنهٔ رستوران تنظیم نشده}
+      CORS_ORIGIN: https://${MOLIDO_HOST_RESTO}
+    networks:
+      molido_net: {}
+      molido_edge:
+        aliases: [resto-backend]
+
+  web:
+    build:
+      args:
+
+        # ⚠️ نشانیِ API در **زمانِ ساخت** جاسازی می‌شود، نه اجرا.
+        #
+        #    Next.js متغیرهای `NEXT_PUBLIC_` را داخلِ باندل می‌نویسد.  یعنی
+        #    عوض کردنِ متغیر بدونِ ساختِ دوباره هیچ اثری ندارد: پنل بالا
+        #    می‌آید، ظاهرش سالم است، و هر درخواستِ API به نشانیِ **قدیمی**
+        #    می‌رود — روی سرور یعنی مرورگرِ مشتری به `localhost` وصل شود.
+        #
+        #    پس هر تغییرِ زیردامنه، `build web` لازم دارد.
+        NEXT_PUBLIC_API_URL: https://${MOLIDO_HOST_RESTO}/api
+    environment:
+      SITE_URL: https://${MOLIDO_HOST_RESTO}
+      # ⚠️ همان متغیر در زمانِ اجرا هم بازنویسی می‌شود.
+      #
+      #    باندل از آرگومانِ ساخت می‌آید، ولی `docker-compose.resto.yml`
+      #    مقدارِ `localhost:3200` را در محیط هم می‌گذارد و رندرِ سمتِ
+      #    سرور همان را می‌بیند.  دو مقدارِ متفاوت برای یک نام، همان
+      #    چیزی است که ساعت‌ها وقت می‌گیرد.
+      NEXT_PUBLIC_API_URL: https://${MOLIDO_HOST_RESTO}/api
+    networks:
+      molido_net: {}
+      molido_edge:
+        aliases: [resto-web]
+
+networks:
+  molido_edge:
+    external: true

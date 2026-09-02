@@ -108,6 +108,11 @@ services:
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-20000}
       SMS_API_KEY: ${SMS_API_KEY:-}
       SMS_SENDER: ${SMS_SENDER:-10008663}
+      # ارائه‌دهنده: kavenegar (پیش‌فرض) یا sms.ir
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      # فقط sms.ir — قالبِ تأییدشدهٔ کدِ یک‌بارمصرف
+      SMSIR_TEMPLATE_ID: ${SMSIR_TEMPLATE_ID:-}
+      SMSIR_TEMPLATE_PARAM: ${SMSIR_TEMPLATE_PARAM:-}
       N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-molido_n8n_secret}
       N8N_BASE_URL: http://n8n:5678
       # ⚠️ همان دامِ `ADMIN_PASSWORD` بالا، برای درگاهِ پرداخت.

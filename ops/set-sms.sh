@@ -36,7 +36,17 @@ ssh -o ConnectTimeout=20 -o BatchMode=yes "$HOST" 'echo "  متصل: $(hostname)
   || die "به $HOST وصل نشد"
 
 # ---------------------------------------------------------------- ۱) کلید
-step "۱) کلیدِ API کاوه‌نگار"
+step "۱) ارائه‌دهنده"
+printf '  ۱) کاوه‌نگار\n  ۲) sms.ir\n  انتخاب [۱]: '
+read -r pick </dev/tty
+case "${pick:-1}" in
+  2|۲) PROVIDER=sms.ir ;;
+  *)   PROVIDER=kavenegar ;;
+esac
+printf '  ارائه‌دهنده: %s\n' "$PROVIDER"
+
+# ---------------------------------------------------------------- ۲) کلید
+step "۲) کلیدِ API"
 printf '  کلید را وارد کنید (روی صفحه دیده نمی‌شود، و در تاریخچه نمی‌ماند):\n  > '
 read -r -s SMS_KEY
 printf '\n'
@@ -61,6 +71,18 @@ printf '  شمارهٔ خطِ خدماتی (Enter برای پیش‌فرضِ 100
 read -r SENDER </dev/tty
 SENDER=${SENDER:-10008663}
 printf '  فرستنده: %s\n' "$SENDER"
+
+TEMPLATE=""
+if [ "$PROVIDER" = "sms.ir" ]; then
+  # ⚠️ بیشترِ حساب‌های sms.ir فقط با **قالبِ تأییدشده** اجازهٔ ارسالِ کدِ
+  #    یک‌بارمصرف دارند؛ متنِ آزاد رد می‌شود یا در صف می‌ماند.
+  #
+  #    خالی گذاشتنش یعنی متنِ آزاد از راهِ `/send/bulk` — برای پیامِ
+  #    عمومی درست است، ولی کدِ ورود احتمالاً نمی‌رسد.
+  printf '  شناسهٔ قالبِ کدِ یک‌بارمصرف (Enter = متنِ آزاد): '
+  read -r TEMPLATE </dev/tty
+  [ -n "$TEMPLATE" ] && printf '  قالب: %s\n' "$TEMPLATE"
+fi
 
 # ---------------------------------------------------------------- ۳) شمارهٔ دیده‌بان
 step "۳) شمارهٔ هشدارِ دیده‌بان"
@@ -91,6 +113,8 @@ printf '%s' "$SMS_KEY" | ssh -o BatchMode=yes "$HOST" "cd $REMOTE && set -e
 
   set_var SMS_API_KEY \"\$KEY\"
   set_var SMS_SENDER '$SENDER'
+  set_var SMS_PROVIDER '$PROVIDER'
+  [ -n '$TEMPLATE' ] && set_var SMSIR_TEMPLATE_ID '$TEMPLATE'
   [ -n '$ALERT_TO' ] && set_var WATCHDOG_SMS_TO '$ALERT_TO'
 
   echo \"  پشتیبان: \$B\"
@@ -99,6 +123,7 @@ printf '%s' "$SMS_KEY" | ssh -o BatchMode=yes "$HOST" "cd $REMOTE && set -e
   V=\$(grep -E '^SMS_API_KEY=' .env | cut -d= -f2-)
   printf '  SMS_API_KEY:      %s نویسه، پایان …%s\n' \"\${#V}\" \"\${V: -4}\"
   printf '  SMS_SENDER:       %s\n' \"\$(grep -E '^SMS_SENDER=' .env | cut -d= -f2-)\"
+  printf '  SMS_PROVIDER:     %s\n' \"\$(grep -E '^SMS_PROVIDER=' .env | cut -d= -f2-)\"
   printf '  WATCHDOG_SMS_TO:  %s\n' \"\$(grep -E '^WATCHDOG_SMS_TO=' .env | cut -d= -f2-)\"
 " || die "نوشتن در .env شکست"
 
@@ -117,19 +142,34 @@ step "۶) سنجش"
 #    سرِ نخستین ثبت‌نامِ واقعیِ مشتری دیده می‌شود — یعنی وقتی مشتری
 #    پشتِ صفحه منتظر است.
 #
-#    اینجا اعتبارِ کلید از خودِ کاوه‌نگار پرسیده می‌شود.  هزینه‌ای
-#    ندارد و پیامکی نمی‌فرستد.
+#    اینجا اعتبارِ کلید از خودِ ارائه‌دهنده پرسیده می‌شود.  هزینه‌ای
+#    ندارد و پیامکی نمی‌فرستد:
+#      کاوه‌نگار  →  /account/info.json
+#      sms.ir     →  /v1/credit   (مانده را هم می‌گوید)
 sleep 8
-ssh -o BatchMode=yes "$HOST" "cd $REMOTE && set -e
-  K=\$(grep -E '^SMS_API_KEY=' .env | cut -d= -f2-)
-  R=\$(curl -s -m 20 \"https://api.kavenegar.com/v1/\$K/account/info.json\" || echo '')
-  case \"\$R\" in
-    *'\"status\":200'*) echo '  ✓ کلید معتبر است' ;;
-    *'\"status\":401'*) echo '  ✗ کلید نامعتبر است — دوباره اجرا کنید' ;;
-    '')                 echo '  ! کاوه‌نگار پاسخ نداد (شبکه؟) — کلید سنجیده نشد' ;;
-    *)                  printf '  ! پاسخِ نامنتظره: %s\n' \"\$(printf '%s' \"\$R\" | head -c 120)\" ;;
-  esac
-"
+if [ "$PROVIDER" = "sms.ir" ]; then
+  ssh -o BatchMode=yes "$HOST" "cd $REMOTE && set -e
+    K=\$(grep -E '^SMS_API_KEY=' .env | cut -d= -f2-)
+    R=\$(curl -s -m 20 -H \"X-API-KEY: \$K\" https://api.sms.ir/v1/credit || echo '')
+    case \"\$R\" in
+      *'\"status\":1'*) printf '  ✓ کلید معتبر است — %s\n' \"\$R\" ;;
+      *'\"status\":10'*) echo '  ✗ کلید نامعتبر است — دوباره اجرا کنید' ;;
+      '')               echo '  ! sms.ir پاسخ نداد (شبکه؟) — کلید سنجیده نشد' ;;
+      *)                printf '  ! پاسخِ نامنتظره: %s\n' \"\$(printf '%s' \"\$R\" | head -c 150)\" ;;
+    esac
+  "
+else
+  ssh -o BatchMode=yes "$HOST" "cd $REMOTE && set -e
+    K=\$(grep -E '^SMS_API_KEY=' .env | cut -d= -f2-)
+    R=\$(curl -s -m 20 \"https://api.kavenegar.com/v1/\$K/account/info.json\" || echo '')
+    case \"\$R\" in
+      *'\"status\":200'*) echo '  ✓ کلید معتبر است' ;;
+      *'\"status\":401'*) echo '  ✗ کلید نامعتبر است — دوباره اجرا کنید' ;;
+      '')                 echo '  ! کاوه‌نگار پاسخ نداد (شبکه؟) — کلید سنجیده نشد' ;;
+      *)                  printf '  ! پاسخِ نامنتظره: %s\n' \"\$(printf '%s' \"\$R\" | head -c 120)\" ;;
+    esac
+  "
+fi
 
 step "تمام"
 cat <<'TXT'

@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { PostingService } from '../accounting/posting.service';
+import { collectionEntry } from '../accounting/posting-rules';
 
 type Payment = Record<string, unknown> & { id: string };
 
@@ -16,7 +18,10 @@ const COMPANY_SCOPE = `(
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly posting: PostingService,
+  ) {}
 
   async findAll(companyId: string, saleId?: string) {
     const values: unknown[] = [companyId];
@@ -113,6 +118,33 @@ export class PaymentsService {
           [data.amount, data.cashBoxId],
         );
       }
+
+      // ⚠️ **سند، در همان تراکنش.**
+      //
+      //    تا امروز این وصول هیچ سندی نمی‌زد.  اندازه‌گیری شد: پرداختِ
+      //    ۱۰۰٬۰۰۰ موجودیِ صندوق را بالا برد و ۱۱۰۱ و ۱۱۰۳ هر دو صفر
+      //    تکان خوردند.
+      //
+      //    نتیجه‌اش این بود که فاکتور بدهی می‌ساخت (فروش سند می‌زند:
+      //    دریافتنی بدهکار) ولی وصولش آن بدهی را پاک نمی‌کرد.  مشتری
+      //    در دفتر برای همیشه بدهکار می‌ماند و ماندهٔ مطالبات بی‌پایان
+      //    بالا می‌رفت — در حالی که پول در صندوق بود.
+      //
+      //    و هیچ آزمونی نمی‌گرفتش، چون **تراز آزمایشی صفر می‌ماند**:
+      //    وقتی اصلاً سندی زده نمی‌شود، چیزی هم نامتراز نمی‌شود.
+      //
+      // ⚠️ `collectionEntry` از قبل وجود داشت و `payInstallment` از آن
+      //    استفاده می‌کرد.  فقط اینجا وصل نشده بود.
+      await this.posting.postAuto(tx, companyId, {
+        sourceType: 'SalePayment',
+        sourceId: String(payment.rows[0].id),
+        description: `وصول فاکتور ${sale.id}`,
+        lines: collectionEntry({
+          amount: data.amount,
+          method: data.method ?? 'CASH',
+          description: 'وصول از مشتری',
+        }),
+      });
 
       await tx.query('UPDATE "Sale" SET status = $1, "updatedAt" = now() WHERE id = $2', [
         paidSoFar + data.amount >= Number(sale.total) ? 'PAID' : 'PARTIAL',

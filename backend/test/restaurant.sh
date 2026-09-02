@@ -203,6 +203,23 @@ S=$(curl -s -X POST "$A/restaurant/orders/$OID/settle" -H "$AU" -H "$JS" \
   -d '{"paidAmount":240000,"paymentMethod":"CASH"}')
 chk "settled" "$(Q "SELECT status FROM \"RestaurantOrder\" WHERE id='$OID';")" "PAID"
 
+# ⚠️ **سنجه‌ای که یک اشکالِ بزرگ را دیر پیدا کرد.**
+#
+#    تا امروز تسویهٔ رستوران هیچ سندی در دفترکل نمی‌زد.  اندازه‌گیری
+#    شد: ۳۸ سفارشِ پرداخت‌شده با جمعِ ۱۹٬۲۴۰٬۰۰۰ و **صفر** سند.  کلِ
+#    دفتر سه سند داشت، هر سه از حقوق و موجودیِ افتتاحیه.
+#
+#    و این مجموعه سبز بود — چون فقط می‌سنجید که وضعیت PAID شود، نه
+#    اینکه پول به دفتر برسد.  «۲۰۰ برگرداند» با «درست کار کرد» یکی
+#    نیست.
+chk "سندِ فروش صادر شد"   "$(Q "SELECT count(*) FROM \"JournalEntry\" WHERE \"sourceType\"='RestaurantOrder' AND \"sourceId\"='$OID';")" "1"
+
+# ⚠️ و سند باید **متراز** باشد، نه فقط موجود.
+chk "سندِ فروش متراز است"   "$(Q "SELECT COALESCE(round(sum(l.debit - l.credit)), 0)
+          FROM \"JournalLine\" l
+          JOIN \"JournalEntry\" e ON e.id = l.\"entryId\"
+         WHERE e.\"sourceId\" = '$OID';")" "0"
+
 echo '--- 8) table freed or cleaning ---'
 chk "table released" "$(Q "SELECT CASE WHEN status IN ('FREE','CLEANING') THEN 'yes' ELSE status END FROM \"RestaurantTable\" WHERE id='$TBID';")" "yes"
 

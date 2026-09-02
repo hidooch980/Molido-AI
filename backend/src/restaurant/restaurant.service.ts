@@ -19,6 +19,8 @@ import {
   SettleOrderDto,
 } from './dto/restaurant.dto';
 import { CashierShiftService } from '../retail/cashier-shift.service';
+import { PostingService } from '../accounting/posting.service';
+import { saleEntry, cogsEntry } from '../accounting/posting-rules';
 
 type Row = Record<string, unknown>;
 type OrderRow = Row & {
@@ -115,6 +117,13 @@ export class RestaurantService {
     //    برمی‌گشت.  وابستگیِ اجباری، آن اشتباه را در زمانِ بالا آمدن
     //    آشکار می‌کند.
     private readonly cashierShifts: CashierShiftService,
+    // ⚠️ اجباری، نه اختیاری — به همان دلیلِ بالا.
+    //
+    //    تا امروز درآمدِ رستوران **اصلاً** سند نمی‌خورد: ۳۸ سفارشِ
+    //    پرداخت‌شده با جمعِ ۱۹٬۲۴۰٬۰۰۰ و صفر سند در دفترکل.  اگر این
+    //    وابستگی اختیاری باشد، یک اشتباهِ سیم‌کشی همان حالت را بی‌صدا
+    //    برمی‌گرداند.
+    private readonly posting: PostingService,
   ) {}
 
   // ═══════════════ سالن ═══════════════
@@ -750,6 +759,60 @@ export class RestaurantService {
         );
       }
 
+      // ⚠️ **سندِ فروش، در همان تراکنش.**
+      //
+      //    اندازه‌گیری شد: ۳۸ سفارشِ پرداخت‌شده با جمعِ ۱۹٬۲۴۰٬۰۰۰ و
+      //    صفر سند در دفتر.  کلِ دفتر سه سند داشت، هر سه از حقوق و
+      //    موجودیِ افتتاحیه.  یعنی نوزده میلیون فروش که دفترکل از
+      //    وجودش خبر نداشت.
+      //
+      //    و تراز آزمایشی صفر می‌ماند — چون وقتی سندی زده نمی‌شود،
+      //    چیزی هم نامتراز نمی‌شود.  همان خانواده از اشکال که خریدِ
+      //    دارایی و وصولِ مشتری داشتند.
+      //
+      // ⚠️ انعام **درآمدِ فروش نیست**.
+      //
+      //    پولش می‌آید ولی مالِ رستوران نیست؛ در سندِ فروش نمی‌آید تا
+      //    درآمد را بادکرده نشان ندهد.  اگر روزی بخواهید انعام هم ثبت
+      //    شود، حسابِ «انعامِ پرداختنی» می‌خواهد نه درآمد.
+      await this.posting.postAuto(tx, companyId, {
+        sourceType: 'RestaurantOrder',
+        sourceId: String(order.id),
+        description: `فروش رستوران ${order.orderNo ?? order.id}`,
+        userId: userId ?? null,
+        lines: saleEntry({
+          subtotal: Number(order.subtotal ?? total),
+          discount: Number(order.discount ?? 0),
+          tax: Number(order.tax ?? 0),
+          total,
+          tenders: [
+            { method: dto.paymentMethod ?? 'CASH', amount: total },
+          ],
+        }),
+      });
+
+      // ⚠️ بهای تمام‌شده جدا، و فقط وقتی **معلوم** است.
+      //
+      //    قلمِ منویی که بها ندارد `unitCost` تهی می‌گیرد و از این جمع
+      //    بیرون می‌ماند.  نوشتنِ صفر برایش یعنی «رایگان فروختیم» و
+      //    سود را صددرصد نشان می‌دهد — بدتر از ندانستن.
+      const costRows = await tx.query<{ sum: string | null }>(
+        `SELECT sum("unitCost" * qty) AS sum
+           FROM "RestaurantOrderItem"
+          WHERE "orderId" = $1 AND "unitCost" IS NOT NULL`,
+        [order.id],
+      );
+      const cost = Number(costRows.rows[0]?.sum ?? 0);
+      if (cost > 0) {
+        await this.posting.postAuto(tx, companyId, {
+          sourceType: 'RestaurantCogs',
+          sourceId: String(order.id),
+          description: `بهای تمام‌شدهٔ سفارش ${order.orderNo ?? order.id}`,
+          userId: userId ?? null,
+          lines: cogsEntry(cost),
+        });
+      }
+
       return updated.rows[0];
     });
 
@@ -1148,9 +1211,9 @@ export class RestaurantService {
     for (const item of itemsData) {
       const row = await tx.query<Row>(
         `INSERT INTO "RestaurantOrderItem"
-           (id, "orderId", "menuItemId", name, qty, "unitPrice", discount, total,
-            station, note, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING') RETURNING *`,
+           (id, "orderId", "menuItemId", name, qty, "unitPrice", "unitCost",
+            discount, total, station, note, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING') RETURNING *`,
         [
           randomUUID(),
           orderId,
@@ -1158,6 +1221,7 @@ export class RestaurantService {
           item.name,
           item.qty,
           item.unitPrice,
+          item.unitCost ?? null,
           item.discount,
           item.total,
           item.station,
@@ -1200,6 +1264,7 @@ export class RestaurantService {
           id: string;
           name: string;
           price: string;
+          cost: string | null;
           station: string;
           isAvailable: boolean;
         }>('SELECT * FROM "MenuItem" WHERE id = ANY($1) AND "companyId" = $2', [ids, companyId])
@@ -1239,6 +1304,19 @@ export class RestaurantService {
         name,
         qty: item.qty,
         unitPrice,
+        // ⚠️ بها **همین‌جا** قفل می‌شود، نه هنگام گزارش‌گیری.
+        //
+        //    اگر بعداً از `MenuItem.cost` خوانده می‌شد، سودِ ماهِ
+        //    گذشته با هر تغییرِ قیمتِ مواد عوض می‌شد — گزارشی که
+        //    دیروز چاپ کرده‌اید امروز عددِ دیگری می‌دهد.
+        //
+        // ⚠️ و `null` می‌ماند اگر قلمِ منو بها ندارد.  نوشتنِ صفر
+        //    یعنی «رایگان فروختیم» و سود را صددرصد نشان می‌دهد —
+        //    بدتر از ندانستن.
+        unitCost:
+          menu?.cost !== undefined && menu?.cost !== null && Number(menu.cost) > 0
+            ? Number(menu.cost)
+            : null,
         discount,
         total,
         station: menu?.station ?? 'KITCHEN',

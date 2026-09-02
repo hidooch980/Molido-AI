@@ -28,6 +28,7 @@ export const ACCOUNTS = {
   accumulatedDepreciation: '1202',
   depreciationExpense: '5205',
   assetDisposal: '4105',
+  capital: '3101',
   retainedEarnings: '3102',
   commissionExpense: '5206',
   commissionPayable: '2106',
@@ -428,6 +429,133 @@ export function assetAcquisitionEntry(input: {
     accountCode: accountForMethod(input.method ?? 'CASH'),
     credit: cost,
     description: 'پرداخت بابت خرید دارایی',
+  });
+
+  return lines;
+}
+
+
+/**
+ * واریز یا برداشتِ صندوق.
+ *
+ * ⚠️ تا امروز این رویداد **اصلاً سند نمی‌خورد**.
+ *
+ *    موجودیِ صندوق عوض می‌شد و حسابِ ۱۱۰۱ دست‌نخورده می‌ماند.  و
+ *    هیچ آزمونی نمی‌گرفتش، چون تراز آزمایشی **صفر می‌ماند**: وقتی
+ *    سندی زده نمی‌شود، چیزی هم نامتراز نمی‌شود.  دقیقاً همان خانواده
+ *    از اشکال که «خریدِ دارایی» داشت.
+ *
+ * ⚠️ طرفِ دوم از «بابت» می‌آید، نه از حدس.
+ *
+ *    واریزِ مالک، انتقال از بانک، و اصلاحِ شمارش سه سندِ کاملاً
+ *    متفاوت‌اند.  یکی گرفتنشان یعنی دفتری که عددهایش تراز است و
+ *    معنایش غلط — و آن بدتر از نامتراز بودن است، چون کسی شک نمی‌کند.
+ */
+export function cashBoxMovementEntry(input: {
+  amount: number;
+  /** DEPOSIT یا WITHDRAW */
+  type: string;
+  /** OWNER | BANK | ADJUST | OTHER */
+  reason: string;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+  const amount = Number(input.amount);
+  const isDeposit = input.type === 'DEPOSIT';
+
+  // طرفِ دومِ سند بر اساسِ بابت.
+  //
+  //   OWNER  — واریز/برداشتِ مالک ⇒ سرمایه
+  //   BANK   — جابه‌جایی با بانک ⇒ حسابِ بانک
+  //   ADJUST — اصلاحِ شمارش ⇒ هزینه/درآمدِ متفرقه (کسری یا اضافیِ صندوق)
+  //   OTHER  — سایر
+  const counter =
+    input.reason === 'BANK'
+      ? ACCOUNTS.bank
+      : input.reason === 'OWNER'
+        ? ACCOUNTS.capital
+        : isDeposit
+          ? ACCOUNTS.otherRevenue
+          : ACCOUNTS.otherExpense;
+
+  const label = isDeposit ? 'واریز به صندوق' : 'برداشت از صندوق';
+
+  push(lines, {
+    accountCode: ACCOUNTS.cash,
+    debit: isDeposit ? amount : 0,
+    credit: isDeposit ? 0 : amount,
+    description: label,
+  });
+
+  push(lines, {
+    accountCode: counter,
+    debit: isDeposit ? 0 : amount,
+    credit: isDeposit ? amount : 0,
+    description: label,
+  });
+
+  return lines;
+}
+
+
+/**
+ * واریز یا برداشتِ حسابِ خزانه.
+ *
+ * ⚠️ مثل صندوق، این رویداد هم **اصلاً سند نمی‌خورد**.
+ *
+ *    `TreasuryAccount.balance` عوض می‌شد و دفترکل خبر نداشت.  خزانه
+ *    دستِ‌کم سطرِ `TreasuryTransaction` داشت — یعنی ردِ حسابرسی بود و
+ *    فقط دفتر عقب می‌ماند؛ صندوق حتی آن را هم نداشت.
+ *
+ * ⚠️ سمتِ خزانه از **نوعِ حساب** می‌آید، نه از حدس.
+ *
+ *    حسابِ بانکی به ۱۱۰۲ می‌نشیند و حسابِ نقدی/تنخواه به ۱۱۰۱.  یکی
+ *    گرفتنشان یعنی موجودیِ بانک و نقد در گزارش قاطی شود — عددِ جمع
+ *    درست می‌ماند و تفکیک غلط، که کسی متوجهش نمی‌شود.
+ *
+ * ⚠️ انتقالِ بین دو حسابِ خزانه عمداً سند نمی‌خورد.
+ *
+ *    اثرِ خالصش روی دفتر صفر است وقتی هر دو حساب به یک حسابِ کل
+ *    می‌نشینند.  سند زدنش فقط دفتر را شلوغ می‌کند.
+ */
+export function treasuryMovementEntry(input: {
+  amount: number;
+  /** DEPOSIT یا WITHDRAWAL */
+  type: string;
+  /** OWNER | BANK | ADJUST | OTHER */
+  reason: string;
+  /** BANK | CASH | FUND */
+  accountType?: string;
+}): PostingLine[] {
+  const lines: PostingLine[] = [];
+  const amount = Number(input.amount);
+  const isDeposit = input.type === 'DEPOSIT';
+
+  const side =
+    (input.accountType ?? 'BANK') === 'BANK' ? ACCOUNTS.bank : ACCOUNTS.cash;
+
+  const counter =
+    input.reason === 'BANK'
+      ? ACCOUNTS.bank
+      : input.reason === 'OWNER'
+        ? ACCOUNTS.capital
+        : isDeposit
+          ? ACCOUNTS.otherRevenue
+          : ACCOUNTS.otherExpense;
+
+  const label = isDeposit ? 'واریز به خزانه' : 'برداشت از خزانه';
+
+  push(lines, {
+    accountCode: side,
+    debit: isDeposit ? amount : 0,
+    credit: isDeposit ? 0 : amount,
+    description: label,
+  });
+
+  push(lines, {
+    accountCode: counter,
+    debit: isDeposit ? 0 : amount,
+    credit: isDeposit ? amount : 0,
+    description: label,
   });
 
   return lines;

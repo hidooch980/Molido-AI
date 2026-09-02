@@ -6,6 +6,16 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { Params, setClause } from '../database/sql';
+import { PostingService } from '../accounting/posting.service';
+import { treasuryMovementEntry } from '../accounting/posting-rules';
+
+/**
+ * بابت‌های مجاز — همان‌ها که صندوق دارد، عمداً.
+ *
+ * ⚠️ دو واژگانِ متفاوت برای یک مفهوم یعنی گزارشی که نمی‌تواند هر دو را
+ *    کنار هم بگذارد.
+ */
+const REASONS = ['OWNER', 'BANK', 'ADJUST', 'OTHER'];
 
 type Account = Record<string, unknown> & { id: string; name: string; balance: string };
 type Transaction = Record<string, unknown> & { id: string };
@@ -22,7 +32,10 @@ const ACCOUNT_WRITABLE = [
 
 @Injectable()
 export class TreasuryService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly posting: PostingService,
+  ) {}
 
   // ---------- حساب‌ها ----------
 
@@ -122,10 +135,22 @@ export class TreasuryService {
       reference?: string;
       description?: string;
       date?: string;
+      reason?: string;
     },
   ) {
     const amount = Number(data.amount);
     const delta = data.type === 'DEPOSIT' ? amount : -amount;
+
+    // ⚠️ «بابت» طرفِ دومِ سند را تعیین می‌کند و حدس‌زدنی نیست.
+    //
+    //    واریزِ مالک، جابه‌جایی با بانک و اصلاحِ شمارش سه سندِ متفاوت‌اند.
+    //    یکی گرفتنشان یعنی دفتری که تراز است و معنایش غلط.
+    const reason = String(data.reason ?? 'OTHER');
+    if (!REASONS.includes(reason)) {
+      throw new BadRequestException(
+        `بابت نامعتبر است. مقادیر مجاز: ${REASONS.join('، ')}`,
+      );
+    }
 
     return this.db.transaction(async (tx) => {
       // The balance guard rides along with the UPDATE so two concurrent
@@ -145,12 +170,37 @@ export class TreasuryService {
         throw new BadRequestException('موجودی حساب کافی نیست');
       }
 
+      // ⚠️ سند در **همان** تراکنش صادر می‌شود.
+      //
+      //    اگر جدا بود و شکست می‌خورد، پولی جابه‌جا می‌شد که دفتر از
+      //    آن بی‌خبر است — دقیقاً همان چیزی که این اصلاح برای رفعش
+      //    نوشته شده.  یا هر دو، یا هیچ‌کدام.
+      //
+      // ⚠️ `sourceId` شناسهٔ **حرکت** است نه حساب: `JournalEntry_source_key`
+      //    یکتاست و با شناسهٔ حساب، دومین واریزِ همان حساب ۴۰۹ می‌گرفت.
+      const movementId = randomUUID();
+
+      await this.posting.postAuto(tx, companyId, {
+        sourceType: 'TreasuryMovement',
+        sourceId: movementId,
+        description:
+          data.type === 'DEPOSIT' ? 'واریز به خزانه' : 'برداشت از خزانه',
+        userId: null,
+        entryDate: data.date ? new Date(data.date) : new Date(),
+        lines: treasuryMovementEntry({
+          amount,
+          type: data.type,
+          reason,
+          accountType: String(updated.rows[0].type ?? 'BANK'),
+        }),
+      });
+
       const created = await tx.query<Transaction>(
         `INSERT INTO "TreasuryTransaction"
            (id, "companyId", "accountId", type, amount, reference, description, date)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [
-          randomUUID(),
+          movementId,
           companyId,
           data.accountId,
           data.type,

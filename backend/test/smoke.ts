@@ -78,10 +78,10 @@ async function main() {
   const purchases = new PurchasesService(db, posting);
   const inventory = new InventoryService(db);
   const reports = new ReportsService(db);
-  const restaurant = new RestaurantService(db, noopN8n, shiftService);
-  const cashbox = new CashBoxService(db);
+  const restaurant = new RestaurantService(db, noopN8n, shiftService, {} as never);
+  const cashbox = new CashBoxService(db, {} as never);
   const cheques = new ChequesService(db);
-  const treasury = new TreasuryService(db);
+  const treasury = new TreasuryService(db, {} as never);
   const payroll = new PayrollService(db, posting);
   const ai = new AiService(db, llm);
   const notifications = new NotificationsService(db);

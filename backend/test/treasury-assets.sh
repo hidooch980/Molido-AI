@@ -97,6 +97,57 @@ DST=$(printf '%s' "$_R" | JID)
 chk "حساب مبدأ ساخته شد" "$([ -n "$SRC" ] && echo yes || echo no)" "yes"
 chk "حساب مقصد ساخته شد" "$([ -n "$DST" ] && echo yes || echo no)" "yes"
 
+echo '--- ۱.۵) واریز و برداشتِ خزانه سند می‌زند ---'
+#
+# ⚠️ تا امروز **نمی‌زد**، و هیچ آزمونی نمی‌گرفتش.
+#
+#    `POST /treasury/transactions` فقط `balance` را عوض می‌کرد.  و
+#    تراز آزمایشی صفر می‌ماند، چون وقتی اصلاً سندی زده نمی‌شود چیزی
+#    هم نامتراز نمی‌شود — همان خانواده از اشکال که خریدِ دارایی داشت.
+gl() {
+  Q "SELECT COALESCE(round(sum(l.debit - l.credit)), 0)
+       FROM \"JournalLine\" l
+       JOIN \"Account\" a ON a.id = l.\"accountId\"
+       JOIN \"JournalEntry\" e ON e.id = l.\"entryId\"
+      WHERE a.code = '$1' AND e.status <> 'REVERSED';" | tr -d ' '
+}
+
+# ⚠️ حساب‌های **اختصاصی**، نه حساب‌های بخشِ انتقال.
+#
+#    نسخهٔ اول از همان‌ها استفاده کرد و سه سنجهٔ انتقال را شکست —
+#    چون موجودی را عوض کرده بود.  نشتِ حالت بین بخش‌های یک آزمون،
+#    همان چیزی است که آزمون را غیرقابل اعتماد می‌کند.
+req -X POST "$A/treasury/accounts" -H "$AU" -H "$JS"   -d '{"name":"TAProbe GL Bank","type":"BANK","openingBalance":0}'
+GLB=$(printf '%s' "$_R" | JID)
+req -X POST "$A/treasury/accounts" -H "$AU" -H "$JS"   -d '{"name":"TAProbe GL Cash","type":"CASH","openingBalance":0}'
+GLC=$(printf '%s' "$_R" | JID)
+
+BANK0=$(gl 1102)
+CAP0=$(gl 3101)
+req -X POST "$A/treasury/transactions" -H "$AU" -H "$JS"   -d "{\"accountId\":\"$GLB\",\"type\":\"DEPOSIT\",\"amount\":500000,\"reason\":\"OWNER\"}"
+chk "واریز پذیرفته شد" "$_C" "201"
+
+BANK1=$(gl 1102)
+CAP1=$(gl 3101)
+# حسابِ مبدأ از نوعِ BANK است، پس سمتِ خزانه روی ۱۱۰۲ می‌نشیند.
+chk "حسابِ بانک بدهکار شد" "$((BANK1 - BANK0))" "500000"
+# سرمایه بستانکار است ⇒ بدهکار منهای بستانکار منفی می‌شود.
+chk "حسابِ سرمایه بستانکار شد" "$((CAP1 - CAP0))" "-500000"
+
+# ⚠️ حسابِ نقدی باید روی ۱۱۰۱ بنشیند نه ۱۱۰۲.  یکی گرفتنشان یعنی
+#    موجودیِ بانک و نقد در گزارش قاطی شود — جمع درست، تفکیک غلط.
+CASH0=$(gl 1101)
+req -X POST "$A/treasury/transactions" -H "$AU" -H "$JS"   -d "{\"accountId\":\"$GLC\",\"type\":\"DEPOSIT\",\"amount\":300000,\"reason\":\"OWNER\"}"
+CASH1=$(gl 1101)
+chk "حسابِ نقدیِ خزانه روی ۱۱۰۱ می‌نشیند" "$((CASH1 - CASH0))" "300000"
+
+chk "بابتِ نامعتبر رد می‌شود"   "$(code -X POST "$A/treasury/transactions" -H "$AU" -H "$JS"      -d "{\"accountId\":\"$GLB\",\"type\":\"DEPOSIT\",\"amount\":1000,\"reason\":\"NOPE\"}")" "400"
+
+# ⚠️ دومین حرکتِ همان حساب نباید با قیدِ یکتاییِ سند تصادم کند.
+#    `sourceId` باید شناسهٔ حرکت باشد نه حساب.
+req -X POST "$A/treasury/transactions" -H "$AU" -H "$JS"   -d "{\"accountId\":\"$GLB\",\"type\":\"DEPOSIT\",\"amount\":1000,\"reason\":\"OWNER\"}"
+chk "حرکتِ دوم هم پذیرفته می‌شود" "$_C" "201"
+
 echo '--- ۲) انتقال، مجموع را دست‌نخورده نگه می‌دارد ---'
 #
 # ⚠️ مهم‌ترین سنجهٔ خزانه.

@@ -163,6 +163,27 @@ chk "سندِ نامتراز نیست"   "$(q "SELECT count(*) FROM (
 
 chk "موجودیِ منفی نیست"   "$(q "SELECT count(*) FROM \"Inventory\" WHERE quantity < 0")" "0"
 
+echo '--- ۷) نشانی‌های عمومی ---'
+#
+# ⚠️ خالی بودنشان **هیچ خطایی نمی‌دهد** — به `localhost` عقب می‌نشینند.
+#
+#    `self-order.service.ts` بدونِ `API_PUBLIC_URL` نشانی‌ها را روی
+#    `http://localhost:3000` می‌سازد.  یعنی QRِ روی میزِ رستوران، در
+#    گوشیِ مشتری به لپ‌تاپِ **خودش** اشاره می‌کند.  صفحه باز نمی‌شود و
+#    هیچ‌جا خطایی ثبت نمی‌شود.
+#
+#    سنجیده شد: روی همین سرور خالی بود.
+for v in SITE_URL API_PUBLIC_URL; do
+  val=$(grep -E "^$v=" .env 2>/dev/null | cut -d= -f2- | tr -d '"')
+  chk "$v تنظیم است" "$([ -n "$val" ] && echo yes || echo no)" "yes"
+
+  # ⚠️ و `localhost` در نشانیِ **عمومی** یعنی همان اشکال، فقط صریح‌تر.
+  case "$val" in
+    *localhost*|*127.0.0.1*)
+      chk "$v به localhost اشاره نمی‌کند" "localhost" "نشانیِ عمومی" ;;
+  esac
+done
+
 echo
 printf '   PASS: %s   FAIL: %s\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

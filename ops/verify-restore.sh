@@ -68,8 +68,19 @@ chk() {
   else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)
 ' "$1" "$2" "$3"; fi
 }
-psql_live()  { $C exec -T postgres psql -U postgres -d molido_ai  -tAq -c "$1" 2>/dev/null | tr -d ' '; }
-psql_probe() { $C exec -T postgres psql -U postgres -d "$PROBE_DB" -tAq -c "$1" 2>/dev/null | tr -d ' '; }
+# ⚠️ `</dev/null` **اجباری** است، و نبودش اسکریپت را بی‌صدا نصفه می‌کرد.
+#
+#    این متن از راهِ `ssh ... bash -s` روی **ورودی استاندارد** می‌آید،
+#    و `docker compose exec -T` هم stdin می‌خواند — پس اولین فراخوانی
+#    بقیهٔ اسکریپت را می‌بلعید.
+#
+#    نتیجه: اجرا بعد از گامِ ۱ می‌ایستاد و کدِ خروج **صفر** بود.  یعنی
+#    آزمونِ بازیابی «موفق» گزارش می‌شد بی‌آنکه چیزی بازیابی کرده باشد —
+#    بدترین حالتِ ممکن برای ابزاری که کارش سنجیدنِ پشتیبان است.
+psql_live()  { $C exec -T postgres psql -U postgres -d molido_ai  -tAq -c "$1" </dev/null 2>/dev/null | tr -d ' 
+'; }
+psql_probe() { $C exec -T postgres psql -U postgres -d "$PROBE_DB" -tAq -c "$1" </dev/null 2>/dev/null | tr -d ' 
+'; }
 
 printf '
 ── ۱) تازه‌ترین پشتیبان
@@ -87,12 +98,12 @@ printf '
 
 # ⚠️ پاک‌سازی در هر حالت — حتی اگر بازیابی وسطِ کار بشکند.
 cleanup() {
-  $C exec -T postgres psql -U postgres -d postgres -q     -c "DROP DATABASE IF EXISTS \"$PROBE_DB\"" >/dev/null 2>&1 || true
+  $C exec -T postgres psql -U postgres -d postgres -q     -c "DROP DATABASE IF EXISTS \"$PROBE_DB\"" </dev/null >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 cleanup
-$C exec -T postgres psql -U postgres -d postgres -q -c "CREATE DATABASE \"$PROBE_DB\""   || { echo '  ✗ ساختِ پایگاه‌دادهٔ موقت شکست'; exit 1; }
+$C exec -T postgres psql -U postgres -d postgres -q -c "CREATE DATABASE \"$PROBE_DB\"" </dev/null   || { echo '  ✗ ساختِ پایگاه‌دادهٔ موقت شکست'; exit 1; }
 
 # ⚠️ خروجیِ psql دور ریخته می‌شود ولی **کدِ خروجش نه**.
 #
@@ -114,7 +125,30 @@ printf '
 '
 
 DST_TABLES=$(psql_probe "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
-chk 'شمارشِ جدول برابرِ زنده است' "$DST_TABLES" "$SRC_TABLES"
+# ⚠️ جدولِ **کمتر** همیشه اشکال نیست.
+#
+#    پشتیبان از دیشب است؛ اگر امروز مهاجرتی جدول ساخته باشد، نسخهٔ
+#    بازیابی‌شده آن را ندارد و این کاملاً درست است.  شکست دادنش یعنی
+#    قرمزیِ دائمی پس از هر مهاجرت تا پشتیبانِ بعدی — و قرمزی‌ای که
+#    کسی نمی‌تواند سبزش کند، نگهبانی است که کسی نگاهش نمی‌کند.
+#
+#    آنچه **واقعاً** اشکال است: جدولی که در پشتیبان بود و بازیابی
+#    نشد.  آن را شمارشِ سطرها می‌گیرد، نه شمارشِ جدول.
+#
+#    سنجیده شد: پشتیبانِ ۰۲:۱۷ صد‌وسی‌وهشت جدول داشت و زنده صدوچهل —
+#    چون مهاجرت‌های ۰۶۸ و ۰۶۹ همان روز اجرا شدند.  همهٔ سطرها درست
+#    بازیابی شدند و دفتر متراز بود.
+if [ "$DST_TABLES" = "$SRC_TABLES" ]; then
+  chk 'شمارشِ جدول برابرِ زنده است' "$DST_TABLES" "$SRC_TABLES"
+elif [ "${DST_TABLES:-0}" -lt "${SRC_TABLES:-0}" ]; then
+  printf '  !    پشتیبان %s جدول دارد و زنده %s — احتمالاً مهاجرتی پس از پشتیبان اجرا شده\n' \
+    "$DST_TABLES" "$SRC_TABLES"
+  printf '       (سطرها جداگانه سنجیده می‌شوند؛ اشکالِ واقعی را آن‌ها می‌گیرند)\n'
+else
+  # ⚠️ جدولِ **بیشتر** یعنی چیزی در نسخهٔ بازیابی‌شده هست که در زنده
+  #    نیست — نشانهٔ پشتیبانِ اشتباه یا پایگاه‌دادهٔ ناهمخوان.
+  chk 'نسخهٔ بازیابی‌شده جدولِ اضافه ندارد' "$DST_TABLES" "$SRC_TABLES"
+fi
 
 # ⚠️ جدول‌ها که باشند یعنی شِما آمده، نه اینکه **داده** آمده.
 #    یک dump که وسطِ COPY بریده باشد هم همهٔ CREATE TABLEها را دارد.

@@ -146,6 +146,41 @@ chk "قلمِ فروشِ بی‌بها نمانده" \
         JOIN "Product" p ON p.id = si."productId"
         WHERE si."unitCost" IS NULL AND COALESCE(p."purchasePrice", 0) > 0;')" "0"
 
+echo '--- ۵.۵) موجودیِ صندوق با دفتر می‌خواند؟ ---'
+#
+# ⚠️ این سنجه از شش اشکالِ واقعی درآمد که همگی **بی‌صدا** بودند.
+#
+#    چهار مسیر پول را جابه‌جا می‌کردند بدونِ سند: واریز/برداشتِ صندوق،
+#    واریز/برداشتِ خزانه، وصولِ مشتری، و تسویهٔ رستوران.  تراز آزمایشی
+#    در همهٔ آن‌ها **صفر** ماند — چون وقتی سندی زده نمی‌شود، چیزی هم
+#    نامتراز نمی‌شود.
+#
+#    تنها نشانه‌اش همین است: موجودیِ صندوق‌ها با ماندهٔ حسابِ ۱۱۰۱
+#    نخواند.
+#
+# ⚠️ اختلافِ **گذشته** شکست نمی‌دهد، فقط گزارش می‌شود.
+#
+#    داده‌ای که پیش از اصلاح ساخته شده واقعاً واگرا است و با کد درست
+#    نمی‌شود.  قرمزیِ همیشگی یعنی نگهبانی که کسی نگاهش نمی‌کند.
+#    `LEDGER_CASH_DRIFT` سقفِ پذیرفته‌شدهٔ همان گذشته است؛ برای نصبِ
+#    تازه صفر بگذارید.
+CASH_BOX=$(Q 'SELECT COALESCE(round(sum(balance)),0) FROM "CashBox";')
+CASH_GL=$(Q "SELECT COALESCE(round(sum(l.debit - l.credit)), 0)
+               FROM \"JournalLine\" l
+               JOIN \"Account\" a ON a.id = l.\"accountId\"
+               JOIN \"JournalEntry\" e ON e.id = l.\"entryId\"
+              WHERE a.code = '1101' AND e.status <> 'REVERSED';")
+DRIFT=$(( ${CASH_BOX:-0} - ${CASH_GL:-0} ))
+[ "$DRIFT" -lt 0 ] && DRIFT=$(( -DRIFT ))
+ALLOW=${LEDGER_CASH_DRIFT:-25000000}
+
+chk "واگراییِ صندوق و دفتر زیرِ سقف است"   "$([ "$DRIFT" -le "$ALLOW" ] && echo yes || echo "no (اختلاف=$DRIFT سقف=$ALLOW)")" "yes"
+
+if [ "$DRIFT" -gt 0 ]; then
+  printf '     صندوق‌ها: %s   حساب ۱۱۰۱: %s   اختلاف: %s
+' "$CASH_BOX" "$CASH_GL" "$DRIFT"
+fi
+
 echo '--- ۶) کارایی: کلید خارجیِ بی‌نمایه ---'
 #
 # ⚠️ این خرابیِ **فردا**ست، نه امروز.

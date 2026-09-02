@@ -181,6 +181,48 @@ if [ "$DRIFT" -gt 0 ]; then
 ' "$CASH_BOX" "$CASH_GL" "$DRIFT"
 fi
 
+echo '--- ۵.۶) بهای تمام‌شدهٔ ناشناخته ---'
+#
+# ⚠️ این **شکست نمی‌دهد**، گزارش می‌دهد.  و عمدی است.
+#
+#    بهای تمام‌شده دادهٔ کسب‌وکار است، نه کد.  قلمی که بها ندارد از
+#    سندِ بهای تمام‌شده بیرون می‌ماند — یعنی سود **بیش از واقع** نشان
+#    داده می‌شود، نه غلط.
+#
+#    خطرش این است که کسی به آن عدد نگاه کند و نداند ناقص است.  پس
+#    اینجا شمرده می‌شود تا دیده شود.
+#
+# ⚠️ نوشتنِ صفر به‌جای تهی، بدترین کار است.
+#
+#    صفر یعنی «رایگان فروختیم» و سود را صددرصد نشان می‌دهد — عددی که
+#    شبیه دادهٔ واقعی است و کسی شک نمی‌کند.  تهی دستِ‌کم صادق است.
+if [ -n "$(Q "SELECT to_regclass('public.\"MenuItem\"');")" ]; then
+  NOCOST=$(Q 'SELECT count(*) FROM "MenuItem" WHERE COALESCE(cost, 0) = 0;')
+  TOTAL_MI=$(Q 'SELECT count(*) FROM "MenuItem";')
+  if [ "${NOCOST:-0}" -gt 0 ]; then
+    printf '  !    %s قلم از %s بهای تمام‌شده ندارند — سودِ رستوران ناقص است
+'       "$NOCOST" "$TOTAL_MI"
+    printf '       پنل ← رستوران ← منو، ستونِ «بهای تمام‌شده»
+'
+  else
+    printf '  OK   همهٔ اقلامِ منو بها دارند
+'
+    pass=$((pass+1))
+  fi
+
+  # ⚠️ این یکی **شکست می‌دهد**: قلمِ سفارشی که بها دارد ولی در سند
+  #    نیامده، یعنی سندِ بهای تمام‌شده جا افتاده — اشکالِ کد، نه داده.
+  ORPHAN=$(Q 'SELECT count(DISTINCT i."orderId")
+                FROM "RestaurantOrderItem" i
+                JOIN "RestaurantOrder" o ON o.id = i."orderId"
+               WHERE o.status = '"'"'PAID'"'"'
+                 AND i."unitCost" IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM "JournalEntry" e
+                                  WHERE e."sourceType" = '"'"'RestaurantCogs'"'"'
+                                    AND e."sourceId" = o.id);')
+  chk "سفارشِ بادار بی‌سندِ بها نیست" "${ORPHAN:-0}" "0"
+fi
+
 echo '--- ۶) کارایی: کلید خارجیِ بی‌نمایه ---'
 #
 # ⚠️ این خرابیِ **فردا**ست، نه امروز.

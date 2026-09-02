@@ -76,6 +76,8 @@ import { CustomerTicketsModule } from './customer-tickets/customer-tickets.modul
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { GovSsoModule } from './gov-sso/gov-sso.module';
 import { ShahkarModule } from './shahkar/shahkar.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { StructureModule } from './structure/structure.module';
 import { SelfOrderModule } from './self-order/self-order.module';
 import { SiteModule } from './site/site.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
@@ -209,6 +211,12 @@ const CORE_MODULES = [
   //    چون آن‌وقت مسیری که به‌ش `enforce` می‌زند در نمایهٔ
   //    دیگر بی‌صدا احراز را رد می‌کرد.
   ShahkarModule,
+  // ⚠️ ماژولِ هسته: فهرستِ مشترکِ بارکد بین‌شرکتی است و به
+  //    قابلیتِ خاصی وابسته نیست.
+  CatalogModule,
+  // ⚠️ ماژولِ هسته: پشتیبانِ ساختار به هیچ قابلیتِ اختیاری وابسته
+  //    نیست و در هر نمایه باید در دسترس باشد.
+  StructureModule,
   HealthModule,
 ];
 

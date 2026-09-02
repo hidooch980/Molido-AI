@@ -147,6 +147,18 @@ chk "پاسخِ بی‌فیلدِ نتیجه ⇒ UNKNOWN" \
 curl -s -o /dev/null -X POST "$CTL" -H "$JS" -d '{"mode":"ok"}'
 
 echo '--- ۶) اعمال در کالابرگ ---'
+#
+# ⚠️ کالابرگ فقط در نمایهٔ **فروشگاه** هست.
+#
+#    این سه سنجه در نمایهٔ رستوران ۴۰۴ می‌گرفتند و شبیه اشکالِ شاهکار
+#    به نظر می‌رسیدند — در حالی که شاهکار سالم بود و ماژول اصلاً وجود
+#    نداشت.  خودِ مجموعهٔ `ration` هم به همین دلیل «رد شده» است.
+#
+#    ۴۰۴ روی مسیرِ فهرست یعنی ماژول نیست؛ هر چیزِ دیگری یعنی هست.
+RATION=$(curl -s -o /dev/null -w '%{http_code}' "$A/ration/accounts" -H "$AU")
+if [ "$RATION" = "404" ]; then
+  echo '  کالابرگ در این نمایه نیست — از این بخش گذشتیم'
+else
 NC_OK=0499370899
 $C exec -T postgres psql -U postgres -d molido_ai -q -c \
   "DELETE FROM \"RationAccount\" WHERE \"nationalCode\" IN ('$NC_OK','0790419904');" >/dev/null 2>&1
@@ -162,9 +174,10 @@ chk "کالابرگ با شمارهٔ درست ساخته می‌شود" \
      -d "{\"nationalCode\":\"$NC_OK\",\"holderName\":\"SHTEST\",\"phone\":\"09121234567\"}")" "201"
 
 # ⚠️ کدِ ملیِ بی‌معنا هم رد می‌شود، جدا از شاهکار.
-chk "کالابرگ با کد ملی بدریخت رد می‌شود" \
-  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/ration/accounts" -H "$AU" -H "$JS" \
-     -d '{"nationalCode":"1234567890","holderName":"SHTEST","phone":"09121234567"}')" "400"
+  chk "کالابرگ با کد ملی بدریخت رد می‌شود" \
+    "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/ration/accounts" -H "$AU" -H "$JS" \
+       -d '{"nationalCode":"1234567890","holderName":"SHTEST","phone":"09121234567"}')" "400"
+fi
 
 $C exec -T postgres psql -U postgres -d molido_ai -q -c \
   "DELETE FROM \"RationAccount\" WHERE \"holderName\"='SHTEST';" >/dev/null 2>&1

@@ -80,6 +80,33 @@ Q "INSERT INTO \"Customer\" (id,\"companyId\",\"firstName\",\"lastName\",phone,\
 chk "مشتری حضوری بی‌رمز ساخته شد" \
   "$(Q "SELECT count(*) FROM \"Customer\" WHERE id='takeover-victim' AND \"passwordHash\" IS NULL;")" "1"
 
+# ⚠️ درخواستِ کد **بی‌صدا** شکست می‌خورد و شکستش را به گردنِ سنجه‌های
+#    بعدی می‌اندازد.
+#
+#    نسخهٔ اول با `-o /dev/null` می‌فرستاد.  در انتهای یک اجرای کامل
+#    ۴۲۹ می‌گرفت، کدی ساخته نمی‌شد، و پنج سنجهٔ بعدی می‌افتادند —
+#    سنجه‌هایی دربارهٔ شمارندهٔ تلاش و نشتِ اطلاعات که هیچ‌کدام خراب
+#    نبودند.  ساعت‌ها می‌شد دنبالِ اشکالی گشت که وجود نداشت.
+#
+#    حالا صبر می‌کند، و اگر باز هم نشد **خودش** را شکست اعلام می‌کند.
+ask_code() {
+  _hdr=$(mktemp); _i=0
+  while [ $_i -lt 6 ]; do
+    _i=$((_i + 1))
+    _body=$(curl -s -D "$_hdr" -X POST "$A/shop/register/request-code"       -H 'Content-Type: application/json' -d "{\"phone\":\"$1\"}")
+    _code=$(head -1 "$_hdr" | tr -dc '0-9' | tail -c 3)
+    [ "$_code" != "429" ] && break
+    # `Retry-After` را خودِ سرور می‌گوید؛ حدس زدنش یا کند است یا بی‌فایده.
+    _w=$(grep -i '^retry-after' "$_hdr" 2>/dev/null | tr -dc '0-9' | head -c 3)
+    sleep "${_w:-6}"
+  done
+  rm -f "$_hdr"
+  if [ "$_code" = "429" ]; then
+    chk "درخواستِ کد برای $1 پذیرفته شد" "سقفِ نرخ (۴۲۹)" "پذیرفته"
+  fi
+  printf '%s' "$_body"
+}
+
 echo '--- ۱) حملهٔ اصلی: تصاحب بدون کد ---'
 R=$(curl -s -X POST "$A/shop/register" -H 'Content-Type: application/json' \
    -d "{\"phone\":\"$VICTIM\",\"password\":\"Attacker#999\",\"firstName\":\"Attacker\"}")
@@ -90,8 +117,7 @@ chk "رکورد قربانی بی‌رمز ماند" \
   "$(Q "SELECT count(*) FROM \"Customer\" WHERE id='takeover-victim' AND \"passwordHash\" IS NULL;")" "1"
 
 echo '--- ۲) کدِ غلط رد می‌شود و شمرده می‌شود ---'
-curl -s -o /dev/null -X POST "$A/shop/register/request-code" \
-  -H 'Content-Type: application/json' -d "{\"phone\":\"$VICTIM\"}"
+ask_code "$VICTIM" >/dev/null
 R=$(curl -s -X POST "$A/shop/register" -H 'Content-Type: application/json' \
    -d "{\"phone\":\"$VICTIM\",\"password\":\"Attacker#999\",\"firstName\":\"Attacker\",\"code\":\"000000\"}")
 chk "کد غلط توکن نمی‌دهد" "$(echo "$R" | P "'yes' if d.get('token') else 'no'")" "no"
@@ -148,8 +174,8 @@ chk "شمارهٔ تازه توکن می‌گیرد" "$(echo "$R" | P "'yes' if 
 
 echo '--- ۵) درخواستِ کد، وجودِ شماره را لو نمی‌دهد ---'
 # وگرنه همین مسیر می‌شود ابزارِ شمردنِ مشتری‌ها.
-K=$(curl -s -X POST "$A/shop/register/request-code" -H 'Content-Type: application/json' -d "{\"phone\":\"$VICTIM\"}")
-G=$(curl -s -X POST "$A/shop/register/request-code" -H 'Content-Type: application/json' -d "{\"phone\":\"$GHOST\"}")
+K=$(ask_code "$VICTIM")
+G=$(ask_code "$GHOST")
 chk "پاسخ برای هر دو یکسان" "$([ "$K" = "$G" ] && echo same || echo different)" "same"
 # و برای شمارهٔ بی‌سابقه اصلاً کدی ساخته نمی‌شود — نه پیامکی می‌رود،
 # نه ردی در جدول می‌ماند که بعداً بشود از آن شمرد.

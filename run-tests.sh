@@ -16,7 +16,7 @@ cd "$(dirname "$0")" || exit 1
 # رستوران در run-resto-tests.sh است و روی پروفایل خودش اجرا می‌شود.
 SUITES="e2e-cycles integration shop shop-filter shop-takeover customer-status count-app upload-security pricing pos-pricing pos-workflow invoice accounts
         catalogue loyalty branding online-orders definitions tax import
-        product-media operations hr crm freight offline-purchase avg-cost ledger-health sms ration audit-fixes quick-keys purchasing voice treasury-assets ai-roles api-keys restaurant e2e-resto gov-sso site-sales shahkar self-order
+        product-media operations hr crm freight offline-purchase avg-cost ledger-health sms ration audit-fixes quick-keys purchasing voice treasury-assets ai-roles api-keys restaurant e2e-resto gov-sso site-sales shahkar self-order catalog watchdog structure caddy edge ops-scripts shop-payment
         password mfa login-hardening session-revocation refresh-revocation refresh-cookie ratelimit bundle apidocs untested records roles restore"
 
 # ⚠️ `restaurant` و `e2e-resto` تا امروز **در این فهرست نبودند**.
@@ -52,7 +52,7 @@ ALL_SUITES="$SUITES"
 
 [ $# -gt 0 ] && SUITES="$*"
 
-total_pass=0; total_fail=0; broken=""
+total_pass=0; total_fail=0; broken=""; skipped=""
 
 # خروجی کامل هر مجموعه نگه داشته می‌شود تا بررسی شکست به تکرار
 # دستیِ کل رگرسیون نیاز نداشته باشد.
@@ -240,6 +240,21 @@ for suite in $SUITES; do
     continue
   fi
 
+  # ⚠️ «۰ سنجه» و «همه سبز» در گزارش یکسان دیده می‌شوند.
+  #
+  #    مجموعه‌ای که همهٔ سنجه‌هایش را رد می‌کند `PASS: 0  FAIL: 0`
+  #    می‌دهد — دقیقاً شبیهِ سالم بودن.  `restaurant` و `self-order`
+  #    در نمایهٔ فروشگاه عمداً همین‌اند و مشکلی نیست؛ خطر آن روزی است
+  #    که مجموعه‌ای **ناخواسته** خاموش شود (شرطی که عوض شده، فایلی که
+  #    زودتر خارج می‌شود) و ماه‌ها کسی نفهمد — چون گزارش سبز است.
+  #
+  #    پس صفر سنجه برچسبِ خودش را می‌گیرد، نه رنگِ سبز.
+  if [ "${p:-0}" -eq 0 ] && [ "${f:-0}" -eq 0 ]; then
+    printf '  %-15s رد شد — هیچ سنجه‌ای اجرا نشد
+' "$suite"
+    skipped="$skipped $suite"
+    continue
+  fi
   printf '  %-15s PASS: %-5s FAIL: %s\n' "$suite" "$p" "$f"
 
   # سطرهای شکست همان‌جا چاپ شوند.  شکستی که فقط گاهی رخ می‌دهد اگر همان
@@ -254,6 +269,13 @@ done
 
 echo '  ---------------------------------------'
 printf '  %-15s PASS: %-5s FAIL: %s\n' "TOTAL" "$total_pass" "$total_fail"
+
+# مجموعه‌های رد‌شده در جمع کل دیده نمی‌شوند؛ اینجا نام‌برده می‌شوند تا
+# «رد شد» با «سبز شد» اشتباه گرفته نشود.
+if [ -n "$skipped" ]; then
+  printf '  رد شده (۰ سنجه):%s
+' "$skipped"
+fi
 
 if [ "$total_fail" -gt 0 ]; then
   printf '

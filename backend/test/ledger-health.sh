@@ -146,6 +146,35 @@ chk "قلمِ فروشِ بی‌بها نمانده" \
         JOIN "Product" p ON p.id = si."productId"
         WHERE si."unitCost" IS NULL AND COALESCE(p."purchasePrice", 0) > 0;')" "0"
 
+echo '--- ۶) کارایی: کلید خارجیِ بی‌نمایه ---'
+#
+# ⚠️ این خرابیِ **فردا**ست، نه امروز.
+#
+#    پستگرس برای کلیدِ خارجی خودکار نمایه نمی‌سازد.  تا وقتی جدول
+#    کوچک است هیچ اثری ندارد و هیچ آزمونی نمی‌گیردش — ولی با رشدِ
+#    داده، حذفِ سطرِ والد و `JOIN` از سمتِ فرزند ناگهان کند می‌شوند.
+#
+#    و آن وقت ساختنِ نمایه روی جدولِ بزرگ، خودش قفلِ طولانی می‌خواهد.
+#
+#    ۴۰ مورد از ۲۰۹ کلیدِ خارجی بی‌نمایه بودند؛ مهاجرت ۰۶۷ بستشان.
+#    این سنجه هست تا کلیدِ خارجیِ **تازه** هم بی‌نمایه نماند.
+MISSING=$(Q "SELECT COALESCE(string_agg(t.relname || '.' || a.attname, ', '), 'none')
+             FROM pg_constraint c
+             JOIN pg_class     t  ON t.oid = c.conrelid
+             JOIN pg_namespace ns ON ns.oid = t.relnamespace
+             JOIN pg_attribute a  ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+             WHERE c.contype = 'f' AND ns.nspname = 'public'
+               AND NOT EXISTS (
+                 SELECT 1 FROM pg_index i
+                  WHERE i.indrelid = c.conrelid AND c.conkey[1] = ANY(i.indkey));")
+
+chk "کلید خارجیِ بی‌نمایه نیست" "$MISSING" "none"
+
+if [ "$MISSING" != "none" ]; then
+  echo
+  echo "     مهاجرت ۰۶۷ را دوباره اجرا کنید — فهرست را خودش از پایگاه‌داده می‌سازد."
+fi
+
 echo
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

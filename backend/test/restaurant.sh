@@ -329,6 +329,88 @@ echo '--- ۱۰) فروشِ رستوران در شیفتِ صندوق دیده م
 #    رد شدن باید **صریح** باشد، نه سبزِ خاموش: سنجه‌ای که در نمایهٔ
 #    اشتباه بی‌صدا سبز شود، همان چیزی است که `e2e-resto` را ماه‌ها
 #    پنهان کرد.
+echo '--- ۱۴) بهای تمام‌شده از رسپی ---'
+#
+# ⚠️ بها **محاسبه** می‌شود، نه حدس زده.
+#
+#    نوشتنِ عددِ دستی یعنی هر تغییرِ قیمتِ مواد، بهای منو را کهنه
+#    می‌کند بی‌آنکه کسی بفهمد.  رسپی + میانگین موزونِ انبار عددِ
+#    امروز را می‌دهد.
+COSTING=$(curl -s "$A/restaurant/menu-costing" -H "$AU")
+chk "پیش‌نمایش پاسخ می‌دهد" \
+  "$(printf '%s' "$COSTING" | P "'yes' if isinstance(d, list) and len(d) > 0 else 'no'")" "yes"
+
+# ⚠️ **مهم‌ترین سنجه: مادهٔ بی‌بها کلِ آیتم را نامعلوم می‌کند.**
+#
+#    اگر برنج بها نداشته باشد و روغن داشته باشد، جمعِ جزئی عددی
+#    می‌دهد که شبیه دادهٔ واقعی است و سودِ ناخالص را چند برابر نشان
+#    می‌دهد.  نامعلوم بودن صادقانه‌تر است.
+chk "آیتمِ بی‌رسپی بهای صفر نمی‌گیرد" \
+  "$(printf '%s' "$COSTING" | P "'yes' if all(x['computedCost'] is None for x in d if x['recipeLines'] == 0) else 'no'")" "yes"
+
+chk "و دلیلش نام‌برده می‌شود" \
+  "$(printf '%s' "$COSTING" | P "'yes' if all(x['reason'] for x in d if x['computedCost'] is None) else 'no'")" "yes"
+
+# ⚠️ **این حالت باید ساخته شود، نه امید داشت که در داده باشد.**
+#
+#    نسخهٔ اول فقط داده‌ی موجود را می‌سنجید و تنها رسپیِ موجود هر دو
+#    ماده‌اش بها داشت — پس شاخهٔ «مادهٔ بی‌بها» هرگز اجرا نمی‌شد.  با
+#    تزریقِ عمدیِ خطا هم سبز ماند.
+#
+#    سنجه‌ای که به شانسِ داده وابسته باشد، سنجه نیست.
+CI=$(Q "SELECT id FROM \"MenuCategory\" LIMIT 1;")
+Q "DELETE FROM \"MenuRecipe\" WHERE \"menuItemId\" IN (SELECT id FROM \"MenuItem\" WHERE code='COSTTEST');
+   DELETE FROM \"MenuItem\" WHERE code='COSTTEST';
+   DELETE FROM \"Product\" WHERE sku='COSTTEST-P';" >/dev/null
+
+Q "INSERT INTO \"Product\" (id, \"companyId\", name, sku, unit, \"salePrice\", \"purchasePrice\", status)
+   VALUES ('costtest-p', 'seed-company', 'مادهٔ بی‌بها', 'COSTTEST-P', 'kg', 1000, 0, 'ACTIVE');
+   INSERT INTO \"MenuItem\" (id, \"companyId\", \"categoryId\", code, name, price, \"isAvailable\")
+   VALUES ('costtest-m', 'seed-company', '$CI', 'COSTTEST', 'آزمونِ بها', 500000, true);
+   INSERT INTO \"MenuRecipe\" (id, \"menuItemId\", \"productId\", qty, \"wastePct\")
+   VALUES ('costtest-r', 'costtest-m', 'costtest-p', 2, 0);" >/dev/null
+
+C2=$(curl -s "$A/restaurant/menu-costing" -H "$AU")
+chk "مادهٔ بی‌بها ⇒ کلِ آیتم نامعلوم" \
+  "$(printf '%s' "$C2" | P "next((str(x['computedCost']) for x in d if x['name']=='آزمونِ بها'), 'نبود')")" "None"
+chk "و دلیلش «مادهٔ بی‌بها» است" \
+  "$(printf '%s' "$C2" | P "next(('yes' if 'بی‌بها' in (x['reason'] or '') else 'no') for x in d if x['name']=='آزمونِ بها')")" "yes"
+
+# ⚠️ و پس از دادنِ بها به همان ماده، باید عدد بدهد — وگرنه سنجهٔ بالا
+#    می‌توانست به‌خاطر هر دلیلِ دیگری سبز باشد.
+Q "UPDATE \"Product\" SET \"purchasePrice\"=30000 WHERE id='costtest-p';" >/dev/null
+chk "با بهادار شدنِ ماده، عدد می‌آید" \
+  "$(curl -s "$A/restaurant/menu-costing" -H "$AU" | P "next((str(int(x['computedCost'])) for x in d if x['name']=='آزمونِ بها'), 'نبود')")" "60000"
+
+Q "DELETE FROM \"MenuRecipe\" WHERE id='costtest-r';
+   DELETE FROM \"MenuItem\" WHERE id='costtest-m';
+   DELETE FROM \"Product\" WHERE id='costtest-p';" >/dev/null
+
+# ⚠️ آیتمِ بارسپی باید عددِ **مثبت** بدهد، نه صفر و نه تهی.
+HAS=$(printf '%s' "$COSTING" | P "sum(1 for x in d if x['recipeLines'] > 0 and x['computedCost'] and x['computedCost'] > 0)")
+chk "آیتمِ بارسپیِ کامل بها می‌گیرد" "$([ "${HAS:-0}" -gt 0 ] && echo yes || echo no)" "yes"
+
+# ⚠️ پیش‌نمایش نباید چیزی بنویسد.  اگر می‌نوشت، هر بار دیدنِ گزارش
+#    داده را عوض می‌کرد.
+BEFORE=$(Q "SELECT COALESCE(sum(COALESCE(cost,0)),0) FROM \"MenuItem\";")
+curl -s -o /dev/null "$A/restaurant/menu-costing" -H "$AU"
+chk "پیش‌نمایش چیزی نمی‌نویسد" "$(Q "SELECT COALESCE(sum(COALESCE(cost,0)),0) FROM \"MenuItem\";")" "$BEFORE"
+
+echo '--- ۱۵) نوشتنِ بها ---'
+APPLY=$(curl -s -X POST "$A/restaurant/menu-costing/apply" -H "$AU" -H "$JS" -d '{}')
+chk "آیتمِ بی‌رسپی دست‌نخورده می‌ماند" \
+  "$(printf '%s' "$APPLY" | P "'yes' if all(s['reason'] for s in d['skipped']) else 'no'")" "yes"
+
+# ⚠️ بهای **دستیِ** موجود بدونِ force بازنویسی نمی‌شود.
+#
+#    ممکن است آشپز عددی گذاشته باشد که رسپی نمی‌داند — کارِ آشپز،
+#    سوخت، بسته‌بندی.  پاک کردنش بی‌اجازه، دانشی را دور می‌ریزد که
+#    جایی ثبت نشده.
+chk "اجرای دوباره چیزی را عوض نمی‌کند" \
+  "$(curl -s -X POST "$A/restaurant/menu-costing/apply" -H "$AU" -H "$JS" -d '{}' | P "len(d['updated'])")" "0"
+
+chk "بدون توکن ۴۰۱" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$A/restaurant/menu-costing/apply" -H "$JS" -d '{}')" "401"
 if [ "$(curl -s -o /dev/null -w '%{http_code}' "$A/retail/shifts/current" -H "$AU")" = "404" ]; then
   echo "  صندوق فروشگاهی در این نمایه نیست — این بخش روی suite اجرا می‌شود"
   echo
@@ -409,5 +491,6 @@ Q "DELETE FROM \"RestaurantTable\" WHERE id='$STB';" >/dev/null
 Q "DELETE FROM \"MenuItem\" WHERE id='$SIT';" >/dev/null
 
 echo
+
 printf "   PASS: %s   FAIL: %s\n" "$pass" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

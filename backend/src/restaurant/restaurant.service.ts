@@ -361,6 +361,143 @@ export class RestaurantService {
     return this.recipe(companyId, menuItemId);
   }
 
+
+  // ═══════════════ بهای تمام‌شده از رسپی ═══════════════
+
+  /**
+   * بهای هر آیتمِ منو از روی رسپی‌اش.
+   *
+   * ⚠️ بها **محاسبه** می‌شود، نه حدس زده.
+   *
+   *    مواد اولیه در انبارند و بهایشان معلوم است (میانگین موزون).
+   *    پس بهای یک بشقاب = مجموعِ (مقدار × بهای ماده × ضایعات).
+   *    نوشتنِ عددِ دستی یعنی هر تغییرِ قیمتِ مواد، بهای منو را کهنه
+   *    می‌کند بی‌آنکه کسی بفهمد.
+   *
+   * ⚠️ **مادهٔ بی‌بها، کلِ آیتم را نامعلوم می‌کند** — نه اینکه صفر
+   *    حساب شود.
+   *
+   *    اگر برنج بها نداشته باشد و روغن داشته باشد، جمعِ جزئی
+   *    ۶٬۰۰۰ می‌شود برای بشقابی که ۲۷۶٬۰۰۰ خرج دارد.  عددی که شبیه
+   *    دادهٔ واقعی است و سودِ ناخالص را چند برابر نشان می‌دهد.
+   *
+   *    نامعلوم بودن صادقانه‌تر است: گزارش می‌تواند بگوید «نمی‌دانم».
+   *
+   * ⚠️ `avgCost` بر `purchasePrice` مقدم است.
+   *
+   *    میانگین موزون بهای **واقعیِ** موجودی است؛ `purchasePrice`
+   *    آخرین قیمتِ خرید است و با هر دریافت بازنویسی می‌شود.
+   */
+  async menuCosting(companyId: string) {
+    const rows = await this.db.query<{
+      menuItemId: string;
+      name: string;
+      currentCost: string | null;
+      price: string;
+      lines: string;
+      missing: string;
+      computed: string | null;
+    }>(
+      `SELECT m.id                        AS "menuItemId",
+              m.name,
+              m.cost                      AS "currentCost",
+              m.price,
+              count(r.id)::text           AS lines,
+              count(r.id) FILTER (
+                WHERE COALESCE(i."avgCost", p."purchasePrice", 0) <= 0
+              )::text                     AS missing,
+              CASE WHEN count(r.id) = 0 THEN NULL
+                   WHEN count(r.id) FILTER (
+                          WHERE COALESCE(i."avgCost", p."purchasePrice", 0) <= 0
+                        ) > 0 THEN NULL
+                   ELSE round(sum(
+                          r.qty
+                          * COALESCE(i."avgCost", p."purchasePrice", 0)
+                          * (1 + COALESCE(r."wastePct", 0) / 100.0)
+                        ), 2)
+              END                         AS computed
+         FROM "MenuItem" m
+         LEFT JOIN "MenuRecipe" r ON r."menuItemId" = m.id
+         LEFT JOIN "Product"    p ON p.id = r."productId"
+         LEFT JOIN LATERAL (
+           SELECT sum("avgCost" * quantity) / NULLIF(sum(quantity), 0) AS "avgCost"
+             FROM "Inventory" WHERE "productId" = p.id
+         ) i ON true
+        WHERE m."companyId" = $1
+        GROUP BY m.id, m.name, m.cost, m.price
+        ORDER BY m.name`,
+      [companyId],
+    );
+
+    return rows.map((row) => {
+      const lines = Number(row.lines);
+      const missing = Number(row.missing);
+
+      // ⚠️ دلیلِ نامعلوم بودن **نام‌برده** می‌شود.
+      //
+      //    «بها نامعلوم است» بدونِ علت، کاربر را به حدس وامی‌دارد.
+      //    «رسپی ندارد» و «مادهٔ بی‌بها دارد» دو کارِ کاملاً متفاوت
+      //    می‌خواهند.
+      const reason =
+        lines === 0
+          ? 'رسپی ندارد'
+          : missing > 0
+            ? `${missing} مادهٔ بی‌بها دارد`
+            : null;
+
+      return {
+        menuItemId: row.menuItemId,
+        name: row.name,
+        price: Number(row.price),
+        currentCost: row.currentCost === null ? null : Number(row.currentCost),
+        computedCost: row.computed === null ? null : Number(row.computed),
+        recipeLines: lines,
+        reason,
+      };
+    });
+  }
+
+  /**
+   * نوشتنِ بهای محاسبه‌شده روی اقلامِ منو.
+   *
+   * ⚠️ فقط آنچه **قابلِ محاسبه** است نوشته می‌شود.
+   *
+   *    آیتمی که رسپی ندارد یا مادهٔ بی‌بها دارد دست‌نخورده می‌ماند و
+   *    در `skipped` با دلیلش برمی‌گردد.  نوشتنِ صفر برایشان یعنی
+   *    «رایگان درست می‌شود» و سود را صددرصد نشان می‌دهد.
+   *
+   * ⚠️ و بهای **دستیِ** موجود بازنویسی نمی‌شود مگر با `force`.
+   *
+   *    ممکن است آشپز عددی را از روی تجربه گذاشته باشد که رسپی
+   *    نمی‌داند (کارِ آشپز، سوخت، بسته‌بندی).  پاک کردنش بی‌اجازه،
+   *    دانشی را دور می‌ریزد که جایی ثبت نشده.
+   */
+  async applyMenuCosting(companyId: string, force = false) {
+    const rows = await this.menuCosting(companyId);
+
+    const updated: Array<{ name: string; from: number | null; to: number }> = [];
+    const skipped: Array<{ name: string; reason: string }> = [];
+
+    for (const row of rows) {
+      if (row.computedCost === null) {
+        skipped.push({ name: row.name, reason: row.reason ?? 'نامعلوم' });
+        continue;
+      }
+      if (!force && row.currentCost !== null && row.currentCost > 0) {
+        skipped.push({ name: row.name, reason: 'بهای دستی دارد (force بزنید)' });
+        continue;
+      }
+      if (row.currentCost === row.computedCost) continue;
+
+      await this.db.execute(
+        'UPDATE "MenuItem" SET cost = $1, "updatedAt" = now() WHERE id = $2 AND "companyId" = $3',
+        [row.computedCost, row.menuItemId, companyId],
+      );
+      updated.push({ name: row.name, from: row.currentCost, to: row.computedCost });
+    }
+
+    return { updated, skipped };
+  }
   // ═══════════════ سفارش ═══════════════
 
   orders(companyId: string, query: Row = {}) {

@@ -171,6 +171,36 @@ export class RestaurantController {
     return this.service.removeMenuItem(user.companyId!, id);
   }
 
+  // ───────── بهای تمام‌شده ─────────
+
+  /**
+   * پیش‌نمایشِ بهای محاسبه‌شده — چیزی نمی‌نویسد.
+   *
+   * ⚠️ خواندن و نوشتن جدا هستند، عمداً.  کاربر اول می‌بیند رسپی چه
+   *    عددی می‌دهد و بعد تصمیم می‌گیرد.
+   */
+  @Get('menu-costing')
+  @ApiOperation({ summary: 'بهای تمام‌شدهٔ اقلام منو از روی رسپی' })
+  menuCosting(@CurrentUser() user: AuthUser) {
+    return this.service.menuCosting(user.companyId!);
+  }
+
+  /**
+   * نوشتنِ بهای محاسبه‌شده.
+   *
+   * ⚠️ `force=true` بهای **دستیِ** موجود را هم بازنویسی می‌کند.
+   *    بدونِ آن دست‌نخورده می‌ماند — ممکن است آشپز عددی گذاشته باشد
+   *    که رسپی نمی‌داند (کارِ آشپز، سوخت، بسته‌بندی).
+   */
+  @Post('menu-costing/apply')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'نوشتن بهای محاسبه‌شده روی اقلام منو' })
+  applyMenuCosting(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { force?: boolean },
+  ) {
+    return this.service.applyMenuCosting(user.companyId!, body?.force === true);
+  }
   // ───────── رسپی ─────────
 
   @Get('menu-items/:id/recipe')

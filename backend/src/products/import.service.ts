@@ -10,6 +10,7 @@ import {
   type ImportRow,
   type RowError,
 } from './import-rules';
+import { BarcodeCatalogService } from '../catalog/barcode-catalog.service';
 
 /**
  * ورود گروهی کالا از فایل.
@@ -45,7 +46,10 @@ const MAX_ROWS = 20_000;
 
 @Injectable()
 export class ImportService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly catalog: BarcodeCatalogService,
+  ) {}
 
   /** خواندن و بررسی فایل، بدون نوشتن. */
   async preview(companyId: string, csv: string): Promise<Preview> {
@@ -118,6 +122,12 @@ export class ImportService {
     let updated = 0;
     let skipped = 0;
     const failed: RowError[] = [...errors];
+
+    // ⚠️ جمع می‌شود و **بعد از** حلقه نوشته می‌شود، نه داخلش.
+    //
+    //    نوشتنِ درجا یعنی پنج هزار رفت‌وبرگشتِ اضافه به پایگاه‌داده
+    //    وسطِ تراکنشِ واردات — واردات را کند می‌کند و قفل را طولانی.
+    const remembered: Array<{ barcode: string; name: string; unit: string }> = [];
 
     // دسته‌بندی‌ها یک‌بار ساخته می‌شوند نه به‌ازای هر سطر.
     const categories = await this.ensureCategories(companyId, rows);
@@ -207,6 +217,22 @@ export class ImportService {
               values,
             );
             created += 1;
+
+            // ⚠️ واردات غنی‌ترین منبعِ فهرستِ مشترک است.
+            //
+            //    یک فایلِ اکسلِ پنج‌هزار کالایی، پنج هزار بارکد به
+            //    حافظه می‌دهد — بیش از آنچه ثبتِ دستی در یک سال
+            //    می‌دهد.  بدونِ این، «هر جنسی که ثبت شود» فقط شاملِ
+            //    کالای دستی می‌شد و بزرگ‌ترین منبع بیرون می‌ماند.
+            //
+            // ⚠️ بیرونِ تراکنش، و شکستش واردات را برنمی‌گرداند.
+            //
+            //    فهرستِ مشترک کمکی است؛ اگر ننشست، کالای فروشگاه باید
+            //    وارد شده باشد.  وگرنه یک قابلیتِ جانبی، وارداتِ
+            //    پنج‌هزارتایی را می‌خواباند.
+            if (row.barcode) {
+              remembered.push({ barcode: row.barcode, name: row.name, unit: row.unit });
+            }
           }
 
           // موجودی فقط برای کالای تازه نوشته می‌شود.  بازنویسی موجودی
@@ -228,6 +254,12 @@ export class ImportService {
           raw: row.name,
         });
       }
+    }
+
+    // ⚠️ خارج از حلقه و خارج از تراکنش — و شکستش خاموش است.
+    //    واردات تمام شده و ثبت‌شده؛ فهرستِ مشترک نباید عقب بکشدش.
+    for (const item of remembered) {
+      await this.catalog.remember({ ...item, source: 'LOCAL' }).catch(() => undefined);
     }
 
     return {

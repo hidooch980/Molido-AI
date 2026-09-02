@@ -10,6 +10,7 @@ import { Params, setClause } from '../database/sql';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { parseDate } from '../common/date';
+import { BarcodeCatalogService } from '../catalog/barcode-catalog.service';
 
 type Product = Record<string, unknown> & { id: string };
 
@@ -43,7 +44,10 @@ const MAX_PAGE_SIZE = 200;
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly catalog: BarcodeCatalogService,
+  ) {}
 
   private async withRelations(products: Product[]): Promise<Product[]> {
     if (!products.length) return products;
@@ -163,7 +167,31 @@ export class ProductsService {
        VALUES (${placeholders.join(', ')}) RETURNING *`,
       params.values,
     );
-    return products[0];
+    const created = products[0];
+
+    // ⚠️ «هر جنسی که ثبت شود» به فهرستِ مشترک برمی‌گردد.
+    //
+    //    بدونِ این، حافظه هرگز پر نمی‌شود و قابلیتِ «اسکن کن،
+    //    شناسایی شود» برای همیشه خالی می‌ماند.  همان دامی که در
+    //    تحلیل‌ها دیدیم: زیرساخت ساخته شده و راهی به آن نیست.
+    //
+    // ⚠️ شکستش ثبتِ کالا را برنمی‌گرداند.
+    //
+    //    فهرستِ مشترک کمکی است، نه شرطِ کار.  اگر بنویسد نشد، کالای
+    //    فروشگاه باید ثبت شده باشد — وگرنه یک قابلیتِ جانبی، کارِ
+    //    اصلی را می‌خواباند.
+    if (created?.barcode) {
+      await this.catalog
+        .remember({
+          barcode: created.barcode,
+          name: created.name,
+          unit: created.unit,
+          source: 'LOCAL',
+        })
+        .catch(() => undefined);
+    }
+
+    return created;
   }
 
   async update(id: string, dto: UpdateProductDto, companyId: string) {

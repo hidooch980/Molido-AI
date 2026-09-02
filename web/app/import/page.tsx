@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import AppShell from '../../components/AppShell';
 import { Icon } from '../../components/icons';
+import StructureBackup from '../../components/StructureBackup';
 import { NUM, ROW, TD, TOUCH } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -346,6 +347,12 @@ export default function ImportPage() {
           ) : null}
         </div>
       ) : null}
+
+      {/* ⚠️ ساختار زیرِ ورودِ کالاست، نه بالایش.
+          فروشگاهی که از نرم‌افزار دیگری می‌آید اول ساختار را لازم
+          دارد — ولی کاری که هر روز تکرار می‌شود ورودِ کالاست، و
+          کارِ روزمره باید اول دیده شود. */}
+      <StructureBackup />
     </AppShell>
   );
 }

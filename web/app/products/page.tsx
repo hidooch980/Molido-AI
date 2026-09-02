@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { Grid, type Column } from '../../components/Grid';
 import { Icon } from '../../components/icons';
+import ScanProduct from '../../components/ScanProduct';
 import { StatCard, TOUCH, statusColor } from '../../components/ui';
 import { API_URL, api, getToken } from '../../lib/api';
 import { useI18n } from '../../lib/i18n-context';
@@ -318,6 +319,10 @@ export default function ProductsPage() {
       }
     >
       {error ? <div className="error">{error}</div> : null}
+
+      {/* اسکن بالای صفحه است، نه پایینِ فهرست: کارِ روزمرهٔ انباردار
+          همین است و نباید دنبالش بگردد. */}
+      <ScanProduct onSaved={() => void load()} />
 
       <div className="stats-grid">
         <StatCard icon="package" label={t('productsCountLabel')} value={fa(summary.count)} />

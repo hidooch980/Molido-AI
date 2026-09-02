@@ -54,13 +54,19 @@ print($1)"; }
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
 psql() { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }
+# ⚠️ `psql` بالا خروجی را دور می‌ریزد (برای دستورهای نوشتنی ساخته شده).
+#    خواندنِ مقدار تابعِ خودش را می‌خواهد، وگرنه هر سنجه‌ای که با آن
+#    نوشته شود همیشه رشتهٔ خالی می‌گیرد و همیشه قرمز است.
+psql_read() { $C exec -T postgres psql -U postgres -d molido_ai -tAq -c "$1" 2>/dev/null | tr -d ' 
+'; }
 psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
 
 cleanup() {
   psql "DELETE FROM \"Inventory\" WHERE \"productId\" IN
           (SELECT id FROM \"Product\" WHERE sku LIKE 'IMP-%');
         DELETE FROM \"Product\" WHERE sku LIKE 'IMP-%';
-        DELETE FROM \"Category\" WHERE name = 'لبنیات وارداتی';"
+        DELETE FROM \"Category\" WHERE name = 'لبنیات وارداتی';
+        DELETE FROM \"BarcodeCatalog\" WHERE barcode IN ('6260000000017','6260000000024');"
 }
 cleanup
 
@@ -155,6 +161,39 @@ chk "missing columns refused" "$(curl -s -X POST $A/products/import/preview -H "
 
 echo '--- 12) an empty file is refused ---'
 chk "empty refused" "$(curl -s -X POST $A/products/import/preview -H "$AU" -H "$JS" -d '{"csv":""}' | P "d.get('statusCode')")" "400"
+
+echo '--- واردات، فهرستِ مشترکِ بارکد را پر می‌کند ---'
+#
+# ⚠️ واردات غنی‌ترین منبعِ فهرستِ مشترک است و تا امروز هیچ نمی‌داد.
+#
+#    یک فایلِ اکسلِ پنج‌هزار کالایی، پنج هزار بارکد به حافظه می‌دهد —
+#    بیش از آنچه ثبتِ دستی در یک سال می‌دهد.  بدونِ این سنجه، اگر
+#    روزی این پیوند بیفتد، «هر جنسی که ثبت شود» بی‌سروصدا نصفه
+#    می‌شود و هیچ‌چیز خطا نمی‌دهد.
+# ⚠️ داخلِ heredoc فقط ASCII.
+#
+#    دو بار اینجا خوردیم: خطِ CRLF به خطِ واقعی تبدیل شد و رشته را
+#    نیمه‌کاره گذاشت، و بعد توضیحِ فارسیِ داخلِ اسکریپت را پایتونِ
+#    msys نتوانست بخواند.  هر دو بار خروجی شبیه اشکالِ برنامه بود،
+#    نه اشکالِ آزمون — و همان است که وقت می‌خورد.
+python3 - "$TMP" <<'PYIMP'
+import io, json, sys
+EOL = chr(13) + chr(10)
+csv = EOL.join([
+    "کد کالا;نام کالا;واحد;بارکد;قیمت فروش;موجودی",
+    "IMP-BC1;Imported Milk;pcs;6260000000017;10000;5",
+    "IMP-BC2;Imported Yogurt;pcs;6260000000024;20000;5",
+])
+io.open(sys.argv[1], "w", encoding="utf-8").write(json.dumps({"csv": csv}, ensure_ascii=False))
+PYIMP
+curl -s -o /dev/null -X POST $A/products/import -H "$AU" -H "$JS" --data-binary "@$TMP"
+
+chk "هر دو بارکد به فهرست رفتند"   "$(psql_read "SELECT count(*) FROM \"BarcodeCatalog\" WHERE barcode IN ('6260000000017','6260000000024');")" "2"
+
+# ⚠️ و باز هم: قیمت نباید همراهش رفته باشد.  فایلِ اکسل قیمت دارد و
+#    نزدیک‌ترین جا برای نشتِ سهوی همین‌جاست.
+chk "قیمت با واردات نشت نکرد"   "$(psql_read "SELECT count(*) FROM information_schema.columns
+           WHERE table_name='BarcodeCatalog' AND column_name IN ('price','salePrice');")" "0"
 
 rm -f "$TMP"
 cleanup

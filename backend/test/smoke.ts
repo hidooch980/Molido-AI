@@ -3,6 +3,7 @@
  * the hand-written SQL parses, binds and returns what the API promised.
  */
 import { randomUUID } from 'node:crypto';
+import { BarcodeCatalogService } from '../src/catalog/barcode-catalog.service';
 import { ShahkarService } from '../src/shahkar/shahkar.service';
 import { ShahkarProvider } from '../src/shahkar/shahkar.provider';
 import { DatabaseService } from '../src/database/database.service';
@@ -72,7 +73,7 @@ async function main() {
   const shiftService = new CashierShiftService(db, auditTrail);
   const llm = new LlmService(emptyConfig);
 
-  const products = new ProductsService(db);
+  const products = new ProductsService(db, new BarcodeCatalogService(db, emptyConfig));
   const sales = new SalesService(db, noopN8n, shiftService, ration, posting, new PricingService(db), null);
   const purchases = new PurchasesService(db, posting);
   const inventory = new InventoryService(db);

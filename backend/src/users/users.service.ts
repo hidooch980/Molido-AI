@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { DatabaseService } from '../database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 type SafeUser = {
   id: string;
@@ -24,7 +25,10 @@ const SAFE_COLUMNS = `id, "firstName", "lastName", email, phone, role, status, a
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly subscription: SubscriptionService,
+  ) {}
 
   async findAll(companyId: string | null): Promise<SafeUser[]> {
     return companyId
@@ -39,6 +43,16 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, companyId: string | null): Promise<SafeUser> {
+    // ⚠️ سقفِ پلن **پیش از** ساختن سنجیده می‌شود، نه بعدش.
+    //
+    //    اگر بعد سنجیده می‌شد، کاربر ساخته و بعد حذف می‌شد — و اگر
+    //    حذف شکست می‌خورد، شرکت یک کاربرِ اضافه داشت که هیچ‌کس
+    //    نمی‌فهمید از کجا آمده.
+    //
+    // ⚠️ فقط برای شرکتِ مشخص.  `companyId` تهی یعنی کاربرِ سامانه‌ای
+    //    (فروشنده) که سقف ندارد.
+    if (companyId) await this.subscription.assertUserQuota(companyId);
+
     const duplicate = await this.db.query<{ id: string }>('SELECT id FROM "User" WHERE email = $1', [dto.email]);
     if (duplicate[0]) throw new ConflictException('A user with this email already exists');
     const password = await bcrypt.hash(dto.password, 10);

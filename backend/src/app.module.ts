@@ -77,6 +77,7 @@ import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
 import { GovSsoModule } from './gov-sso/gov-sso.module';
 import { ShahkarModule } from './shahkar/shahkar.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 import { StructureModule } from './structure/structure.module';
 import { SelfOrderModule } from './self-order/self-order.module';
 import { SiteModule } from './site/site.module';
@@ -214,6 +215,9 @@ const CORE_MODULES = [
   // ⚠️ ماژولِ هسته: فهرستِ مشترکِ بارکد بین‌شرکتی است و به
   //    قابلیتِ خاصی وابسته نیست.
   CatalogModule,
+  // ⚠️ ماژولِ هسته: اشتراک به محصول وابسته نیست — هر نصبی
+  //    باید بداند چه کسی پول داده.
+  SubscriptionModule,
   // ⚠️ ماژولِ هسته: پشتیبانِ ساختار به هیچ قابلیتِ اختیاری وابسته
   //    نیست و در هر نمایه باید در دسترس باشد.
   StructureModule,

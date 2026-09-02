@@ -46,6 +46,17 @@ export type TenantContext = {
    *    است، نه بیشتر.
    */
   trackCode?: string | null;
+
+  /**
+   * فروشنده — اجازهٔ **خواندنِ** فهرستِ مشتریان.
+   *
+   * ⚠️ فقط `SUPER_ADMIN` می‌گیردش، و فقط برای خواندن: سیاستِ
+   *    `vendor_read_all` در پایگاه‌داده `WITH CHECK` ندارد، پس
+   *    نوشتن همچنان از `company_isolation` می‌گذرد.
+   *
+   *    دیدن و دست‌کاری دو اختیارِ متفاوت‌اند.
+   */
+  vendor?: boolean;
 };
 
 const storage = new AsyncLocalStorage<TenantContext>();
@@ -71,6 +82,32 @@ export function runInTenant<T>(context: TenantContext, work: () => T): T {
  */
 export function runAsSystem<T>(work: () => T): T {
   return storage.run({ companyId: null, userId: null, system: true }, work);
+}
+
+/**
+ * اجرای یک کار با اختیارِ **خواندنِ** فروشنده.
+ *
+ * ⚠️ `companyId` حفظ می‌شود، عمداً.
+ *
+ *    فروشنده هم یک شرکت دارد و نوشتنش باید به همان محدود بماند.
+ *    تهی کردنِ شرکت یعنی فروشنده ناخواسته روی دادهٔ مشتری بنویسد.
+ */
+export function runAsVendor<T>(companyId: string | null, work: () => T): T {
+  const current = storage.getStore();
+  return storage.run(
+    {
+      // ⚠️ `userId` اجباری است و پخشِ زمینهٔ **خالی** آن را نمی‌دهد.
+      //
+      //    اگر `current` تهی باشد (کارِ پس‌زمینه، آزمون)، پخش تنها
+      //    یک شیءِ ناقص می‌سازد و TypeScript می‌گیردش — که خوب است:
+      //    زمینهٔ ناقص یعنی `applyTenant` مقدارِ اشتباه بنویسد.
+      userId: current?.userId ?? null,
+      trackCode: current?.trackCode ?? null,
+      companyId,
+      vendor: true,
+    },
+    work,
+  );
 }
 
 export function currentTenant(): TenantContext | undefined {

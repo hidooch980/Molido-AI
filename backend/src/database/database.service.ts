@@ -57,6 +57,18 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       'app.track_code',
       tenant?.trackCode ?? '',
     ]);
+
+    // ⚠️ همیشه نوشته می‌شود، به همان دلیلِ بالا.
+    //
+    //    اتصال‌ها بازیافت می‌شوند؛ اگر فقط در حالتِ فروشنده نوشته
+    //    شود، درخواستِ بعدیِ یک **مشتری** روی همان اتصال پرچمِ
+    //    فروشنده را به ارث می‌برد و فهرستِ همهٔ شرکت‌ها را می‌بیند.
+    //
+    //    این بدترین نشتِ ممکن در یک سامانهٔ چندمستأجری است.
+    await client.query('SELECT set_config($1, $2, false)', [
+      'app.vendor',
+      tenant?.vendor ? 'true' : '',
+    ]);
   }
 
   async query<T extends QueryResultRow = QueryResultRow>(

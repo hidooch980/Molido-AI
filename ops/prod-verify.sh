@@ -100,7 +100,9 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 #
 #       بالا بردنِ کورِ عدد یعنی خاموش کردنِ سنجه، نه رفعِ آن.  هر بار
 #       باید دید کدام مهاجرت جدول ساخته و چرا.
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "140"
+# ۱۴۰ ← ۱۴۲: مهاجرت‌های ۰۷۱ و ۰۷۲ دو جدول افزودند — "Subscription" و
+# "PlanDefault".  شمرده شد، نه حدس زده: ۰۷۳ هیچ CREATE TABLE ندارد.
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "142"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

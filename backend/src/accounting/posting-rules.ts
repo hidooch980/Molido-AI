@@ -32,6 +32,7 @@ export const ACCOUNTS = {
   retainedEarnings: '3102',
   commissionExpense: '5206',
   bankFee: '5207',
+  consignedInventory: '1108',
   commissionPayable: '2106',
   salaryPayable: '2104',
   insurancePayable: '2105',

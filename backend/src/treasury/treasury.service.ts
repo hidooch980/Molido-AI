@@ -15,7 +15,8 @@ import { treasuryMovementEntry } from '../accounting/posting-rules';
  * ⚠️ دو واژگانِ متفاوت برای یک مفهوم یعنی گزارشی که نمی‌تواند هر دو را
  *    کنار هم بگذارد.
  */
-const REASONS = ['OWNER', 'BANK', 'ADJUST', 'OTHER'];
+// FEE = کارمزد بانک؛ به حسابِ اختصاصیِ ۵۲۰۷ می‌رود نه «سایر هزینه‌ها».
+const REASONS = ['OWNER', 'BANK', 'ADJUST', 'FEE', 'OTHER'];
 
 type Account = Record<string, unknown> & { id: string; name: string; balance: string };
 type Transaction = Record<string, unknown> & { id: string };

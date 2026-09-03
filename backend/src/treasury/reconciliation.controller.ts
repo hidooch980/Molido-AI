@@ -72,6 +72,16 @@ export class ReconciliationController {
     return this.recon.match(user.companyId as string, lineId, dto?.transactionId as string);
   }
 
+  /** ثبتِ سطرِ بانکیِ جامانده در دفتر و تطبیقِ فوری. */
+  @Post('lines/:lineId/record')
+  recordLine(
+    @CurrentUser() user: AuthUser,
+    @Param('lineId') lineId: string,
+    @Body() dto: Record<string, never>,
+  ) {
+    return this.recon.recordLine(user.companyId as string, lineId, dto);
+  }
+
   @Patch('lines/:lineId/unmatch')
   unmatch(@CurrentUser() user: AuthUser, @Param('lineId') lineId: string) {
     return this.recon.unmatch(user.companyId as string, lineId);

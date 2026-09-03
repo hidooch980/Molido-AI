@@ -65,14 +65,30 @@ PATCHC(){ curl -s -o /dev/null -w '%{http_code}' "${A[@]}" -X PATCH "$API$1" -d 
 #   +۵٬۰۰۰٬۰۰۰ · −۱٬۲۰۰٬۰۰۰ · +۳۰۰٬۰۰۰ · −۵۰٬۰۰۰ (کارمزد، دفتر ندارد)
 #   ────────── ماندهٔ بانک = ۴٬۰۵۰٬۰۰۰
 sec "۰) ساخت داده"
-Q "INSERT INTO \"TreasuryAccount\" (id,\"companyId\",name,type,\"bankName\")
-     VALUES ('rc-acc','$CO','حساب جاری','BANK','ملت');" >/dev/null
+# WARN موجودیِ حساب باید با گردشی که درج می‌کنیم بخواند.
+#      نسخهٔ اول حساب را با موجودیِ صفر ساخت و گردش‌ها را مستقیم در
+#      پایگاه درج کرد — حالتی که در واقعیت ممکن نیست.  بعد recordLine
+#      برداشت را با «موجودی کافی نیست» رد کرد و به‌نظر رسید قابلیت خراب
+#      است، در حالی که نگهبانِ خزانه درست کار می‌کرد.
+#      ۵٬۰۰۰٬۰۰۰ − ۱٬۲۰۰٬۰۰۰ − ۸۰۰٬۰۰۰ + ۳۰۰٬۰۰۰ + ۳۰۰٬۰۰۰ = ۳٬۶۰۰٬۰۰۰
+Q "INSERT INTO \"TreasuryAccount\" (id,\"companyId\",name,type,\"bankName\",balance)
+     VALUES ('rc-acc','$CO','حساب جاری','BANK','ملت',3600000);" >/dev/null
 
+# WARN مبلغِ گردشِ خزانه **بی‌علامت** است و جهت در `type` می‌نشیند —
+#      همان قراردادی که `createTransaction` رعایت می‌کند.
+#
+#      نسخهٔ اول عددِ منفی درج می‌کرد.  با خودش سازگار بود، پس آزمون سبز
+#      می‌داد — ولی سرویس `SUM(amount)` می‌نوشت و روی دادهٔ **واقعی**
+#      برداشت‌ها را جمع می‌کرد نه کم.  اشکال فقط وقتی بیرون زد که
+#      `recordLine` یک گردشِ واقعی ساخت و ماندهٔ دفتر با ثبتِ یک هزینه
+#      بالا رفت.
+#
+#      فیکسچری که قراردادِ واقعیِ داده را رعایت نکند، اشکال را می‌پوشاند.
 mk() { Q "INSERT INTO \"TreasuryTransaction\" (id,\"companyId\",\"accountId\",type,amount,reference,description,date)
           VALUES ('$1','$CO','rc-acc','$2',$3,'$4','$5','$6')" >/dev/null; }
 mk rc-t1 DEPOSIT     5000000  REF-1 'واریز فروش'   '2026-04-10'
-mk rc-t2 WITHDRAWAL -1200000  REF-2 'پرداخت اجاره' '2026-04-15'
-mk rc-t3 WITHDRAWAL  -800000  REF-3 'چک صادرشده'   '2026-06-15'
+mk rc-t2 WITHDRAWAL  1200000  REF-2 'پرداخت اجاره' '2026-04-15'
+mk rc-t3 WITHDRAWAL   800000  REF-3 'چک صادرشده'   '2026-06-15'
 mk rc-t4 DEPOSIT      300000  REF-4 'واریز الف'    '2026-05-10'
 mk rc-t5 DEPOSIT      300000  REF-5 'واریز ب'      '2026-05-10'
 chk "پنج گردشِ دفتر" "$(Q "SELECT count(*) FROM \"TreasuryTransaction\" WHERE id LIKE 'rc-%'")" "5"
@@ -168,6 +184,56 @@ Q "INSERT INTO \"BankStatementLine\" (id,\"companyId\",\"reconciliationId\",\"oc
    VALUES ('$LFEE','$CO','$REC','2026-05-20',-50000,'FEE','کارمزد')" >/dev/null
 R=$(curl -s "${A[@]}" "$API/bank-reconciliation/$REC")
 chk "با برگشتش دوباره تراز می‌شود" "$(J "d['isBalanced']")" "True"
+
+# ---------------------------------------------------------------- ثبت در دفتر
+sec "۵ج) ثبتِ سطرِ جامانده در دفتر"
+#
+# ⚠️ این حلقهٔ اصلیِ مغایرت‌گیری است: قلم پیدا می‌شود، همان‌جا ثبت
+#    می‌شود، و همان‌جا تطبیق می‌خورد.  اگر کاربر مجبور باشد برود صفحهٔ
+#    خزانه و دستی بزند، در عمل رهایش می‌کند.
+#
+# کارمزد را دوباره از تطبیق درمی‌آوریم تا سطرِ جاماندهٔ واقعی باشد.
+Q "DELETE FROM \"BankStatementLine\" WHERE id='$LFEE';
+   INSERT INTO \"BankStatementLine\" (id,\"companyId\",\"reconciliationId\",\"occurredAt\",amount,reference,description)
+   VALUES ('$LFEE','$CO','$REC','2026-05-20',-50000,'FEE','کارمزد');" >/dev/null
+
+BEFORE_TX=$(Q "SELECT count(*) FROM \"TreasuryTransaction\" WHERE \"accountId\"='rc-acc'")
+R=$(POST "/bank-reconciliation/lines/$LFEE/record" '{"reason":"FEE"}')
+chk "گردشِ خزانه ساخته شد" \
+  "$(Q "SELECT count(*) FROM \"TreasuryTransaction\" WHERE \"accountId\"='rc-acc'")" "$((BEFORE_TX+1))"
+chk "سطر تطبیق خورد" \
+  "$(Q "SELECT (\"matchedTxId\" IS NOT NULL) FROM \"BankStatementLine\" WHERE id='$LFEE'")" "t"
+
+# ⚠️ مبلغِ منفیِ بانک باید برداشت شود، نه واریز.  اگر عددِ علامت‌دار
+#    مستقیم پاس داده شود، موجودی بالا می‌رود.
+chk "برداشت ثبت شد نه واریز" \
+  "$(Q "SELECT type FROM \"TreasuryTransaction\" t
+          JOIN \"BankStatementLine\" b ON b.\"matchedTxId\"=t.id WHERE b.id='$LFEE'")" "WITHDRAWAL"
+# WARN ستونِ `amount` در هر دو جدول هست؛ بدونِ پیشوند مبهم است.
+chk "مبلغ بی‌علامت است" \
+  "$(Q "SELECT t.amount::int FROM \"TreasuryTransaction\" t
+          JOIN \"BankStatementLine\" b ON b.\"matchedTxId\"=t.id WHERE b.id='$LFEE'")" "50000"
+
+# ⚠️ کارمزد باید به حسابِ اختصاصیِ ۵۲۰۷ برود، نه «سایر هزینه‌ها»ی ۵۲۹۹.
+#    وگرنه کسی نمی‌داند سالی چقدر به بانک می‌دهد.
+chk "کارمزد به حساب ۵۲۰۷ نشست" \
+  "$(Q "SELECT COALESCE(sum(l.debit),0)::int FROM \"JournalLine\" l
+          JOIN \"Account\" a ON a.id=l.\"accountId\"
+          JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+         WHERE a.code='5207' AND e.\"sourceType\"='TreasuryMovement'")" "50000"
+chk "در سایر هزینه‌ها (۵۲۹۹) ننشست" \
+  "$(Q "SELECT COALESCE(sum(l.debit),0)::int FROM \"JournalLine\" l
+          JOIN \"Account\" a ON a.id=l.\"accountId\"
+          JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
+         WHERE a.code='5299' AND e.\"sourceType\"='TreasuryMovement'")" "0"
+
+chk "ثبتِ دوبارهٔ همان سطر رد می‌شود" \
+  "$(CODE "/bank-reconciliation/lines/$LFEE/record" '{"reason":"FEE"}')" "400"
+
+# حالا کارمزد در دفتر هست، پس دیگر «بانکیِ ثبت‌نشده» نیست و در عوض
+# جزو گردشِ دفتر آمده — تراز باید همچنان برقرار باشد.
+R=$(curl -s "${A[@]}" "$API/bank-reconciliation/$REC")
+chk "پس از ثبت، همچنان تراز است" "$(J "d['isBalanced']")" "True"
 
 # ---------------------------------------------------------------- بستن
 sec "۶) بستن"

@@ -31,6 +31,7 @@ export const ACCOUNTS = {
   capital: '3101',
   retainedEarnings: '3102',
   commissionExpense: '5206',
+  bankFee: '5207',
   commissionPayable: '2106',
   salaryPayable: '2104',
   insurancePayable: '2105',
@@ -468,14 +469,25 @@ export function cashBoxMovementEntry(input: {
   //   BANK   — جابه‌جایی با بانک ⇒ حسابِ بانک
   //   ADJUST — اصلاحِ شمارش ⇒ هزینه/درآمدِ متفرقه (کسری یا اضافیِ صندوق)
   //   OTHER  — سایر
+  // ⚠️ `FEE` پیش از بقیه سنجیده می‌شود.
+  //
+  //    بدونش کارمزدِ بانک در «سایر هزینه‌ها» گم می‌شد و کسی نمی‌دانست
+  //    سالی چقدر به بانک می‌دهد — هزینه‌ای که هم قابلِ پیش‌بینی است و هم
+  //    قابلِ مذاکره، ولی تا دیده نشود سرش چانه‌ای زده نمی‌شود.
+  //
+  // ⚠️ این منطق در `cashBoxMovementEntry` و `treasuryMovementEntry` هر
+  //    دو هست و عمداً یکسان نگه داشته شده.  اگر فقط یکی FEE را بشناسد،
+  //    همان قلم بسته به اینکه از کدام مسیر ثبت شود دو حساب می‌خورد.
   const counter =
-    input.reason === 'BANK'
-      ? ACCOUNTS.bank
-      : input.reason === 'OWNER'
-        ? ACCOUNTS.capital
-        : isDeposit
-          ? ACCOUNTS.otherRevenue
-          : ACCOUNTS.otherExpense;
+    input.reason === 'FEE'
+      ? ACCOUNTS.bankFee
+      : input.reason === 'BANK'
+        ? ACCOUNTS.bank
+        : input.reason === 'OWNER'
+          ? ACCOUNTS.capital
+          : isDeposit
+            ? ACCOUNTS.otherRevenue
+            : ACCOUNTS.otherExpense;
 
   const label = isDeposit ? 'واریز به صندوق' : 'برداشت از صندوق';
 
@@ -533,14 +545,25 @@ export function treasuryMovementEntry(input: {
   const side =
     (input.accountType ?? 'BANK') === 'BANK' ? ACCOUNTS.bank : ACCOUNTS.cash;
 
+  // ⚠️ `FEE` پیش از بقیه سنجیده می‌شود.
+  //
+  //    بدونش کارمزدِ بانک در «سایر هزینه‌ها» گم می‌شد و کسی نمی‌دانست
+  //    سالی چقدر به بانک می‌دهد — هزینه‌ای که هم قابلِ پیش‌بینی است و هم
+  //    قابلِ مذاکره، ولی تا دیده نشود سرش چانه‌ای زده نمی‌شود.
+  //
+  // ⚠️ این منطق در `cashBoxMovementEntry` و `treasuryMovementEntry` هر
+  //    دو هست و عمداً یکسان نگه داشته شده.  اگر فقط یکی FEE را بشناسد،
+  //    همان قلم بسته به اینکه از کدام مسیر ثبت شود دو حساب می‌خورد.
   const counter =
-    input.reason === 'BANK'
-      ? ACCOUNTS.bank
-      : input.reason === 'OWNER'
-        ? ACCOUNTS.capital
-        : isDeposit
-          ? ACCOUNTS.otherRevenue
-          : ACCOUNTS.otherExpense;
+    input.reason === 'FEE'
+      ? ACCOUNTS.bankFee
+      : input.reason === 'BANK'
+        ? ACCOUNTS.bank
+        : input.reason === 'OWNER'
+          ? ACCOUNTS.capital
+          : isDeposit
+            ? ACCOUNTS.otherRevenue
+            : ACCOUNTS.otherExpense;
 
   const label = isDeposit ? 'واریز به خزانه' : 'برداشت از خزانه';
 

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { DatabaseService } from '../database/database.service';
 import { formatJalali } from '../common/jalali';
+import { TreasuryService } from './treasury.service';
 
 /**
  * مغایرت‌گیری بانکی — تطبیقِ صورتحسابِ بانک با گردشِ خزانه.
@@ -34,9 +35,31 @@ type Row = Record<string, unknown>;
 /** پنجرهٔ تاریخِ تطبیقِ خودکار: بانک چند روز دیرتر ثبت می‌کند. */
 const MATCH_WINDOW_DAYS = 3;
 
+/**
+ * مبلغِ **علامت‌دار** گردشِ خزانه.
+ *
+ * ⚠️ `TreasuryTransaction.amount` بی‌علامت است و جهت در `type` می‌نشیند.
+ *
+ *    نسخهٔ اول همه‌جا `SUM(amount)` می‌نوشت — یعنی برداشت‌ها را **جمع**
+ *    می‌کرد نه کم.  ماندهٔ دفتر و اقلامِ در راه هر دو غلط درمی‌آمدند.
+ *
+ *    و آزمون نگرفتش، چون فیکسچرِ من عددِ علامت‌دار درج می‌کرد و با
+ *    خودش سازگار بود.  فقط وقتی `recordLine` یک گردشِ **واقعی** ساخت
+ *    (بی‌علامت، با type) تناقض بیرون زد و ماندهٔ دفتر با ثبتِ یک هزینه
+ *    بالا رفت.
+ *
+ *    درسش روشن است: فیکسچری که قراردادِ واقعیِ داده را رعایت نکند،
+ *    آزمون را سبز نگه می‌دارد و اشکال را می‌پوشاند.
+ */
+const SIGNED_AMOUNT = `(CASE WHEN type = 'DEPOSIT' THEN amount ELSE -amount END)`;
+const SIGNED_AMOUNT_T = `(CASE WHEN t.type = 'DEPOSIT' THEN t.amount ELSE -t.amount END)`;
+
 @Injectable()
 export class ReconciliationService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly treasury: TreasuryService,
+  ) {}
 
   // ------------------------------------------------------- جلسه
 
@@ -169,7 +192,7 @@ export class ReconciliationService {
           `SELECT t.id FROM "TreasuryTransaction" t
             WHERE t."companyId" = $1
               AND t."accountId" = $2
-              AND t.amount = $3
+              AND ${SIGNED_AMOUNT_T} = $3
               AND t.date::date BETWEEN $4::date - $5::int AND $4::date + $5::int
               AND NOT EXISTS (
                 SELECT 1 FROM "BankStatementLine" b WHERE b."matchedTxId" = t.id
@@ -223,6 +246,78 @@ export class ReconciliationService {
     }
   }
 
+  /**
+   * ثبتِ سطرِ بانکی در دفتر، و تطبیقِ فوری‌اش.
+   *
+   * ---------- چرا این‌جا و نه در خزانه ----------
+   *
+   * ⚠️ مغایرت‌گیری قلمِ جامانده را **پیدا** می‌کند؛ اگر جای ثبتش
+   *    همین‌جا نباشد، کاربر باید برود صفحهٔ خزانه، مبلغ و تاریخ را دستی
+   *    بزند، برگردد و تطبیق بدهد.  در عمل یعنی رهایش می‌کند.
+   *
+   *    اینجا هر سه کار در یک تراکنش انجام می‌شود: گردشِ خزانه، سندِ
+   *    حسابداری، و تطبیق.  یا هر سه، یا هیچ‌کدام.
+   *
+   * ⚠️ `reason` را کاربر می‌دهد و حدس زده نمی‌شود.
+   *
+   *    برداشتِ بانکی می‌تواند کارمزد باشد، اقساطِ وام، یا برداشتِ مالک —
+   *    سه سندِ کاملاً متفاوت.  حدس زدنش دفتری می‌سازد که تراز است و
+   *    معنایش غلط.
+   */
+  async recordLine(
+    companyId: string,
+    lineId: string,
+    dto: { reason?: string; description?: string },
+  ) {
+    const lines = await this.db.query<{
+      id: string;
+      amount: string;
+      occurredAt: string;
+      reference: string | null;
+      description: string | null;
+      accountId: string;
+      matchedTxId: string | null;
+      status: string;
+    }>(
+      `SELECT l.id, l.amount, l."occurredAt", l.reference, l.description,
+              r."accountId", l."matchedTxId", r.status
+         FROM "BankStatementLine" l
+         JOIN "BankReconciliation" r ON r.id = l."reconciliationId"
+        WHERE l.id = $1 AND l."companyId" = $2`,
+      [lineId, companyId],
+    );
+    const line = lines[0];
+    if (!line) throw new NotFoundException('سطر یافت نشد');
+    if (line.status !== 'OPEN') {
+      throw new BadRequestException('این مغایرت‌گیری بسته شده و تغییر نمی‌کند');
+    }
+    if (line.matchedTxId) {
+      throw new BadRequestException('این سطر از قبل تطبیق خورده است');
+    }
+
+    const amount = Number(line.amount);
+
+    // ⚠️ گردشِ خزانه مبلغِ **بی‌علامت** می‌گیرد و جهت را `type` می‌گوید.
+    //    پاس دادنِ عددِ منفی به‌عنوان برداشت، موجودی را بالا می‌برد.
+    const created = await this.treasury.createTransaction(companyId, {
+      accountId: line.accountId,
+      type: amount > 0 ? 'DEPOSIT' : 'WITHDRAWAL',
+      amount: Math.abs(amount),
+      reference: line.reference ?? undefined,
+      description: dto?.description ?? line.description ?? 'ثبت از صورتحساب بانک',
+      date: line.occurredAt,
+      reason: dto?.reason ?? 'FEE',
+    });
+
+    const updated = await this.db.query<Row>(
+      `UPDATE "BankStatementLine"
+          SET "matchedTxId" = $1, "matchedAt" = now(), "matchMethod" = 'MANUAL'
+        WHERE id = $2 RETURNING *`,
+      [(created as Row).id, lineId],
+    );
+    return { line: updated[0], transaction: created };
+  }
+
   async unmatch(companyId: string, lineId: string) {
     const rows = await this.db.query<Row>(
       `UPDATE "BankStatementLine"
@@ -257,7 +352,7 @@ export class ReconciliationService {
     // ماندهٔ دفتر تا تاریخِ صورتحساب — از گردش، نه از ستونِ balance که
     // ماندهٔ **امروز** است.
     const book = await this.db.query<{ net: string }>(
-      `SELECT COALESCE(SUM(amount), 0)::text AS net
+      `SELECT COALESCE(SUM(${SIGNED_AMOUNT}), 0)::text AS net
          FROM "TreasuryTransaction"
         WHERE "companyId" = $1 AND "accountId" = $2 AND date::date <= $3`,
       [companyId, rec.accountId, rec.statementDate],
@@ -274,7 +369,7 @@ export class ReconciliationService {
 
     // گردشِ دفتری که هیچ سطرِ بانکی نگرفته — «در راه».
     const unmatchedBook = await this.db.query<Row>(
-      `SELECT t.id, t.date, t.amount, t.description, t.reference
+      `SELECT t.id, t.date, ${SIGNED_AMOUNT_T} AS amount, t.description, t.reference
          FROM "TreasuryTransaction" t
         WHERE t."companyId" = $1 AND t."accountId" = $2
           AND t.date::date <= $3

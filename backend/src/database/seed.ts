@@ -121,6 +121,8 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '5204', name: 'حمل و نقل', type: 'EXPENSE', parent: '5000' },
   { code: '5205', name: 'هزینهٔ استهلاک', type: 'EXPENSE', parent: '5000' },
   { code: '5206', name: 'هزینهٔ پورسانت', type: 'EXPENSE', parent: '5000' },
+  // مهاجرت ۰۷۸ این را برای شرکت‌های موجود می‌سازد؛ نصبِ تازه از این‌جا.
+  { code: '5207', name: 'کارمزد بانک', type: 'EXPENSE', parent: '5000' },
   { code: '5299', name: 'سایر هزینه‌ها', type: 'EXPENSE', parent: '5000' },
 ];
 

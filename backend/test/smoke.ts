@@ -48,6 +48,7 @@ async function main() {
   const { RevenueService } = await import('../src/revenue/revenue.service');
   const { AuditTrailService } = await import('../src/audit-log/audit-trail.service');
   const { NotificationsService } = await import('../src/notifications/notifications.service');
+  const { RemindersService } = await import('../src/notifications/reminders.service');
   const { AccountingService } = await import('../src/accounting/accounting.service');
   const { PosTerminalsService } = await import('../src/pos-terminals/pos-terminals.service');
   const { ContractsService } = await import('../src/contracts/contracts.service');
@@ -84,7 +85,8 @@ async function main() {
   const treasury = new TreasuryService(db, {} as never);
   const payroll = new PayrollService(db, posting);
   const ai = new AiService(db, llm);
-  const notifications = new NotificationsService(db);
+  // یادآوری‌ها در فیدِ هشدار می‌آیند، پس سرویسش وابستگیِ اعلان است.
+  const notifications = new NotificationsService(db, new RemindersService(db));
   const accounting = new AccountingService(db);
   const pos = new PosTerminalsService(db);
   const contracts = new ContractsService(db);

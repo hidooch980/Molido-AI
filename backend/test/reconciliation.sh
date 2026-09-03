@@ -38,10 +38,29 @@ A=(-H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json')
 
 CO=seed-company
 
+# WARN پاک‌سازی باید گردشِ **ساخته‌شده توسط `recordLine`** را هم ببرد.
+#
+#      نسخهٔ اول فقط `id LIKE 'rc-%'` را پاک می‌کرد، ولی recordLine
+#      شناسهٔ تصادفی می‌سازد.  آن گردش و سندش می‌ماندند و در اجرای بعدی
+#      کارمزد روی هم جمع می‌شد: ۵۰٬۰۰۰ ← ۱۰۰٬۰۰۰ ← ۱۵۰٬۰۰۰.
+#
+#      سنجه در اولین اجرا سبز بود و در سومین قرمز — بدترین جنسِ شکست،
+#      چون به تغییرِ کد ربطی ندارد و آدم دنبالِ اشتباهی می‌گردد.
+#
+#      ترتیب مهم است: قلم و سند پیش از خودِ گردش پاک می‌شوند.
 cleanup() {
-  Q "DELETE FROM \"BankStatementLine\"    WHERE \"companyId\"='$CO';
+  Q "DELETE FROM \"JournalLine\" WHERE \"entryId\" IN (
+       SELECT id FROM \"JournalEntry\"
+        WHERE \"sourceType\" = 'TreasuryMovement'
+          AND \"sourceId\" IN (SELECT id FROM \"TreasuryTransaction\"
+                                WHERE \"accountId\" = 'rc-acc'));
+     DELETE FROM \"JournalEntry\"
+      WHERE \"sourceType\" = 'TreasuryMovement'
+        AND \"sourceId\" IN (SELECT id FROM \"TreasuryTransaction\"
+                              WHERE \"accountId\" = 'rc-acc');
+     DELETE FROM \"BankStatementLine\"    WHERE \"companyId\"='$CO';
      DELETE FROM \"BankReconciliation\"   WHERE \"companyId\"='$CO';
-     DELETE FROM \"TreasuryTransaction\"  WHERE id LIKE 'rc-%';
+     DELETE FROM \"TreasuryTransaction\"  WHERE \"accountId\" = 'rc-acc';
      DELETE FROM \"TreasuryAccount\"      WHERE id LIKE 'rc-%';" >/dev/null
 }
 trap cleanup EXIT
@@ -216,16 +235,25 @@ chk "مبلغ بی‌علامت است" \
 
 # ⚠️ کارمزد باید به حسابِ اختصاصیِ ۵۲۰۷ برود، نه «سایر هزینه‌ها»ی ۵۲۹۹.
 #    وگرنه کسی نمی‌داند سالی چقدر به بانک می‌دهد.
+# WARN سنجه به سندِ **همین سطر** محدود است، نه جمعِ کلِ حساب.
+#
+#      نسخهٔ اول جمعِ کلِ ۵۲۰۷ را می‌گرفت.  چون پاک‌سازی گردشِ ساختهٔ
+#      recordLine را نمی‌برد، عدد با هر اجرا بالا می‌رفت:
+#      ۵۰٬۰۰۰ ← ۱۰۰٬۰۰۰ ← ۱۵۰٬۰۰۰.  اولین اجرا سبز، سومی قرمز — و
+#      شکستی که به هیچ تغییرِ کدی ربط ندارد، آدم را دنبالِ اشتباهی
+#      می‌فرستد.
 chk "کارمزد به حساب ۵۲۰۷ نشست" \
   "$(Q "SELECT COALESCE(sum(l.debit),0)::int FROM \"JournalLine\" l
           JOIN \"Account\" a ON a.id=l.\"accountId\"
           JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
-         WHERE a.code='5207' AND e.\"sourceType\"='TreasuryMovement'")" "50000"
+          JOIN \"BankStatementLine\" b ON b.\"matchedTxId\" = e.\"sourceId\"
+         WHERE a.code='5207' AND b.id='$LFEE'")" "50000"
 chk "در سایر هزینه‌ها (۵۲۹۹) ننشست" \
   "$(Q "SELECT COALESCE(sum(l.debit),0)::int FROM \"JournalLine\" l
           JOIN \"Account\" a ON a.id=l.\"accountId\"
           JOIN \"JournalEntry\" e ON e.id=l.\"entryId\"
-         WHERE a.code='5299' AND e.\"sourceType\"='TreasuryMovement'")" "0"
+          JOIN \"BankStatementLine\" b ON b.\"matchedTxId\" = e.\"sourceId\"
+         WHERE a.code='5299' AND b.id='$LFEE'")" "0"
 
 chk "ثبتِ دوبارهٔ همان سطر رد می‌شود" \
   "$(CODE "/bank-reconciliation/lines/$LFEE/record" '{"reason":"FEE"}')" "400"

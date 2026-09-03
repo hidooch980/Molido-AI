@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { RemindersService } from './reminders.service';
 
 /** How far ahead an expiry date counts as an alert. */
 const EXPIRY_WINDOW_DAYS = 30;
@@ -12,26 +13,38 @@ const SALE_WITH_CUSTOMER = `
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly reminders: RemindersService,
+  ) {}
 
   /** همه هشدارهای مهم کسب‌وکار در یک درخواست */
   async getAllAlerts(companyId: string) {
-    const [lowStock, expiring, unpaidSales, pendingPurchases] = await Promise.all([
-      this.getLowStockAlerts(companyId),
-      this.getExpiryAlerts(companyId),
-      this.getUnpaidSales(companyId),
-      this.getPendingPurchases(companyId),
-    ]);
+    // WARN یادآوری‌های سررسیدشده **همین‌جا** می‌آیند، نه در صفحهٔ جدا.
+    //
+    //      یادآوری‌ای که کاربر باید جای دیگری دنبالش بگردد، همان
+    //      یادآوری‌ای است که فراموش می‌شود.  این‌جا همان‌جایی است که
+    //      آدم‌ها از قبل نگاه می‌کنند.
+    const [lowStock, expiring, unpaidSales, pendingPurchases, dueReminders] =
+      await Promise.all([
+        this.getLowStockAlerts(companyId),
+        this.getExpiryAlerts(companyId),
+        this.getUnpaidSales(companyId),
+        this.getPendingPurchases(companyId),
+        this.reminders.due(companyId),
+      ]);
 
     return {
       lowStockCount: lowStock.length,
       expiringCount: expiring.length,
       unpaidSalesCount: unpaidSales.length,
       pendingPurchasesCount: pendingPurchases.length,
+      dueRemindersCount: dueReminders.length,
       lowStock,
       expiring,
       unpaidSales,
       pendingPurchases,
+      dueReminders,
     };
   }
 

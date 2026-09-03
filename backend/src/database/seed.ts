@@ -79,6 +79,11 @@ const CHART_OF_ACCOUNTS: Array<{
   { code: '1104', name: 'موجودی کالا', type: 'ASSET', parent: '1100' },
   { code: '1105', name: 'اسناد دریافتنی (چک)', type: 'ASSET', parent: '1100' },
   { code: '1106', name: 'مالیات بر ارزش افزودهٔ خرید', type: 'ASSET', parent: '1100' },
+  // ⚠️ مهاجرت ۰۷۵ این حساب را برای شرکت‌های **موجود** می‌سازد.
+  //    نصبِ تازه باید از این‌جا بگیردش — همان چیزی که در ۰۷۱ فراموش شد
+  //    و نگهبانِ accounts گرفتش: مهاجرت پیش از ساختِ شرکت اجرا می‌شود،
+  //    پس `INSERT ... FROM "Company"` روی نصبِ تازه صفر ردیف می‌سازد.
+  { code: '1107', name: 'تنخواه گردان', type: 'ASSET', parent: '1100' },
   { code: '1200', name: 'دارایی ثابت', type: 'ASSET', parent: '1000', postable: false },
   { code: '1201', name: 'اموال و تجهیزات', type: 'ASSET', parent: '1200' },
   { code: '1202', name: 'استهلاک انباشته', type: 'ASSET', parent: '1200' },

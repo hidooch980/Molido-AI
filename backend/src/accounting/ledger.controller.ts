@@ -57,6 +57,20 @@ export class LedgerController {
     return this.ledger.closeFiscalYear(user.companyId as string, id, user.userId);
   }
 
+  /**
+   * صدور سند افتتاحیه.
+   *
+   * جدا از `createFiscalYear` است و خودکار نیست، چون هنگام **ساختِ** سال
+   * نو معمولاً سال قبل هنوز بسته نشده — بستنِ حساب‌ها ماه‌ها طول می‌کشد
+   * در حالی که فروش از روز اول ادامه دارد.  افتتاحیهٔ خودکار یا آن‌موقع
+   * شکست می‌خورد یا ماندهٔ ناقص منتقل می‌کند.
+   */
+  @Patch('fiscal-years/:id/open')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  openFiscalYear(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.ledger.openFiscalYear(user.companyId as string, id, user.userId);
+  }
+
   // ---------- اسناد ----------
 
   @Get('entries')

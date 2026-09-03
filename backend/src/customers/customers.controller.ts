@@ -37,6 +37,17 @@ export class CustomersController {
   }
 
   /** مانده بدهی — پیش از فروش نسیه لازم است، نه بعدش. */
+  /** صورت وضعیت — ریزِ گردش با ماندهٔ جاری. */
+  @Get(':id/statement')
+  statement(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.customersService.statement(user.companyId as string, id, from, to);
+  }
+
   @Get(':id/balance')
   balance(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.customersService.balance(user.companyId as string, id);

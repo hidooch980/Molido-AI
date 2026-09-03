@@ -215,6 +215,135 @@ export class LedgerService {
     });
   }
 
+  /**
+   * سند افتتاحیه — انتقال ماندهٔ حساب‌های دائم به سال نو.
+   *
+   * ---------- چرا لازم است ----------
+   *
+   * `closeFiscalYear` حساب‌های **موقت** (درآمد و هزینه) را صفر می‌کند.
+   * حساب‌های **دائم** (دارایی، بدهی، سرمایه) دست‌نخورده می‌مانند — که
+   * درست است، ولی کافی نیست.
+   *
+   * `trialBalance` بر اساس `entryDate` فیلتر می‌کند.  پس ترازِ آزمایشیِ
+   * سالِ نو فقط گردشِ همان سال را می‌بیند و نقد و موجودی و بدهی با
+   * ماندهٔ **صفر** شروع می‌شوند.  ترازنامهٔ `asOf` درست است، ولی تراز
+   * آزمایشیِ سال با آن نمی‌خواند و دفاترِ قانونیِ سال نو بدونِ مانده باز
+   * می‌شوند.
+   *
+   * این خطا چیزی نمی‌شکند و پیامی نمی‌دهد؛ فقط دو گزارش با هم نمی‌خوانند
+   * و کسی سالِ بعد دنبالِ علتش می‌گردد.
+   *
+   * ---------- سه محافظ ----------
+   *
+   * • سالِ پیشین باید **بسته** باشد.  وگرنه ماندهٔ منتقل‌شده هنوز
+   *   می‌تواند تغییر کند و افتتاحیه با واقعیت فاصله می‌گیرد.
+   * • سندِ افتتاحیهٔ تکراری ممکن نیست — قیدِ یکتای
+   *   `JournalEntry_source_key` روی (sourceType, sourceId) این را تضمین
+   *   می‌کند، نه یک `if` که می‌شود دورش زد.
+   * • مبنا اقلامِ سند است تا **پایانِ سالِ پیشین**، نه ستونِ `balance`:
+   *   `balance` ماندهٔ تجمعیِ امروز است و اگر سالِ نو گردش داشته باشد،
+   *   افتتاحیه آن را هم می‌آورد و دوباره می‌شمارد.
+   */
+  async openFiscalYear(companyId: string, id: string, userId?: string) {
+    return this.db.transaction(async (tx) => {
+      const years = await tx.query<{
+        id: string;
+        code: string;
+        status: string;
+        startsOn: string;
+      }>(
+        `SELECT id, code, status, "startsOn" FROM "FiscalYear"
+          WHERE id = $1 AND "companyId" = $2`,
+        [id, companyId],
+      );
+      const year = years.rows[0];
+      if (!year) throw new NotFoundException('سال مالی یافت نشد');
+      if (year.status === 'CLOSED') {
+        throw new BadRequestException('سال مالی بسته است');
+      }
+
+      // سالِ بلافاصله پیش از این.
+      const prevRows = await tx.query<{ id: string; code: string; status: string; endsOn: string }>(
+        `SELECT id, code, status, "endsOn" FROM "FiscalYear"
+          WHERE "companyId" = $1 AND "endsOn" < $2
+          ORDER BY "endsOn" DESC LIMIT 1`,
+        [companyId, year.startsOn],
+      );
+      const prev = prevRows.rows[0];
+      if (!prev) {
+        throw new BadRequestException(
+          'سال مالی پیشینی وجود ندارد؛ افتتاحیه فقط ماندهٔ سال قبل را منتقل می‌کند',
+        );
+      }
+      if (prev.status !== 'CLOSED') {
+        throw new BadRequestException(
+          `ابتدا سال مالی ${prev.code} را ببندید؛ تا وقتی باز است ماندهٔ آن قطعی نیست`,
+        );
+      }
+
+      const balances = await tx.query<{ code: string; net: string }>(
+        `SELECT a.code,
+                COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit),0) AS net
+           FROM "JournalLine" l
+           JOIN "JournalEntry" e ON e.id = l."entryId"
+           JOIN "Account" a ON a.id = l."accountId"
+          WHERE e."companyId" = $1
+            AND e.status <> 'DRAFT'
+            AND e."entryDate" <= $2
+            AND a.type IN ('ASSET','LIABILITY','EQUITY')
+          GROUP BY a.code
+         HAVING COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit),0) <> 0`,
+        [companyId, prev.endsOn],
+      );
+
+      if (!balances.rows.length) {
+        return { fiscalYear: year, entryNo: null, accounts: 0, message: 'ماندهٔ قابل انتقالی نبود' };
+      }
+
+      const lines: Array<{
+        accountCode: string;
+        debit?: number;
+        credit?: number;
+        description: string;
+      }> = balances.rows.map((row) => {
+        const net = Number(row.net);
+        return {
+          accountCode: row.code,
+          ...(net > 0 ? { debit: net } : { credit: -net }),
+          description: 'افتتاحیه',
+        };
+      });
+
+      // ⚠️ سنجشِ توازن **پیش از** ثبت.
+      //
+      //    اگر دفترِ سال قبل تراز باشد این جمع صفر است.  اگر نباشد،
+      //    `postIn` سندِ نامتراز را رد می‌کند — ولی با پیامی که به
+      //    افتتاحیه اشاره می‌کند، نه به علتِ واقعی که در سالِ گذشته است.
+      const drift = lines.reduce((a, l) => a + (l.debit ?? 0) - (l.credit ?? 0), 0);
+      if (Math.abs(drift) > 0.005) {
+        throw new BadRequestException(
+          `دفترِ سال ${prev.code} تراز نیست (اختلاف ${drift}); افتتاحیه صادر نشد`,
+        );
+      }
+
+      const entry = await this.posting.postIn(tx, companyId, {
+        sourceType: 'FiscalYearOpen',
+        sourceId: id,
+        description: `سند افتتاحیه سال مالی ${year.code}`,
+        userId: userId ?? null,
+        entryDate: new Date(year.startsOn),
+        lines,
+      });
+
+      return {
+        fiscalYear: year,
+        entryNo: entry.entryNo,
+        accounts: lines.length,
+        carriedFrom: prev.code,
+      };
+    });
+  }
+
   // ---------- اسناد ----------
 
   async entries(

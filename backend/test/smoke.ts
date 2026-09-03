@@ -54,6 +54,28 @@ async function main() {
   const { ContractsService } = await import('../src/contracts/contracts.service');
   const { AssetsService } = await import('../src/assets/assets.service');
 
+  /**
+   * کد ملیِ **معتبر** می‌سازد، با رقمِ کنترلیِ درست.
+   *
+   * WARN نسخهٔ اول `String(Date.now()).slice(-10)` می‌نوشت — ده رقم که
+   *      تقریباً هیچ‌وقت رقمِ کنترلیِ درستی ندارد.
+   *
+   *      از ۹ شهریور که `isValidNationalCode` به کالابرگ اضافه شد، این
+   *      دو سنجه شکسته بودند و کسی ندید: نگهبانِ نقشه زودتر شکست
+   *      می‌خورد و smoke اصلاً اجرا نمی‌شد.
+   *
+   *      الگوریتم همان `src/shahkar/national-code.ts` است: وزنِ ۱۰ تا ۲
+   *      روی نُه رقمِ اول، باقی‌ماندهٔ ۱۱.
+   */
+  const makeNationalCode = (seed: number): string => {
+    const nine = String(seed % 1_000_000_000).padStart(9, '0');
+    let sum = 0;
+    for (let i = 0; i < 9; i += 1) sum += Number(nine[i]) * (10 - i);
+    const remainder = sum % 11;
+    const check = remainder < 2 ? remainder : 11 - remainder;
+    return `${nine}${check}`;
+  };
+
   const noopN8n = new Proxy({}, { get: () => async () => undefined }) as never;
   // ConfigService خالی: مدل زبانی غیرفعال است و مسیر تحلیل داخلی تست می‌شود
   const emptyConfig = { get: () => undefined } as never;
@@ -79,10 +101,18 @@ async function main() {
   const purchases = new PurchasesService(db, posting);
   const inventory = new InventoryService(db);
   const reports = new ReportsService(db);
-  const restaurant = new RestaurantService(db, noopN8n, shiftService, {} as never);
-  const cashbox = new CashBoxService(db, {} as never);
+  // WARN این سه سرویس `posting` می‌خواهند، نه `{}`.
+  //
+  //      بدلِ خالی یعنی `this.posting.postAuto is not a function` — و
+  //      بدتر: تا وقتی نگهبانِ نقشه زودتر شکست می‌خورد، این خطا اصلاً
+  //      اجرا نمی‌شد و کسی نمی‌دیدش.  یک شکستِ زودهنگام، شش شکستِ
+  //      بعدی را پنهان کرده بود.
+  //
+  //      `posting` بالاتر از قبل ساخته شده؛ فقط به این سه داده نشده بود.
+  const restaurant = new RestaurantService(db, noopN8n, shiftService, posting);
+  const cashbox = new CashBoxService(db, posting);
   const cheques = new ChequesService(db);
-  const treasury = new TreasuryService(db, {} as never);
+  const treasury = new TreasuryService(db, posting);
   const payroll = new PayrollService(db, posting);
   const ai = new AiService(db, llm);
   // یادآوری‌ها در فیدِ هشدار می‌آیند، پس سرویسش وابستگیِ اعلان است.
@@ -622,7 +652,7 @@ async function main() {
 
   // ---- کالابرگ ----
   await check('ration flow', async () => {
-    const nationalCode = String(Date.now()).slice(-10);
+    const nationalCode = makeNationalCode(Date.now());
     const account = await ration.create(companyId, {
       nationalCode,
       holderName: 'خانوار آزمایشی',
@@ -676,7 +706,7 @@ async function main() {
   });
 
   await check('ration: خرید بیش از اعتبار رد می‌شود', async () => {
-    const nationalCode = String(Date.now() + 1).slice(-10);
+    const nationalCode = makeNationalCode(Date.now() + 1);
     const account = await ration.create(companyId, { nationalCode });
     await ration.allocate(companyId, account.id, {
       amount: 100,

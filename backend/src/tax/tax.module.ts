@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { TaxService } from './tax.service';
+import { SeasonalService } from './seasonal.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -73,9 +74,42 @@ export class TaxController {
   }
 }
 
+
+/**
+ * گزارش فصلی — ماده ۱۶۹ مکرر.
+ *
+ * ⚠️ مسیرِ جدا از `tax` نیست، چون هر دو مالیات‌اند و تنظیماتِ مؤدی را
+ *    مشترک می‌خوانند.  ولی کنترلرِ جدا دارد چون دسترسی‌اش فرق می‌کند:
+ *    صفِ مؤدیان را صندوق‌دار هم می‌بیند، گزارش فصلی را نه.
+ */
+@ApiTags('گزارش فصلی')
+@ApiBearerAuth()
+@Controller('tax/seasonal')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class SeasonalController {
+  constructor(private readonly seasonal: SeasonalService) {}
+
+  /** فصلِ جاری و فصلِ پیشین — پیش‌فرضِ رابط. */
+  @Get('period')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  period() {
+    return this.seasonal.currentPeriod();
+  }
+
+  @Get(':jy/:quarter')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  report(
+    @CurrentUser() user: AuthUser,
+    @Param('jy') jy: string,
+    @Param('quarter') quarter: string,
+  ) {
+    return this.seasonal.report(user.companyId as string, Number(jy), Number(quarter));
+  }
+}
+
 @Module({
-  controllers: [TaxController],
-  providers: [TaxService],
-  exports: [TaxService],
+  controllers: [TaxController, SeasonalController],
+  providers: [TaxService, SeasonalService],
+  exports: [TaxService, SeasonalService],
 })
 export class TaxModule {}

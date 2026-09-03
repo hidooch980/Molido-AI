@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Module,
   Param,
   Post,
@@ -94,6 +95,32 @@ export class SeasonalController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   period() {
     return this.seasonal.currentPeriod();
+  }
+
+  /**
+   * خروجیِ CSV برای بارگذاری در سامانه.
+   *
+   * ⚠️ مسیرِ CSV **پیش از** مسیرِ عمومیِ `:jy/:quarter` می‌آید.
+   *    Nest مسیرها را به ترتیبِ تعریف می‌سنجد؛ برعکسش یعنی
+   *    `1405/1/csv` با `:quarter = '1'` گرفته می‌شود و CSV هرگز
+   *    اجرا نمی‌شود — بی‌آنکه خطایی بدهد.
+   */
+  @Get(':jy/:quarter/csv')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="seasonal.csv"')
+  csv(
+    @CurrentUser() user: AuthUser,
+    @Param('jy') jy: string,
+    @Param('quarter') quarter: string,
+    @Query('kind') kind = 'sales',
+  ) {
+    return this.seasonal.csv(
+      user.companyId as string,
+      Number(jy),
+      Number(quarter),
+      kind,
+    );
   }
 
   @Get(':jy/:quarter')

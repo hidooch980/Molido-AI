@@ -183,5 +183,46 @@ R=$(curl -s "${A[@]}" "$API/tax/seasonal/period")
 chk "فصلِ جاری برمی‌گردد"  "$(J "d['current']['jy']>1400")" "True"
 chk "فصلِ پیشین هم می‌آید" "$(J "1<=d['previous']['quarter']<=4")" "True"
 
+# ---------------------------------------------------------------- خروجی
+sec "۱۱) خروجی CSV"
+#
+# WARN محتوا از راهِ **stdin** به پایتون می‌رود، نه با مسیرِ فایل.
+#      پایتونِ ویندوز مسیرِ `/tmp/...`ِ Git Bash را نمی‌بیند و
+#      FileNotFoundError می‌دهد — که `P()` می‌بلعدش و سنجه بی‌صدا خالی
+#      برمی‌گردد.  شش سنجه همین‌طور «خالی» شدند تا علتش پیدا شد.
+CSVF=$(mktemp)
+curl -s "${A[@]}" "$API/tax/seasonal/1405/1/csv?kind=sales" > "$CSVF"
+
+# WARN `newline=''` لازم است و بی‌دقتی نیست.
+#      TextIOWrapper به‌طور پیش‌فرض «خطوطِ جهانی» را ترجمه می‌کند و
+#      CRLF را به LF تبدیل می‌کند.  پس سنجهٔ شمارشِ خط همیشه ۱ می‌داد،
+#      در حالی که خروجی از همان اول درست بود — آزمون خراب بود، نه کد.
+#
+#      (نویسه‌های گریز اینجا با نامشان نوشته شده‌اند، نه با بک‌اسلش:
+#       سه بار در این کار، بک‌اسلش در لایه‌های bash←python←فایل گم شد
+#       و همین خط را به دستورِ اجراشدنی تبدیل کرد.)
+RD="import sys,io;d=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8',newline='').read();"
+
+# WARN بدونِ BOM، اکسلِ ویندوز فارسی را با کدپیجِ سیستم می‌خواند و
+#      «رضا» به «Ø±Ø¶Ø§» تبدیل می‌شود — بی‌آنکه خطایی بدهد.
+chk "با BOM شروع می‌شود"   "$(head -c 3 "$CSVF" | od -An -tx1 | tr -d ' 
+')" "efbbbf"
+
+chk "سرستون فارسی است"   "$(cat "$CSVF" | P "${RD}print('نام' in d.split(chr(13))[0])")" "True"
+
+# WARN مسیرِ csv باید پیش از :jy/:quarter تعریف شده باشد، وگرنه Nest
+#      آن را با quarter='1' می‌گیرد و JSON برمی‌گرداند نه CSV.
+chk "CSV است نه JSON"   "$(cat "$CSVF" | P "${RD}print(d.lstrip(chr(65279))[0] != '{')")" "True"
+
+chk "سرستون + سه فروش + سطر تجمیعی"   "$(cat "$CSVF" | P "${RD}print(len([l for l in d.strip().split(chr(13)+chr(10)) if l]))")" "5"
+
+chk "سطرِ تجمیعیِ خرده‌فروشی هست"   "$(cat "$CSVF" | P "${RD}print('تجمیعی' in d)")" "True"
+
+chk "تاریخِ شمسی نوشته شده نه میلادی"   "$(cat "$CSVF" | P "${RD}print('1405/01/26' in d)")" "True"
+
+curl -s "${A[@]}" "$API/tax/seasonal/1405/1/csv?kind=purchases" > "$CSVF"
+chk "خروجی خرید هم می‌آید"   "$(cat "$CSVF" | P "${RD}print(len([l for l in d.strip().split(chr(13)+chr(10)) if l]))")" "3"
+rm -f "$CSVF"
+
 printf '\n   PASS: %s   FAIL: %s\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

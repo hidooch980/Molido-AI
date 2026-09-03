@@ -291,6 +291,71 @@ export class SeasonalService {
     return out;
   }
 
+
+  // ------------------------------------------------------- خروجی CSV
+  //
+  // ⚠️ **BOM لازم است، و نبودش خطای خاموش می‌سازد.**
+  //
+  //    اکسلِ ویندوز فایلِ CSVِ بدونِ BOM را با کدپیجِ سیستم می‌خواند، نه
+  //    UTF-8.  نتیجه: نامِ «رضا محمدی» به «Ø±Ø¶Ø§» تبدیل می‌شود.  فایل
+  //    باز می‌شود، خطایی نمی‌دهد، و کاربر فکر می‌کند نرم‌افزار داده را
+  //    خراب ذخیره کرده.
+  //
+  //    خروجی‌های CSVِ قدیمیِ `reports` این BOM را ندارند و همین مشکل را
+  //    دارند — جدا باید اصلاح شوند.
+  //
+  // ⚠️ تاریخ **شمسی** نوشته می‌شود، نه میلادی.  سامانهٔ معاملات فصلی
+  //    تاریخِ شمسی می‌خواهد؛ میلادی رد می‌شود.
+  async csv(companyId: string, jy: number, quarter: number, kind: string) {
+    const rep = await this.report(companyId, jy, quarter);
+
+    // ⚠️ هر دو با کد نوشته می‌شوند، نه با نویسهٔ خام در فایلِ منبع.
+    //
+    //    BOM نویسه‌ای نامرئی است: در ویرایشگر دیده نمی‌شود، هنگام کپی
+    //    گم می‌شود، و ابزارِ قالب‌بندی بی‌سروصدا حذفش می‌کند.  آن‌وقت
+    //    خروجی فقط «یک روز» خراب می‌شود بی‌آنکه چیزی در دیف پیدا باشد.
+    const BOM = '﻿';
+    const CRLF = '\r\n';
+
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const line = (cols: unknown[]) => cols.map(cell).join(',');
+
+    if (kind === 'purchases') {
+      const head = ['نوع شخص', 'نام', 'شناسه ملی', 'کد اقتصادی', 'کد پستی',
+                    'نشانی', 'شماره سند', 'تاریخ', 'مبلغ', 'تخفیف',
+                    'ارزش افزوده', 'مبلغ کل'];
+      const rows = rep.purchases.detailed.map((r: Row) =>
+        line([r.personType, r.name, r.nationalCode, r.economicCode, r.postalCode,
+              r.address, r.docNo, r.docDateJalali, r.subtotal, r.discount,
+              r.tax, r.total]),
+      );
+      return BOM + [line(head), ...rows].join(CRLF) + CRLF;
+    }
+
+    const head = ['نوع شخص', 'نام', 'شماره/شناسه ملی', 'کد اقتصادی', 'کد پستی',
+                  'نشانی', 'شماره فاکتور', 'تاریخ', 'مبلغ', 'تخفیف',
+                  'ارزش افزوده', 'مبلغ کل'];
+    const rows = rep.sales.detailed.map((r: Row) =>
+      line([r.personType, r.name, r.nationalCode, r.economicCode, r.postalCode,
+            r.address, r.docNo, r.docDateJalali, r.subtotal, r.discount,
+            r.tax, r.total]),
+    );
+
+    // ⚠️ سطرِ تجمیعیِ خرده‌فروشی **در پایان** و فقط اگر مبلغی دارد.
+    //
+    //    سطرِ صفرِ همیشگی، کاربر را وامی‌دارد هر بار تصمیم بگیرد پاکش
+    //    کند یا نه — و روزی اشتباه تصمیم می‌گیرد.
+    const retail = rep.sales.retail;
+    if (Number(retail.total ?? 0) > 0) {
+      rows.push(
+        line(['', 'مصرف‌کننده نهایی (تجمیعی)', '', '', '', '',
+              `${retail.count} فقره`, rep.period.toJalali,
+              retail.subtotal, retail.discount, retail.tax, retail.total]),
+      );
+    }
+    return BOM + [line(head), ...rows].join(CRLF) + CRLF;
+  }
+
   // ------------------------------------------------------- کمکی
   private async rows(sql: string, values: unknown[]) {
     const rows = await this.db.query<Row>(sql, values);

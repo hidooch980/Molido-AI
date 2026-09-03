@@ -19,6 +19,7 @@
     "test:store": "tsx test/store-e2e.ts",
     "test:ledger": "tsx test/ledger-smoke.ts",
     "test:products": "tsx test/product-routes.ts",
+    "gen:schema": "tsx tools/generate-schema.ts",
     "check:schema": "tsx tools/check-schema-drift.ts",
     "db:migrate": "tsx src/database/migrate.ts",
     "seed": "node scripts/seed.mjs",

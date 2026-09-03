@@ -5,6 +5,8 @@ import { AccountingService } from './accounting.service';
 import { LedgerController } from './ledger.controller';
 import { LedgerService } from './ledger.service';
 import { PostingService } from './posting.service';
+import { JournalTemplateController } from './journal-template.controller';
+import { JournalTemplateService } from './journal-template.service';
 
 /**
  * @Global() — هر زیرسیستمی که رویداد مالی دارد (فروش، خرید، دریافت وجه،
@@ -12,8 +14,8 @@ import { PostingService } from './posting.service';
  */
 @Global()
 @Module({
-  controllers: [AccountingController, LedgerController],
-  providers: [AccountingService, LedgerService, PostingService],
-  exports: [AccountingService, LedgerService, PostingService],
+  controllers: [AccountingController, LedgerController, JournalTemplateController],
+  providers: [AccountingService, LedgerService, PostingService, JournalTemplateService],
+  exports: [AccountingService, LedgerService, PostingService, JournalTemplateService],
 })
 export class AccountingModule {}

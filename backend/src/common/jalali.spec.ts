@@ -1,4 +1,5 @@
 import {
+  addJalaliMonths,
   toJalali,
   fromJalali,
   quarterRange,
@@ -6,6 +7,7 @@ import {
   isLeapJalaliYear,
   jalaliMonthLength,
   formatJalali,
+  toTehranDateString,
 } from './jalali';
 
 describe('تقویم جلالی', () => {
@@ -70,6 +72,43 @@ describe('تقویم جلالی', () => {
   it('آغازِ فصل، نیمه‌شبِ تهران است نه نیمه‌شبِ UTC', () => {
     // تهران +۳:۳۰ ⇒ نیمه‌شبِ محلی = ۲۰:۳۰ UTCِ روزِ پیش.
     expect(quarterRange(1405, 1).from.toISOString()).toBe('2026-03-20T20:30:00.000Z');
+  });
+
+  // ⚠️ «ماهِ بعد» با «سی روز بعد» یکی نیست؛ برای سندِ تکرارشونده این
+  //    تفاوت روی هم جمع می‌شود تا یک ماه دو سند بخورد و یکی هیچ.
+  it('ماهِ شمسی می‌افزاید، نه سی روز', () => {
+    const farvardin1 = fromJalali(1405, 1, 1);
+    expect(formatJalali(addJalaliMonths(farvardin1, 1))).toBe('1405/02/01');
+    expect(formatJalali(addJalaliMonths(farvardin1, 12))).toBe('1406/01/01');
+
+    // سی روز بعد از ۱ فروردین = ۳۱ فروردین، نه ۱ اردیبهشت.
+    const thirtyDays = new Date(farvardin1.getTime() + 30 * 86400000);
+    expect(formatJalali(thirtyDays)).toBe('1405/01/31');
+  });
+
+  // ⚠️ ۳۱ فروردین + شش ماه = ۳۰ مهر، چون مهر سی روز دارد.
+  //    بدونِ بریدن، `fromJalali` استثنا می‌داد و سندِ آن ماه صادر نمی‌شد.
+  it('روز را به طولِ ماهِ مقصد می‌بُرد', () => {
+    expect(formatJalali(addJalaliMonths(fromJalali(1405, 1, 31), 6))).toBe('1405/07/30');
+    // اسفندِ ۱۴۰۵ کبیسه نیست ⇒ ۲۹ روز.
+    expect(formatJalali(addJalaliMonths(fromJalali(1405, 1, 31), 11))).toBe('1405/12/29');
+    // اسفندِ ۱۴۰۳ کبیسه است ⇒ ۳۰ روز.
+    expect(formatJalali(addJalaliMonths(fromJalali(1403, 1, 31), 11))).toBe('1403/12/30');
+  });
+
+  it('ماهِ منفی هم درست کار می‌کند', () => {
+    expect(formatJalali(addJalaliMonths(fromJalali(1405, 1, 15), -1))).toBe('1404/12/15');
+    expect(formatJalali(addJalaliMonths(fromJalali(1405, 1, 15), -13))).toBe('1403/12/15');
+  });
+
+  // ⚠️ همان تله‌ای که یک بار خوردم: `fromJalali` نیمه‌شبِ تهران می‌دهد
+  //    (۲۰:۳۰ UTCِ روزِ پیش)، پس `toISOString().slice(0,10)` یک روز عقب
+  //    می‌برد.  سررسیدِ سندِ تکرارشونده هر ماه یک روز عقب می‌رفت.
+  it('تاریخِ میلادی را به وقتِ تهران می‌دهد، نه UTC', () => {
+    const d = fromJalali(1405, 2, 31);
+    expect(toTehranDateString(d)).toBe('2026-05-21');
+    // اثباتِ اینکه راهِ ساده غلط است:
+    expect(d.toISOString().slice(0, 10)).toBe('2026-05-20');
   });
 
   it('ورودیِ نامعتبر را رد می‌کند', () => {

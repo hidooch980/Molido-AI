@@ -155,6 +155,34 @@ export function jalaliMonthLength(jy: number, jm: number): number {
   return isLeapJalaliYear(jy) ? 30 : 29;
 }
 
+/**
+ * افزودنِ ماهِ **شمسی** — نه سی روز.
+ *
+ * ⚠️ «ماهِ بعد» با «سی روز بعد» یکی نیست، و برای سندِ تکرارشونده این
+ *    تفاوت روی هم جمع می‌شود.
+ *
+ *    اجارهٔ اولِ فروردین با افزودنِ سی روز به ۳۱ فروردین می‌رسد، ماهِ
+ *    بعد به ۳۰ اردیبهشت، و تا پایانِ سال چند روز عقب می‌افتد — بعد یک
+ *    ماه دو بار سند می‌خورد و یک ماه هیچ.
+ *
+ * ⚠️ روز به طولِ ماهِ مقصد **بریده** می‌شود.
+ *
+ *    ۳۱ فروردین + شش ماه = ۳۰ مهر، چون مهر سی روز دارد.  بدونِ بریدن،
+ *    `fromJalali` استثنا می‌داد و سندِ آن ماه اصلاً صادر نمی‌شد.
+ *
+ *    توجه: بریدن **برگشت‌پذیر نیست**.  ۳۱ فروردین + ۶ ماه − ۶ ماه
+ *    می‌شود ۳۰ فروردین.  برای سندِ تکرارشونده مهم نیست چون همیشه
+ *    رو به جلو می‌رود، ولی جای دیگری نباید فرض شود.
+ */
+export function addJalaliMonths(date: Date, months: number): Date {
+  const { jy, jm, jd } = toJalali(date);
+  const total = (jy * 12 + (jm - 1)) + months;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const nd = Math.min(jd, jalaliMonthLength(ny, nm));
+  return fromJalali(ny, nm, nd);
+}
+
 export const QUARTER_NAMES = ['بهار', 'تابستان', 'پاییز', 'زمستان'] as const;
 
 /**
@@ -182,6 +210,31 @@ export function quarterRange(jy: number, quarter: number): { from: Date; to: Dat
 export function quarterOf(date: Date): { jy: number; quarter: number } {
   const { jy, jm } = toJalali(date);
   return { jy, quarter: Math.floor((jm - 1) / 3) + 1 };
+}
+
+/**
+ * «۲۰۲۶-۰۴-۲۰» — تاریخِ **میلادی به وقتِ تهران**، برای ستون‌های `DATE`.
+ *
+ * ⚠️ `toISOString().slice(0, 10)` این کار را **نمی‌کند** و یک روز عقب
+ *    می‌برد.
+ *
+ *    `fromJalali` نیمه‌شبِ تهران برمی‌گرداند، که ۲۰:۳۰ UTCِ روزِ پیش
+ *    است.  پس `toISOString()` روزِ قبل را می‌دهد — و سررسیدِ سندِ
+ *    تکرارشونده هر ماه یک روز عقب می‌رفت.
+ *
+ *    این دقیقاً همان تله‌ای است که در آغازِ این ماژول درباره‌اش هشدار
+ *    داده شد، و باز هم خوردمش.  آزمون گرفتش: ۳۱ فروردین + یک ماه
+ *    «۳۰ اردیبهشت» درآمد به‌جای ۳۱.
+ */
+export function toTehranDateString(date: Date): string {
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  // `en-CA` قالبِ YYYY-MM-DD می‌دهد — همان چیزی که ستونِ DATE می‌خواهد.
+  return f.format(date);
 }
 
 /** «۱۴۰۵/۰۶/۱۱» — ارقامِ لاتین، برای کلید و مقایسه. */

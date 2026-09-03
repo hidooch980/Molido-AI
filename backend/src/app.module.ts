@@ -6,6 +6,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TenantInterceptor } from './database/tenant.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { EditionInterceptor } from './subscription/edition.interceptor';
+import { tagFeatureModules } from './subscription/feature-tagging';
 
 import { DatabaseModule } from './database/database.module';
 import { I18nModule } from './i18n/i18n.module';
@@ -180,6 +182,15 @@ const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
 
 };
 
+/**
+ * برچسبِ قابلیت روی کنترلرها می‌نشیند، از روی همین نگاشت.
+ *
+ * ⚠️ در همین فایل و بلافاصله پس از `FEATURE_MODULES` انجام می‌شود تا
+ *    هرکس نگاشت را عوض کرد، گیت را هم دیده باشد.  اگر جای دیگری بود،
+ *    افزودنِ ماژولِ تازه یعنی قابلیتی که فروخته نشده باز می‌ماند.
+ */
+tagFeatureModules(FEATURE_MODULES as unknown as Record<string, unknown[]>);
+
 /** ماژول‌هایی که هر محصولی — فروشگاه، رستوران یا سازمانی — لازم دارد. */
 const CORE_MODULES = [
   DatabaseModule,
@@ -277,6 +288,20 @@ function productModules(): unknown[] {
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    {
+      // ⚠️ گیتِ نسخهٔ فروش — **اینترسپتور**، نه نگهبان.
+      //
+      //    نگهبانِ سراسری پیش از `JwtAuthGuard`ِ کنترلر اجرا می‌شود، پس
+      //    `request.user` هنوز وجود ندارد و گیت هرگز چیزی را نمی‌بست.
+      //    اینترسپتور پس از همهٔ نگهبان‌هاست.
+      //
+      //    مسیرِ بی‌برچسب را باز می‌گذارد، پس هسته دست‌نخورده می‌ماند؛ و
+      //    چون از `FEATURE_MODULES` برچسب می‌گیرد، کنترلرِ تازه
+      //    خودبه‌خود پوشش می‌گیرد.
+      provide: APP_INTERCEPTOR,
+      useClass: EditionInterceptor,
     },
     {
       // زمینهٔ شرکت را برای RLS برقرار می‌کند — پس از Guardها اجرا می‌شود

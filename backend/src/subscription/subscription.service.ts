@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service';
-import { runAsVendor, currentTenant } from '../database/tenant-context';
+import { runAsVendor, runInTenant, currentTenant } from '../database/tenant-context';
 
 export type Subscription = {
   id: string;
@@ -64,7 +64,104 @@ export class SubscriptionService {
       maxUsers: number | null;
       maxBranches: number | null;
       note: string | null;
+      features: string[] | null;
     }>('SELECT * FROM "PlanDefault" ORDER BY "maxUsers" NULLS LAST');
+  }
+
+  // ------------------------------------------------------- قابلیت‌ها
+
+  /**
+   * ⚠️ حافظهٔ کوتاه‌مدت، با **باطل‌سازیِ صریح** هنگام تغییرِ اشتراک.
+   *
+   *    گیتِ قابلیت روی هر درخواستِ برچسب‌دار اجرا می‌شود؛ بدونِ حافظه،
+   *    هر درخواست یک پرس‌وجوی اضافه دارد.
+   *
+   *    ولی حافظهٔ صرفاً زمان‌دار یعنی مشتری پول می‌دهد و تا انقضای
+   *    حافظه همچنان پیامِ «ارتقا بده» می‌گیرد — بدترین لحظهٔ ممکن.
+   *    پس `upsert` حافظه را همان‌جا پاک می‌کند و ارتقا فوری اثر
+   *    می‌کند.  زمان فقط شبکهٔ ایمنی است.
+   */
+  private featureCache = new Map<string, { at: number; features: string[] | null }>();
+  private static readonly CACHE_MS = 30_000;
+
+  /** قابلیت‌های نسخهٔ یک شرکت؛ `null` یعنی بی‌حد. */
+  async featuresFor(companyId: string): Promise<string[] | null> {
+    const hit = this.featureCache.get(companyId);
+    if (hit && Date.now() - hit.at < SubscriptionService.CACHE_MS) {
+      return hit.features;
+    }
+
+    // ⚠️ زمینهٔ مستأجر **این‌جا** برقرار می‌شود، نه با اتکا به اینترسپتور.
+    //
+    //    `EditionInterceptor` تنها مصرف‌کنندهٔ این تابع است و پیش از
+    //    `TenantInterceptor` ثبت شده — یعنی پیش از جایی که
+    //    `app.company_id` نوشته می‌شود.
+    //
+    //    بدونِ این، پرس‌وجو به RLS می‌خورد و **صفر سطر** برمی‌گرداند.
+    //    آن‌وقت `featuresFor` مقدارِ `null` می‌دهد که یعنی «بی‌حد» — و
+    //    گیت هر قابلیتی را باز می‌گذارد.
+    //
+    //    خطا نمی‌داد و لاگ نمی‌زد: فقط همه‌چیز رایگان می‌شد.
+    const rows = await runInTenant(
+      { companyId, userId: null, trackCode: null },
+      () =>
+        this.db.query<{ features: string[] | null }>(
+          `SELECT pd.features
+             FROM "Subscription" s
+             JOIN "PlanDefault" pd ON pd.plan = s.plan
+            WHERE s."companyId" = $1`,
+          [companyId],
+        ),
+    );
+
+    // ⚠️ دو حالتِ متفاوت که هر دو `null` می‌دادند، و همین اشکالِ RLS را
+    //    برای ساعت‌ها پنهان کرد:
+    //
+    //      • شرکتِ **بدونِ اشتراک** ⇒ بی‌حد.  نصبِ درون‌سازمانی اشتراک
+    //        ندارد و نباید از کار بیفتد.  (همان قاعدهٔ `effective()`.)
+    //      • اشتراکِ **پیدانشده** به‌خاطر RLS ⇒ هم `null` می‌داد، و
+    //        گیت همه‌چیز را باز می‌گذاشت.
+    //
+    //    حالا زمینهٔ مستأجر بالاتر برقرار می‌شود، پس «صفر سطر» واقعاً
+    //    یعنی «اشتراکی نیست».  ولی تفاوتشان همچنان لاگ می‌شود تا اگر
+    //    روزی دوباره پیش آمد، ساکت نماند.
+    if (!rows[0]) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[گیت نسخه] شرکت ${companyId} اشتراکی ندارد — همهٔ قابلیت‌ها باز است`,
+      );
+    }
+    const features = rows[0] ? (rows[0].features ?? null) : null;
+    this.featureCache.set(companyId, { at: Date.now(), features });
+    return features;
+  }
+
+  async hasFeature(companyId: string, feature: string): Promise<boolean> {
+    const features = await this.featuresFor(companyId);
+    if (features === null) return true;
+    return features.includes(feature);
+  }
+
+  /** نسخهٔ فعلی، برای پیامِ خطا. */
+  async planFor(companyId: string): Promise<{ plan: string; title: string }> {
+    // همان دلیلِ `featuresFor`: نگهبان پیش از اینترسپتور اجرا می‌شود.
+    const rows = await runInTenant(
+      { companyId, userId: null, trackCode: null },
+      () =>
+        this.db.query<{ plan: string; title: string }>(
+          `SELECT s.plan, pd.title
+             FROM "Subscription" s
+             JOIN "PlanDefault" pd ON pd.plan = s.plan
+            WHERE s."companyId" = $1`,
+          [companyId],
+        ),
+    );
+    return rows[0] ?? { plan: 'NONE', title: 'بدون اشتراک' };
+  }
+
+  /** پس از هر تغییرِ اشتراک صدا زده می‌شود. */
+  invalidateFeatures(companyId: string) {
+    this.featureCache.delete(companyId);
   }
 
   /** اشتراکِ یک شرکت، یا `null` اگر ندارد. */
@@ -233,6 +330,9 @@ export class SubscriptionService {
       [companyId],
     );
     if (!company[0]) throw new NotFoundException('شرکت یافت نشد');
+
+    // نسخه ممکن است عوض شود؛ حافظهٔ قابلیت باید فوری کنار برود.
+    this.invalidateFeatures(companyId);
 
     if (data.plan && !PLANS.includes(data.plan)) {
       throw new BadRequestException(`پلن نامعتبر است. مجاز: ${PLANS.join('، ')}`);

@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { CreateDiscountRuleDto, UpdateDiscountRuleDto } from './dto/discount-rule.dto';
 
 @ApiTags('قوانین تخفیف')
 @ApiBearerAuth()
@@ -25,8 +26,8 @@ export class DiscountRulesController {
 
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@CurrentUser() user: AuthUser, @Body() dto: any) {
-    return this.service.create(user.companyId!, dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateDiscountRuleDto) {
+    return this.service.create(user.companyId!, dto as unknown as Record<string, unknown>);
   }
 
   @Get(':id')
@@ -36,8 +37,8 @@ export class DiscountRulesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {
-    return this.service.update(user.companyId!, id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateDiscountRuleDto) {
+    return this.service.update(user.companyId!, id, dto as unknown as Record<string, unknown>);
   }
 
   @Delete(':id')

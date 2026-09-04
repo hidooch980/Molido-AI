@@ -1,12 +1,25 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
 import { SalesAgentsService } from './sales-agents.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  AuthUser,
+  CurrentUser,
+} from '../common/decorators/current-user.decorator';
 
-@ApiTags('نمایندگان فروش')
+@ApiTags('ویزیتور و کمیسیون')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sales-agents')
@@ -18,9 +31,19 @@ export class SalesAgentsController {
     return this.service.stats(user.companyId!);
   }
 
+  @Get('commissions')
+  commissions(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
+    return this.service.commissions(user.companyId!, period);
+  }
+
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query() q: any) {
-    return this.service.findAll(user.companyId!, q);
+  findAll(@CurrentUser() user: AuthUser) {
+    return this.service.findAll(user.companyId!);
+  }
+
+  @Get(':id')
+  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.service.findOne(user.companyId!, id);
   }
 
   @Post()
@@ -29,20 +52,26 @@ export class SalesAgentsController {
     return this.service.create(user.companyId!, dto);
   }
 
-  @Get(':id')
-  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.service.findOne(user.companyId!, id);
-  }
-
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: any) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
     return this.service.update(user.companyId!, id, dto);
   }
 
-  @Delete(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN')
-  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.service.remove(user.companyId!, id);
+  /** محاسبهٔ کمیسیون یک دوره؛ تکرار برای همان دوره بی‌خطر است. */
+  @Post('commissions/calculate')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  calculate(@CurrentUser() user: AuthUser, @Body() dto: { period?: string }) {
+    return this.service.calculate(user.companyId!, user.userId, dto?.period);
+  }
+
+  @Patch('commissions/:id/pay')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  markPaid(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.service.markPaid(user.companyId!, id);
   }
 }

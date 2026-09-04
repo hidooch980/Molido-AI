@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useI18n } from '../lib/i18n-context';
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -14,6 +15,7 @@ type InstallPrompt = Event & {
  * • آیفون (Safari): این رویداد وجود ندارد، پس راهنمای دستی نمایش داده می‌شود
  */
 export default function ServiceWorkerRegistrar() {
+  const { t } = useI18n();
   const [deferred, setDeferred] = useState<InstallPrompt | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
   const [dismissed, setDismissed] = useState(true);
@@ -84,7 +86,7 @@ export default function ServiceWorkerRegistrar() {
       <div className="install-icon">📱</div>
 
       <div className="install-text">
-        <strong>نصب Molido AI</strong>
+        <strong>{t('pwaInstallTitle')}</strong>
         <span>
           {deferred
             ? 'روی دستگاه خود نصب کنید تا مثل اپ باز شود'
@@ -95,11 +97,11 @@ export default function ServiceWorkerRegistrar() {
       <div className="install-actions">
         {deferred ? (
           <button type="button" onClick={() => void install()}>
-            نصب
+            {t('pwaInstall')}
           </button>
         ) : null}
         <button type="button" className="ghost" onClick={hide}>
-          بستن
+          {t('vsClose')}
         </button>
       </div>
     </div>

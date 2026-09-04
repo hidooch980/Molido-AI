@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 
+import { PricingModule } from '../pricing/pricing.module';
+import { TaxModule } from '../tax/tax.module';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 
-import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
-    PrismaModule,
+    PricingModule,
+    TaxModule,
   ],
   controllers: [
     SalesController,

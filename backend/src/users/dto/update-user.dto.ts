@@ -37,4 +37,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(['ACTIVE', 'INACTIVE', 'SUSPENDED'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar?: string;
 }

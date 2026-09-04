@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+#
+# پیکرهٔ صوتی بلوچی — ساخت دادهٔ آموزش تشخیص گفتار.
+#
+# هیچ موتور گفتار بلوچی وجود ندارد و دلیلش نبودِ داده است، نه نبودِ
+# الگوریتم.  این ماژول همان داده را از فهرست کالای فروشگاه می‌سازد.
+#
+# ⚠️ متن فارسی/بلوچی از راه **فایل** فرستاده می‌شود نه `curl -d`:
+#    پوستهٔ ویندوز متن غیرلاتین را در argv به علامت سؤال تبدیل می‌کند.
+
+cd "$(dirname "$0")/../.." || exit 1
+A=${MOLIDO_API:-http://localhost:3000}
+PW=${MOLIDO_ADMIN_PASSWORD:-admin123}
+C=${MOLIDO_COMPOSE:-"docker compose -f docker-compose.yml -f docker-compose.store.yml"}
+
+T=${MOLIDO_TOKEN:-$(curl -s -X POST $A/auth/login -H 'Content-Type: application/json' \
+  -d "{\"email\":\"admin@molido.ai\",\"password\":\"$PW\"}" \
+  | python3 -c "import sys,json;print(json.load(sys.stdin).get('accessToken',''))" 2>/dev/null)}
+if [ -z "$T" ]; then
+  echo "  ✗ ورود ناموفق"
+  exit 1
+fi
+AU="Authorization: Bearer $T"; JS="Content-Type: application/json"
+# ⚠️ رمزگذاری **ورودی** هم باید صریح باشد.
+#
+# پایتون روی ویندوز stdin را با صفحه‌کد سیستم می‌خواند نه UTF-8؛ JSON
+# فارسیِ سرور دوباره کدگذاری می‌شد و هر مقایسهٔ متن فارسی بی‌صدا
+# شکست می‌خورد.  چون هیچ آزمون دیگری متن فارسیِ JSON را مقایسه
+# نمی‌کرد، این ایراد تا امروز دیده نشده بود.
+P() { python3 -c "
+import sys,json,io
+sys.stdin=io.TextIOWrapper(sys.stdin.buffer,encoding='utf-8')
+sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8')
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+except ValueError:
+    # پاسخ JSON نبود: خالی، ۴۲۹ بی‌بدنه، یا اتصال قطع‌شده.  بدون این
+    # برچسب، خروجیِ خالی در گزارش شبیه اشکال منطقی به نظر می‌رسید.
+    # برچسب باید بی‌گیومه و بی‌بک‌اسلش باشد: این مقدار در عبارتِ
+    # پایتونِ سنجهٔ بعدی جاگذاری می‌شود و اگر گیومه داشته باشد نحو
+    # را می‌شکند — یعنی برچسبِ تشخیصی، خودش شکست تازه می‌سازد.
+    bad = chr(39) + chr(34) + chr(92)
+    safe = ''.join(c for c in raw[:40] if c.isprintable() and c not in bad)
+    print('<<پاسخ-JSON-نبود: %d نویسه: %s>>' % (len(raw), safe)); sys.exit(0)
+print($1)"; }
+
+pass=0; fail=0
+chk() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf '  OK   %s\n' "$1"; else fail=$((fail+1)); printf '  FAIL %s (got=%s want=%s)\n' "$1" "$2" "$3"; fi; }
+psql()  { $C exec -T postgres psql -U postgres -d molido_ai -q -c "$1" >/dev/null 2>&1; }
+psqlv() { $C exec -T postgres psql -U postgres -d molido_ai -tAc "$1" 2>/dev/null | tr -d '\r'; }
+
+# ⚠️ آزمون روی زبان جداگانه کار می‌کند، نه روی 'bal'.
+#
+# پاک‌سازیِ پایان، عبارت‌ها را حذف می‌کند.  اگر همان زبانِ واقعی باشد،
+# اجرای رگرسیون روی یک نصبِ زنده ماه‌ها ضبطِ فروشندگان را از بین
+# می‌برد — و هیچ‌کس تا روزِ آموزش نمی‌فهمد.
+L=voicetst
+
+TMPD=$(mktemp -d)
+trap 'rm -rf "$TMPD"' EXIT
+# ارسال بدنهٔ فارسی از فایل — argv پوسته دست‌نخورده می‌ماند.
+jpost() { curl -s -X "$1" "$2" -H "$AU" -H "$JS" --data-binary "@$3"; }
+
+psql "DELETE FROM \"VoiceSample\" WHERE \"speakerTag\" LIKE 'VT-%';
+      DELETE FROM \"VoicePhrase\" WHERE lang = 'voicetst';
+      DELETE FROM \"Product\" WHERE sku LIKE 'VOICE-TEST-%';"
+
+# کالاهایی که نامشان حرف عربی دارد — تا بازنویسی املای بلوچی آزموده شود.
+cat > "$TMPD/p1.json" <<'EOF'
+{"name":"صابون","sku":"VOICE-TEST-1","unit":"pcs","salePrice":50000,"purchasePrice":30000}
+EOF
+cat > "$TMPD/p2.json" <<'EOF'
+{"name":"نان","sku":"VOICE-TEST-2","unit":"pcs","salePrice":20000,"purchasePrice":12000}
+EOF
+jpost POST $A/products "$TMPD/p1.json" >/dev/null
+jpost POST $A/products "$TMPD/p2.json" >/dev/null
+# کالای سوم عمداً نه در واژه‌نامه است نه دستی تغییر می‌کند.
+cat > "$TMPD/p3.json" <<'EOF'
+{"name":"شامپو سر و بدن","sku":"VOICE-TEST-3","unit":"pcs","salePrice":90000,"purchasePrice":60000}
+EOF
+jpost POST $A/products "$TMPD/p3.json" >/dev/null
+
+echo '--- 1) فهرست گویش‌ها ---'
+D=$(curl -s "$A/voice/dialects" -H "$AU")
+chk "سه گویش" "$(echo "$D" | P "len(d)")" "3"
+chk "سرحدی هست" "$(echo "$D" | P "'SARHADDI' in [x['code'] for x in d]")" "True"
+chk "برچسب فارسی دارد" \
+  "$(echo "$D" | P "[x['label'] for x in d if x['code']=='MAKRANI'][0]")" "مکرانی"
+
+echo '--- 2) ساخت عبارت‌ها ---'
+B=$(curl -s -X POST "$A/voice/phrases/build?lang=$L" -H "$AU")
+chk "گویش پیش‌فرض سرحدی" "$(echo "$B" | P "d.get('dialect')")" "SARHADDI"
+# ۳۰ عدد پایه + ۱۵ عبارت (۱۰ تماس با بنکدار + ۵ اعلام کسری) + کالاها
+chk "اعداد و عبارت‌ها ساخته شدند" \
+  "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind IN ('NUMBER','COMMAND') AND dialect='SARHADDI'")" "45"
+chk "کالاها ساخته شدند" \
+  "$(psqlv "SELECT count(*)>=2 FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind='PRODUCT' AND dialect='SARHADDI'")" "t"
+
+echo '--- 3) ساخت دوباره، تکراری نمی‌سازد ---'
+# عبارت تکراری یعنی ضبط‌ها بین دو ردیف پخش می‌شوند و هیچ‌کدام به حد
+# نصاب نمی‌رسند — خطایی که تا روز آموزش دیده نمی‌شود.
+curl -s -X POST "$A/voice/phrases/build?lang=$L" -H "$AU" >/dev/null
+chk "بدون تکرار" \
+  "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind IN ('NUMBER','COMMAND') AND dialect='SARHADDI'")" "45"
+
+echo '--- 3b) ردیف یتیم پاک می‌شود، ولی نه اگر ضبط داشته باشد ---'
+# شناسهٔ شرکت از خودِ عبارت‌های ساخته‌شده گرفته می‌شود، نه حدس:
+# نصب‌های مختلف شناسهٔ متفاوت دارند.
+CO=$(psqlv "SELECT \"companyId\" FROM \"VoicePhrase\" WHERE lang='voicetst' LIMIT 1")
+# `ON CONFLICT DO NOTHING` فقط اضافه می‌کرد.  وقتی فهرست پایه عوض شد —
+# فرمان‌های صندوق جای خود را به عبارت‌های تماس با بنکدار دادند — ده
+# ردیف قدیمی در پایگاه داده ماندند و هیچ خطایی نداد.  «۷ عبارت بدون
+# متن» گزارش می‌شد که اصلاً عبارتِ زنده نبودند.
+psql "INSERT INTO \"VoicePhrase\" (id, \"companyId\", lang, dialect, kind, \"textFa\", \"sortOrder\")
+      VALUES ('vt-orphan-1', '$CO', 'voicetst', 'SARHADDI', 'COMMAND', 'فرمانِ مرده', 900),
+             ('vt-orphan-2', '$CO', 'voicetst', 'SARHADDI', 'COMMAND', 'فرمانِ ضبط‌شده', 901)"
+# یکی‌شان ضبط دارد؛ کارِ انجام‌شدهٔ یک آدم است و نباید دور ریخته شود.
+psql "INSERT INTO \"VoiceSample\" (id, \"companyId\", \"phraseId\", \"speakerTag\", \"audioUrl\", \"durationMs\")
+      VALUES ('vt-smp-orphan', '$CO', 'vt-orphan-2', 'گویندهٔ آزمون', 'x/y.webm', 1000)"
+
+R=$(curl -s -X POST "$A/voice/phrases/build?lang=$L" -H "$AU")
+chk "یتیمِ بی‌ضبط حذف شد"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE id='vt-orphan-1'")" "0"
+chk "یتیمِ ضبط‌دار نگه داشته شد"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE id='vt-orphan-2'")" "1"
+chk "حذف‌شده گزارش می‌شود"   "$(echo "$R" | P "'فرمانِ مرده' in d.get('removed', [])")" "True"
+# گزارش‌شدن مهم است: عبارتی که ضبط دارد ولی از فهرست بیرون رفته، تصمیمِ
+# آدم می‌خواهد نه حذف خودکار.
+chk "یتیمِ ضبط‌دار گزارش می‌شود"   "$(echo "$R" | P "'فرمانِ ضبط‌شده' in d.get('orphansWithSamples', [])")" "True"
+chk "عبارت‌های واقعی دست‌نخوردند"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind IN ('NUMBER','COMMAND') AND dialect='SARHADDI' AND \"textFa\" <> 'فرمانِ ضبط‌شده'")" "45"
+
+psql "DELETE FROM \"VoiceSample\" WHERE id='vt-smp-orphan'"
+psql "DELETE FROM \"VoicePhrase\" WHERE id='vt-orphan-2'"
+
+echo '--- 4) گویش نامعتبر رد می‌شود ---'
+chk "گویش ناشناس ۴۰۰" \
+  "$(curl -s -X POST "$A/voice/phrases/build?lang=$L&dialect=BALOCHI" -H "$AU" | P "d.get('statusCode')")" "400"
+chk "گویش خالی، پیش‌فرض" \
+  "$(curl -s -X POST "$A/voice/phrases/build?lang=$L&dialect=" -H "$AU" | P "d.get('dialect')")" "SARHADDI"
+
+echo '--- 5) گویش‌ها از هم جدا هستند ---'
+curl -s -X POST "$A/voice/phrases/build?lang=$L&dialect=MAKRANI" -H "$AU" >/dev/null
+chk "مکرانی جدا ساخته شد" \
+  "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind='COMMAND' AND dialect='MAKRANI'")" "15"
+chk "سرحدی دست‌نخورد" \
+  "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind='COMMAND' AND dialect='SARHADDI'")" "15"
+
+echo '--- 6) ورود واژه‌نامه ---'
+cat > "$TMPD/dict.json" <<'EOF'
+{"csv":"فارسی,بلوچی\nنان,نگن\nآب,آپ\nیک,یک\nدو,دو\nسلام,سلام\nهیچ‌کالایی,نداریم\n","dialect":"SARHADDI","lang":"voicetst"}
+EOF
+DI=$(jpost POST $A/voice/dictionary "$TMPD/dict.json")
+chk "واژه‌ها خوانده شدند" "$(echo "$DI" | P "d.get('words')")" "6"
+chk "گویش در پاسخ می‌آید" "$(echo "$DI" | P "d.get('dialect')")" "SARHADDI"
+# «نان» کالاست، «یک»/«دو» عددند، «سلام» عبارت — چهار تطبیق.
+chk "تطبیق با عبارت‌ها" "$(echo "$DI" | P "d.get('matched')>=4")" "True"
+chk "متن بلوچیِ نان ثبت شد" \
+  "$(psqlv "SELECT \"textTarget\" FROM \"VoicePhrase\" WHERE lang='voicetst' AND \"textFa\"='نان' AND dialect='SARHADDI'")" "نگن"
+
+# «۳۳ مورد تطبیق شد» چیزی برای بازبینی نمی‌دهد.  واژه‌نامه‌های بلوچیِ
+# در دسترس با گذر از انگلیسی ساخته می‌شوند و گذر، ابهام فارسی را به
+# خطا بدل می‌کند — کسی باید ببیند چه چیزی عوض شد.
+chk "فهرست تغییرها برمی‌گردد" "$(echo "$DI" | P "len(d.get('changes',[]))==d['matched']")" "True"
+chk "فرمان‌ها اول بازبینی می‌شوند" "$(echo "$DI" | P "d['changes'][0]['kind']")" "COMMAND"
+chk "هر تغییر متن بلوچی‌اش را می‌گوید" "$(echo "$DI" | P "all(c.get('textTarget') for c in d['changes'])")" "True"
+
+echo '--- 7) واژه‌نامه گویش دیگر را آلوده نمی‌کند ---'
+chk "مکرانی هنوز خالی" \
+  "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND dialect='MAKRANI' AND kind <> 'PRODUCT' AND \"textTarget\" IS NOT NULL")" "0"
+
+echo '--- 8) سطر ناقص گزارش می‌شود نه نادیده ---'
+cat > "$TMPD/bad.json" <<'EOF'
+{"csv":"فارسی,بلوچی\nشیر,\n,چیزی\nنان,نگن\n"}
+EOF
+BD=$(jpost POST $A/voice/dictionary "$TMPD/bad.json")
+chk "دو سطر رد شد" "$(echo "$BD" | P "d.get('skipped')")" "2"
+chk "دلیل رد گفته شد" "$(echo "$BD" | P "len(d.get('skippedRows',[]))")" "2"
+
+echo '--- 9) فایل خالی رد می‌شود ---'
+cat > "$TMPD/empty.json" <<'EOF'
+{"csv":"   ","lang":"voicetst"}
+EOF
+chk "واژه‌نامهٔ خالی ۴۰۰" "$(jpost POST $A/voice/dictionary "$TMPD/empty.json" | P "d.get('statusCode')")" "400"
+
+echo '--- 10) پیشنهاد املای بلوچی ---'
+SG=$(curl -s "$A/voice/phrases/suggest?lang=$L" -H "$AU")
+chk "عدد پیشنهاد دارد" \
+  "$(echo "$SG" | P "[x['suggestion'] for x in d if x['textFa']=='\u0635\u062f'][0]")" "سد"
+chk "دلیل تغییر گفته می‌شود" \
+  "$(echo "$SG" | P "'\u0635 \u2190 \u0633' in [x for y in d if y['textFa']=='\u0635\u062f' for x in y['notes']]")" "True"
+chk "عبارت بدون حرف عربی پیشنهاد ندارد" \
+  "$(echo "$SG" | P "any(x['textFa']=='پرداخت' for x in d)")" "False"
+
+echo '--- 11) پیشنهاد چیزی ذخیره نمی‌کند ---'
+# واژه‌ای که ماشین حدس زده و آدمی ندیده، از خالی بودنش بدتر است.
+chk "عبارت هنوز متن بلوچی ندارد" \
+  "$(psqlv "SELECT coalesce(\"textTarget\",'NULL') FROM \"VoicePhrase\" WHERE lang='voicetst' AND \"textFa\"='کمتر کن' AND dialect='SARHADDI'")" "NULL"
+
+echo '--- 12) تأیید دستی متن بلوچی ---'
+PID=$(psqlv "SELECT id FROM \"VoicePhrase\" WHERE lang='voicetst' AND \"textFa\"='صابون' AND dialect='SARHADDI'")
+cat > "$TMPD/target.json" <<'EOF'
+{"textTarget":"سابون"}
+EOF
+jpost PATCH "$A/voice/phrases/$PID" "$TMPD/target.json" >/dev/null
+chk "متن بلوچی ثبت شد" \
+  "$(psqlv "SELECT \"textTarget\" FROM \"VoicePhrase\" WHERE lang='voicetst' AND id='$PID'")" "سابون"
+
+echo '--- 13) ضبط صدا ---'
+S1=$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+  -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/uploads/voice/vt1.webm\",\"speakerTag\":\"VT-A\",\"durationMs\":1400}")
+SID=$(echo "$S1" | P "d.get('id','')")
+chk "ضبط ثبت شد" "$([ -n "$SID" ] && echo yes || echo no)" "yes"
+chk "وضعیت اولیه در انتظار" "$(echo "$S1" | P "d.get('status')")" "PENDING"
+
+echo '--- 14) ضبط برای عبارت ناموجود ---'
+chk "عبارت ناموجود ۴۰۴" \
+  "$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+     -d '{"phraseId":"no-such-phrase","audioUrl":"/x.webm","speakerTag":"VT-A"}' | P "d.get('statusCode')")" "404"
+
+echo '--- 15) ضبط بی‌کیفیت رد می‌شود ---'
+# کوتاه‌تر از ۲۰۰ms معمولاً کلیک دکمه است و بلندتر از ۳۰s یعنی
+# میکروفن باز مانده — هر دو مدل را بدتر می‌کنند نه بهتر.
+chk "ضبط خیلی کوتاه ۴۰۰" \
+  "$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+     -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/x.webm\",\"speakerTag\":\"VT-A\",\"durationMs\":50}" | P "d.get('statusCode')")" "400"
+chk "ضبط خیلی بلند ۴۰۰" \
+  "$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+     -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/x.webm\",\"speakerTag\":\"VT-A\",\"durationMs\":45000}" | P "d.get('statusCode')")" "400"
+chk "گویندهٔ بی‌نام ۴۰۰" \
+  "$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+     -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/x.webm\",\"speakerTag\":\"  \"}" | P "d.get('statusCode')")" "400"
+
+echo '--- 16) صف بازبینی ---'
+chk "ضبط در صف است" \
+  "$(curl -s "$A/voice/samples/pending?lang=$L" -H "$AU" | P "sum(1 for x in d if x['speakerTag']=='VT-A')")" "1"
+
+echo '--- 17) رد ضبط، دلیل نگه می‌دارد ---'
+curl -s -X PATCH "$A/voice/samples/$SID" -H "$AU" -H "$JS" \
+  -d '{"approved":false,"reason":"noisy"}' >/dev/null
+chk "وضعیت رد شد" "$(psqlv "SELECT status FROM \"VoiceSample\" WHERE id='$SID'")" "REJECTED"
+chk "دلیل ثبت شد" "$(psqlv "SELECT \"rejectReason\" FROM \"VoiceSample\" WHERE id='$SID'")" "noisy"
+chk "از صف بازبینی رفت" \
+  "$(curl -s "$A/voice/samples/pending?lang=$L" -H "$AU" | P "sum(1 for x in d if x['speakerTag']=='VT-A')")" "0"
+
+echo '--- 18) ضبط رد‌شده در مانیفست نمی‌آید ---'
+chk "مانیفست خالی" \
+  "$(curl -s "$A/voice/manifest?lang=$L" -H "$AU" | P "sum(1 for x in d if x['speaker']=='VT-A')")" "0"
+
+echo '--- 19) پنج ضبط از سه گوینده ---'
+for i in 1 2 3 4 5; do
+  case $i in 1|2) SP=VT-A ;; 3|4) SP=VT-B ;; *) SP=VT-C ;; esac
+  ID=$(curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS" \
+    -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/uploads/voice/vt-$i.webm\",\"speakerTag\":\"$SP\",\"durationMs\":1500}" \
+    | P "d.get('id','')")
+  curl -s -X PATCH "$A/voice/samples/$ID" -H "$AU" -H "$JS" -d '{"approved":true}' >/dev/null
+done
+chk "پنج ضبط تأیید شد" \
+  "$(psqlv "SELECT count(*) FROM \"VoiceSample\" WHERE \"phraseId\"='$PID' AND status='APPROVED'")" "5"
+
+echo '--- 20) مانیفست، متن بلوچی می‌دهد نه فارسی ---'
+M=$(curl -s "$A/voice/manifest?lang=$L" -H "$AU")
+chk "پنج سطر در مانیفست" "$(echo "$M" | P "sum(1 for x in d if x['speaker'].startswith('VT-'))")" "5"
+chk "متن بلوچی است" "$(echo "$M" | P "[x['text'] for x in d if x['speaker'].startswith('VT-')][0]")" "سابون"
+chk "گویش در مانیفست هست" \
+  "$(echo "$M" | P "[x['dialect'] for x in d if x['speaker'].startswith('VT-')][0]")" "SARHADDI"
+
+echo '--- 21) وضعیت آمادگی ---'
+ST=$(curl -s "$A/voice/status?lang=$L" -H "$AU")
+chk "سه گوینده شمرده شد" "$(echo "$ST" | P "d.get('speakers')")" "3"
+chk "یک عبارت کامل" "$(echo "$ST" | P "d.get('ready')")" "1"
+chk "گویش گزارش می‌شود" "$(echo "$ST" | P "d.get('dialectLabel')")" "سرحدی"
+# سخت‌گیرانه: عبارتی که داده ندارد در مدل به عبارت مشابهش نگاشت
+# می‌شود — یعنی «برنج» می‌گویی و «بربری» اضافه می‌شود.
+chk "با یک عبارت آماده نیست" "$(echo "$ST" | P "d.get('canTrain')")" "False"
+chk "کمبودها فهرست می‌شوند" "$(echo "$ST" | P "len(d.get('gaps',[]))>0")" "True"
+chk "دلیل کمبود گفته می‌شود" \
+  "$(echo "$ST" | P "any('ضبط' in g['reason'] for g in d['gaps'])")" "True"
+
+echo '--- 22) وضعیت هر گویش جداست ---'
+chk "مکرانی هیچ عبارت کاملی ندارد" \
+  "$(curl -s "$A/voice/status?lang=$L&dialect=MAKRANI" -H "$AU" | P "d.get('ready')")" "0"
+
+echo '--- ۲۵) نام کالا فارسی می‌ماند ---'
+# صندوق‌دار بلوچ هم «شامپو» را «شامپو» می‌گوید.  اگر منتظر ترجمه
+# بمانیم، نام کالاها هیچ‌وقت ضبط نمی‌شوند — چون بدون متن هدف، گوینده
+# نمی‌داند چه بگوید.
+chk "کالا خودکار متن هدف دارد"   "$(psqlv "SELECT count(*) FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind='PRODUCT' AND \"textTarget\" IS NULL")" "0"
+# ولی واژه‌نامه می‌تواند رویش را بگیرد.  «نان» هم کالاست هم واژهٔ
+# اصیل بلوچی (نگن)؛ قاعدهٔ «فارسی بماند» پیش‌فرض است نه حکم، وگرنه
+# ترجمهٔ واقعی را دور می‌ریخت.
+chk "واژه‌نامه می‌تواند نام کالا را ترجمه کند" "$(psqlv "SELECT \"textTarget\" FROM \"VoicePhrase\" WHERE lang='voicetst' AND dialect='SARHADDI' AND kind='PRODUCT' AND \"textFa\"='نان'")" "نگن"
+chk "کالای بی‌ترجمه، فارسی می‌ماند" "$(psqlv "SELECT \"textTarget\"=\"textFa\" FROM \"VoicePhrase\" WHERE lang='voicetst' AND dialect='SARHADDI' AND kind='PRODUCT' AND \"textFa\"='شامپو سر و بدن'")" "t"
+# عدد و فرمان نباید خودکار پر شوند: «سه» در بلوچی «سئی» است و پر
+# کردنش با فارسی یعنی مدل چیز اشتباهی یاد می‌گیرد.
+chk "عدد خودکار پر نمی‌شود"   "$(psqlv "SELECT count(*)>0 FROM \"VoicePhrase\" WHERE lang='voicetst' AND kind='NUMBER' AND \"textTarget\" IS NULL")" "t"
+chk "پیشنهاد املا برای کالا نمی‌دهد"   "$(curl -s "$A/voice/phrases/suggest?lang=$L" -H "$AU" | P "any(x['kind']=='PRODUCT' for x in d)")" "False"
+
+
+echo '--- ۲۴) صف هر گوینده جداست (حالت ضبط پیوسته) ---'
+# حد نصاب ۵ ضبط از ۳ گوینده است.  گوینده‌ای که عبارتی را گفته باید
+# برود سراغ بعدی، نه اینکه دوباره همان را بگوید — وگرنه ۶۹۰ ضبط لازم
+# هرگز کامل نمی‌شود و کسی نمی‌فهمد چرا.
+Q() { curl -s "$A/voice/phrases?lang=$L&speakerTag=$1" -H "$AU" | P "len([p for p in d if p['textTarget'] and int(p.get('mine',0))==0])"; }
+
+B4=$(Q SPK-A)
+chk "صف اولیهٔ گوینده" "$([ "$B4" -gt 0 ] && echo yes || echo no)" "yes"
+
+curl -s -X POST "$A/voice/samples" -H "$AU" -H "$JS"   -d "{\"phraseId\":\"$PID\",\"audioUrl\":\"/uploads/q.webm\",\"speakerTag\":\"SPK-A\",\"durationMs\":900}" >/dev/null
+
+chk "صف پس از ضبط یکی کم شد" "$(Q SPK-A)" "$((B4-1))"
+chk "گویندهٔ دیگر دست‌نخورد" "$(Q SPK-B)" "$B4"
+
+# ضبط ردشده نباید عبارت را از صف بیرون نگه دارد؛ گوینده باید دوباره بگوید.
+RID=$(psqlv "SELECT id FROM \"VoiceSample\" WHERE \"speakerTag\"='SPK-A' LIMIT 1")
+curl -s -X PATCH "$A/voice/samples/$RID" -H "$AU" -H "$JS" -d '{"approved":false,"reason":"noisy"}' >/dev/null
+chk "ضبط ردشده دوباره به صف برمی‌گردد" "$(Q SPK-A)" "$B4"
+
+psql "DELETE FROM \"VoiceSample\" WHERE \"speakerTag\" LIKE 'SPK-%';"
+
+
+echo '--- 22b) منبعِ متن، آموزش را قفل می‌کند ---'
+# ستون `source` به پرسشی جواب می‌دهد که تا امروز نمی‌شد پرسید: این متن
+# بلوچی از کجا آمده — ترجمهٔ حرفه‌ای، وام‌واژهٔ عمدی، یا حدسِ ماشین؟
+#
+# هر سه در پایگاه داده یک شکل داشتند، یعنی حدسِ اشتباه دقیقاً مثل
+# ترجمهٔ درست وارد مدل می‌شد و هیچ ردی نمی‌گذاشت.
+
+# ⚠️ `source` عمداً از API قابل تنظیم نیست.  اگر بود، هر کسی می‌توانست
+#    حدس را «تأییدشده» علامت بزند و همین قفل را دور بزند.
+chk "source از API قابل تنظیم نیست" \
+  "$(curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" \
+     -d '{"textTarget":"سوپ","source":"GATITOS"}' | P "d.get('statusCode', 'پذیرفت')")" "400"
+
+# متنی که آدم می‌نویسد تأییدشده است — تنها راه رسیدن به HUMAN.
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":"سوپ"}' >/dev/null
+chk "نوشتنِ آدم → HUMAN" \
+  "$(psqlv "SELECT source FROM \"VoicePhrase\" WHERE id='$PID'")" "HUMAN"
+
+# پاک کردن متن برچسب را پس می‌گیرد: عبارت بی‌متن تأییدشده نیست.
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":""}' >/dev/null
+chk "پاک کردن متن → UNVERIFIED" \
+  "$(psqlv "SELECT source FROM \"VoicePhrase\" WHERE id='$PID'")" "UNVERIFIED"
+
+curl -s -X PATCH "$A/voice/phrases/$PID" -H "$AU" -H "$JS" -d '{"textTarget":"سوپ"}' >/dev/null
+psql "UPDATE \"VoicePhrase\" SET source='UNVERIFIED' WHERE id='$PID'"
+chk "علتِ تأییدنشده گفته می‌شود" \
+  "$(curl -s "$A/voice/status?lang=$L" -H "$AU" | P "any('تأییدنشده' in g['reason'] for g in d['gaps'])")" "True"
+chk "با متن تأییدنشده آموزش قفل است" \
+  "$(curl -s "$A/voice/status?lang=$L" -H "$AU" | P "d['canTrain']")" "False"
+
+echo '--- 23) بدون توکن ---'
+chk "بدون توکن ۴۰۱" "$(curl -s "$A/voice/status" | P "d.get('statusCode')")" "401"
+
+psql "DELETE FROM \"VoiceSample\" WHERE \"speakerTag\" LIKE 'VT-%';
+      DELETE FROM \"VoicePhrase\" WHERE lang = 'voicetst';
+      DELETE FROM \"Product\" WHERE sku LIKE 'VOICE-TEST-%';"
+
+echo
+echo "PASS: $pass  FAIL: $fail"
+[ $fail -eq 0 ]

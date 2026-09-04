@@ -1,0 +1,101 @@
+# استقرار روی سرور اینترنتی.
+#
+# تفاوت اصلی با نصب محلی: **هیچ سرویسی پورت خودش را روی اینترنت باز
+# نمی‌کند.**  تنها ۸۰ و ۴۴۳ از Caddy بیرون است؛ بک‌اند، وب، پستگرس و n8n
+# فقط داخل شبکهٔ داکر شنونده‌اند.
+#
+# اجرا:
+#   bash deploy-vps.sh
+#
+# یا دستی:
+#   docker compose -f docker-compose.yml -f docker-compose.store.yml \
+#                  -f docker-compose.vps.yml up -d
+
+services:
+  # پورت‌ها را می‌بندیم.  در نصب محلی باز بودنشان راحتی است؛ روی سرور
+  # اینترنتی یعنی پستگرس و n8n مستقیم از بیرون در دسترس‌اند.
+  postgres:
+    ports: !override []
+
+  backend:
+    ports: !override []
+    environment:
+      # پشت proxy، نشانی واقعی کاربر در X-Forwarded-For است.  بدون این،
+      # محدودیت نرخ برای همه یک سطل مشترک می‌شود و یک نفر می‌تواند صندوق
+      # بقیه را قفل کند.  «۱» یعنی فقط به proxy بلافصل (Caddy) اعتماد کن.
+      #
+      # ⚠️ **با CDN جلوی سرور باید «۲» شود.**
+      #
+      #    آروان‌کلاود (یا هر CDN) یک پرشِ دیگر اضافه می‌کند:
+      #        مشتری → آروان → Caddy → برنامه
+      #    با مقدار «۱» برنامه فقط به Caddy اعتماد می‌کند و نشانیِ
+      #    **لبهٔ آروان** را «کاربر» می‌بیند — یعنی همهٔ مشتری‌ها یک
+      #    سطلِ نرخ مشترک می‌شوند و اولین کسی که چند بار اشتباه وارد
+      #    شود، ورودِ همه را می‌بندد.
+      #
+      #    و هیچ خطایی هم نمی‌دهد؛ فقط ۴۲۹های بی‌دلیل.
+      #
+      #    ⚠️ زیاد گذاشتنش هم بد است: عددِ بزرگ‌تر از تعدادِ واقعیِ
+      #       پراکسی‌ها یعنی هرکسی می‌تواند X-Forwarded-For جعل کند و
+      #       از سقفِ نرخ فرار کند.  دقیقاً به تعدادِ پرش‌ها.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      CORS_ORIGIN: ${PUBLIC_URL}
+      NODE_ENV: production
+      # seed داخل همین کانتینر اجرا می‌شود.  بودنِ ADMIN_PASSWORD در .env
+      # کافی نیست — آن فقط برای جای‌گذاری در compose است، نه محیط کانتینر.
+      # بدون این خط، نصب با رمز پیش‌فرض بالا می‌آمد در حالی که اسکریپت
+      # رمز قوی ساخته بود.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+  web:
+    ports: !override []
+    build:
+      args:
+        # مرورگر با همین نشانی به API می‌زند.  چون Caddy مسیر /api را به
+        # بک‌اند می‌دهد، همه‌چیز از یک مبدأ می‌آید و CORS بی‌موضوع می‌شود.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_URL}/api
+
+  n8n:
+    ports: !override []
+    environment:
+      # از بیرون در دسترس نیست؛ برای کار با آن از تونل SSH استفاده کنید:
+      #   ssh -L 5678:localhost:5678 root@SERVER
+      WEBHOOK_URL: ${PUBLIC_URL}/n8n/
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      MOLIDO_HOST: ${MOLIDO_HOST}
+      # با دامنه خالی می‌ماند تا Caddy خودش Let's Encrypt بگیرد؛ با آی‌پی
+      # مقدارش `tls internal` است (گواهی خودامضا).
+      MOLIDO_TLS: ${MOLIDO_TLS:-}
+      # کل دستور، نه فقط نشانی: با آی‌پی خالی می‌ماند و Caddy چیزی
+      # برای تجزیه ندارد — وگرنه «email» بی‌آرگومان می‌شکندش.
+      MOLIDO_ACME: ${MOLIDO_ACME:-}
+      # نشانی دارای گواهی معتبر.
+      #
+      # وقتی دامنه نیست، `nip.io` هر نامی به شکل `1-2-3-4.nip.io` را
+      # به همان آی‌پی حل می‌کند — پس گواهی واقعی بدون خریدن دامنه.
+      #
+      # پیش‌فرضِ خالی یعنی بلوکش ساخته نمی‌شود و فقط نشانی آی‌پی
+      # می‌ماند؛ نصبی که این را تنظیم نکرده نباید بشکند.
+      MOLIDO_HOST_PUBLIC: ${MOLIDO_HOST_PUBLIC:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - molido_net
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

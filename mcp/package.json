@@ -1,0 +1,15 @@
+{
+  "name": "molido-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "سرور MCP مولیدو — اتصال دستیار هوشمند به دادهٔ فروشگاه",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tools.spec.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  }
+}

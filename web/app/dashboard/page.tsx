@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import ShortcutGrid from '../../components/ShortcutGrid';
+import { Icon } from '../../components/icons';
 import { api } from '../../lib/api';
-import { getLang, localeFor, t, type Lang } from '../../lib/i18n';
+import { useI18n } from '../../lib/i18n-context';
 
 type Dashboard = Record<string, unknown>;
 
@@ -25,18 +27,16 @@ const STATS: Array<{ key: string; icon: string; color: string }> = [
 ];
 
 export default function DashboardPage() {
-  const [lang, setLang] = useState<Lang>('fa');
+  const { t, locale } = useI18n();
   const [data, setData] = useState<Dashboard | null>(null);
   const [notifications, setNotifications] = useState<Array<Notification>>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setLang(getLang());
-
     api<Dashboard>('/reports/dashboard')
       .then(setData)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : 'خطا در دریافت اطلاعات'),
+        setError(err instanceof Error ? err.message : t('fetchError')),
       );
 
     api<Array<Notification> | { notifications?: Array<Notification> }>(
@@ -53,12 +53,17 @@ export default function DashboardPage() {
   function formatNumber(value: unknown): string {
     const num = Number(value ?? 0);
 
-    return Number.isFinite(num) ? num.toLocaleString(localeFor(lang)) : '-';
+    return Number.isFinite(num) ? num.toLocaleString(locale) : '-';
   }
 
   return (
-    <AppShell title={t('dashboardTitle', lang)} subtitle={t('overview', lang)}>
+    <AppShell title={t('dashboardTitle')} subtitle={t('overview')}>
       {error ? <div className="error">{error}</div> : null}
+
+      {/* میان‌برها **بالای** آمار.
+          آمار خواندنی است، میان‌بر کاری — و کسی که داشبورد را باز
+          می‌کند معمولاً برای رفتن آمده، نه برای خواندن. */}
+      <ShortcutGrid />
 
       {!data && !error ? (
         <div className="stats-grid">
@@ -73,7 +78,7 @@ export default function DashboardPage() {
           {STATS.map((item) => (
             <div key={item.key} className="stat-card">
               <div className={`stat-icon ${item.color}`.trim()}>{item.icon}</div>
-              <div className="stat-label">{t(item.key, lang)}</div>
+              <div className="stat-label">{t(item.key)}</div>
               <div className="stat-value">{formatNumber(data[item.key])}</div>
             </div>
           ))}
@@ -81,10 +86,11 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="card">
-        <h3 style={{ marginBottom: 10 }}>🔔 {t('notifications', lang)}</h3>
+        <h3 style={{ marginBottom: 10 }}>
+          <Icon name="alert" size={18} /> {t('notifications')}</h3>
 
         {notifications.length === 0 ? (
-          <p className="muted">{t('noNotifications', lang)}</p>
+          <p className="muted">{t('noNotifications')}</p>
         ) : (
           notifications.slice(0, 8).map((item, index) => (
             <div key={item.id ?? index} className="notif-item">

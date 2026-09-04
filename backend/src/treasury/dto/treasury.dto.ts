@@ -85,6 +85,17 @@ export class CreateTreasuryTransactionDto {
   })
   type!: string;
 
+  /**
+   * بابت — طرفِ دومِ سند از این می‌آید.
+   *
+   * ⚠️ اجباری نیست ولی پیش‌فرضش OTHER است و آن یعنی هزینه/درآمدِ
+   *    متفرقه.  اگر واریزِ مالک یا جابه‌جایی با بانک است، صریح بگویید،
+   *    وگرنه دفتر عددش درست و معنایش غلط می‌ماند.
+   */
+  @IsOptional()
+  @IsIn(['OWNER', 'BANK', 'ADJUST', 'OTHER'], { message: 'بابت نامعتبر است' })
+  reason?: string;
+
   @IsNumber({}, { message: 'مبلغ باید عدد باشد' })
   @IsPositive({ message: 'مبلغ باید بزرگ‌تر از صفر باشد' })
   amount!: number;

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ServiceWorkerRegistrar from './sw-register';
+import { LanguageProvider } from '../lib/i18n-context';
 
 export const metadata: Metadata = {
   title: 'Molido AI — مدیریت هوشمند کسب‌وکار',
@@ -41,10 +42,43 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    // fa/rtl فقط مقدار اولیهٔ سمت سرور است؛ LanguageProvider پس از mount
+    // آن را با زبانِ ذخیره‌شدهٔ کاربر جایگزین می‌کند.
     <html lang="fa" dir="rtl">
+      <head>
+        {/* وزن ۴۰۰ در هر صفحه لازم است؛ preload جلوی یک رفت‌وبرگشت اضافه و
+            پرشِ متن هنگام بارگذاری را می‌گیرد. */}
+        <link
+          rel="preload"
+          href="/fonts/Vazirmatn-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>
-        {children}
-        <ServiceWorkerRegistrar />
+        {/*
+          ⚠️ `ServiceWorkerRegistrar` **داخل** provider است، نه بیرونش.
+
+             تا امروز بیرون بود و اشکالی نداشت — چون هیچ متنی نداشت.
+             ولی وقتی سه‌زبانه شد و `useI18n()` صدا زد، هر صفحه‌ای که
+             prerender می‌شد با «useI18n باید داخل LanguageProvider
+             باشد» می‌افتاد.
+
+             خطا **صفحه‌ای که ساخت را می‌شکست را عوض می‌کرد** — هر بار
+             /pos، /sales، /pricing، /settings — چون کارگرهای موازیِ
+             Next به ترتیب متفاوتی می‌رسیدند.  همین گمراه‌کننده بود:
+             دنبال اشکال در آن صفحه‌ها گشتم، در حالی که هیچ‌کدام مقصر
+             نبودند.
+
+             `tsc` هم نمی‌گرفتش: از نظر نوع‌ها همه‌چیز درست است.  فقط
+             **ساخت** می‌گیردش، و آن هم فقط وقتی صفحه‌ای واقعاً
+             prerender شود.
+        */}
+        <LanguageProvider>
+          {children}
+          <ServiceWorkerRegistrar />
+        </LanguageProvider>
       </body>
     </html>
   );

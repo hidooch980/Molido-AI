@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { TenantInterceptor } from './database/tenant.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { EditionInterceptor } from './subscription/edition.interceptor';
+import { tagFeatureModules } from './subscription/feature-tagging';
 
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { I18nModule } from './i18n/i18n.module';
 import { N8nModule } from './n8n/n8n.module';
 
@@ -19,6 +22,10 @@ import { CategoriesModule } from './categories/categories.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CustomersModule } from './customers/customers.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { PurchasingModule } from './purchasing/purchasing.module';
+import { TelephonyModule } from './telephony/telephony.module';
+import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './common/guards/permissions.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -28,12 +35,9 @@ import { AccountingModule } from './accounting/accounting.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { TechnicalOfficeModule } from './technical-office/technical-office.module';
-import { FireDepartmentModule } from './fire-department/fire-department.module';
-import { ComplaintsModule } from './complaints/complaints.module';
-import { MunicipalFeesModule } from './municipal-fees/municipal-fees.module';
 import { ChequesModule } from './cheques/cheques.module';
 import { SmsModule } from './sms/sms.module';
+import { VoiceModule } from './voice/voice.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { PosTerminalsModule } from './pos-terminals/pos-terminals.module';
 import { TreasuryModule } from './treasury/treasury.module';
@@ -45,33 +49,20 @@ import { TendersModule } from './tenders/tenders.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { LeaveRequestsModule } from './leave-requests/leave-requests.module';
 import { PerformanceModule } from './performance/performance.module';
-import { ConstructionProjectsModule } from './construction-projects/construction-projects.module';
-import { FleetModule } from './fleet/fleet.module';
-import { ServiceZonesModule } from './service-zones/service-zones.module';
-import { LettersModule } from './letters/letters.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
+import { PricingModule } from './pricing/pricing.module';
+import { OperationsModule } from './operations/operations.module';
+import { TaxModule } from './tax/tax.module';
+import { ShopModule } from './shop/shop.module';
 import { CrmModule } from './crm/crm.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
-import { ApprovalsModule } from './approvals/approvals.module';
-import { ECityModule } from './e-city/e-city.module';
-import { CemeteryModule } from './cemetery/cemetery.module';
-import { TaxiModule } from './taxi/taxi.module';
-import { BusinessLicensesModule } from './business-licenses/business-licenses.module';
-import { MunicipalPropertiesModule } from './municipal-properties/municipal-properties.module';
-import { PropertyAuditModule } from './property-audit/property-audit.module';
-import { CrisisModule } from './crisis/crisis.module';
-import { ParkingModule } from './parking/parking.module';
-import { StreetLightsModule } from './street-lights/street-lights.module';
-import { CouncilModule } from './council/council.module';
-import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { TrainingModule } from './training/training.module';
-import { DmsModule } from './dms/dms.module';
-import { AppointmentsModule } from './appointments/appointments.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
-import { ClinicModule } from './clinic/clinic.module';
-import { IotModule } from './iot/iot.module';
-import { CctvModule } from './cctv/cctv.module';
-import { UtilityMetersModule } from './utility-meters/utility-meters.module';
+import { RevenueModule } from './revenue/revenue.module';
+import { RationModule } from './ration/ration.module';
+import { RetailModule } from './retail/retail.module';
+import { CashierShiftModule } from './retail/cashier-shift.module';
 import { NewsModule } from './news/news.module';
 import { LoansModule } from './loans/loans.module';
 import { InvestmentsModule } from './investments/investments.module';
@@ -81,14 +72,188 @@ import { ShipmentsModule } from './shipments/shipments.module';
 import { SerialNumbersModule } from './serial-numbers/serial-numbers.module';
 import { PriceLevelsModule } from './price-levels/price-levels.module';
 import { DiscountRulesModule } from './discount-rules/discount-rules.module';
-import { ProjectsModule } from './projects/projects.module';
 import { SalesAgentsModule } from './sales-agents/sales-agents.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { CustomerTicketsModule } from './customer-tickets/customer-tickets.module';
 import { EmailCampaignsModule } from './email-campaigns/email-campaigns.module';
+import { GovSsoModule } from './gov-sso/gov-sso.module';
+import { ShahkarModule } from './shahkar/shahkar.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { BillingModule } from './billing/billing.module';
+import { StructureModule } from './structure/structure.module';
+import { SelfOrderModule } from './self-order/self-order.module';
+import { SiteModule } from './site/site.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { HealthModule } from './health/health.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
+import { FeatureKey, activeProduct } from './product';
+
+/**
+ * ماژول‌های هر قابلیت.
+ *
+ * فهرست عمداً اینجاست نه در `product.ts`: آنجا تعریف *محصول* است و باید بدون
+ * وابستگی به Nest خوانده شود؛ اینجا نگاشت به ماژول‌های واقعی است.
+ */
+const FEATURE_MODULES: Record<FeatureKey, unknown[]> = {
+  catalogue: [
+    CategoriesModule,
+    InventoryModule,
+    ProductsModule,
+    PurchasesModule,
+    PurchasingModule,
+    TelephonyModule,
+    PermissionsModule,
+    RolesModule,
+    SerialNumbersModule,
+    SuppliersModule,
+    WarehousesModule,
+  ],
+
+  sales: [
+    PricingModule,
+    LoyaltyModule,
+    TaxModule,
+    OperationsModule,
+    CashBoxModule,
+    CashierShiftModule,
+    CustomersModule,
+    DiscountRulesModule,
+    PaymentsModule,
+    PosTerminalsModule,
+    PriceLevelsModule,
+    QuotationsModule,
+    ReturnsModule,
+    SalesAgentsModule,
+    SalesModule,
+    SalesOrdersModule,
+    ShipmentsModule,
+  ],
+
+  retail: [
+    RetailModule,
+  ],
+
+  ration: [
+    RationModule,
+  ],
+
+  restaurant: [
+    RestaurantModule,
+    // ⚠️ منوی دیجیتال پشتِ همان قابلیت است، نه ماژولِ هسته.
+    //
+    //    در نمایهٔ فروشگاه هیچ میزی وجود ندارد، پس مسیرِ عمومیِ
+    //    `/menu/:token` آنجا فقط سطحِ حمله است بی‌آنکه کاری بکند.
+    SelfOrderModule,
+  ],
+
+  hr: [
+    AttendanceModule,
+    LeaveRequestsModule,
+    PayrollModule,
+    PerformanceModule,
+    TrainingModule,
+  ],
+
+  finance: [
+    AssetsModule,
+    BudgetModule,
+    ChequesModule,
+    ContractsModule,
+    ExpensesModule,
+    InvestmentsModule,
+    LoansModule,
+    TendersModule,
+    TreasuryModule,
+  ],
+
+
+
+  shop: [
+    ShopModule,
+  ],
+
+  crm: [
+    CrmModule,
+    CustomerTicketsModule,
+    EmailCampaignsModule,
+    NewsModule,
+    SurveysModule,
+  ],
+
+};
+
+/**
+ * برچسبِ قابلیت روی کنترلرها می‌نشیند، از روی همین نگاشت.
+ *
+ * ⚠️ در همین فایل و بلافاصله پس از `FEATURE_MODULES` انجام می‌شود تا
+ *    هرکس نگاشت را عوض کرد، گیت را هم دیده باشد.  اگر جای دیگری بود،
+ *    افزودنِ ماژولِ تازه یعنی قابلیتی که فروخته نشده باز می‌ماند.
+ */
+tagFeatureModules(FEATURE_MODULES as unknown as Record<string, unknown[]>);
+
+/** ماژول‌هایی که هر محصولی — فروشگاه، رستوران یا سازمانی — لازم دارد. */
+const CORE_MODULES = [
+  DatabaseModule,
+  I18nModule,
+  N8nModule,
+  AuthModule,
+  UsersModule,
+  CompaniesModule,
+  AccountingModule,
+  ReportsModule,
+  AiModule,
+  NotificationsModule,
+  AuditLogModule,
+  RevenueModule,
+  SmsModule,
+  VoiceModule,
+  UploadsModule,
+  WebhooksModule,
+  ApiKeysModule,
+  // ⚠️ ماژولِ هسته: ورودِ دولتی برای هر سه محصول معنا دارد —
+  //    شهروند، مشتریِ فروشگاه و کارمند.  پشتِ `FEATURE_MODULES`
+  //    نمی‌رود چون به قابلیتِ خاصی وابسته نیست.
+  GovSsoModule,
+  // ⚠️ ماژولِ هسته: سایتِ معرفی برای هر نصبی معنا دارد و به
+  //    قابلیتِ خاصی وابسته نیست.
+  SiteModule,
+  // ⚠️ ماژولِ هسته: شاهکار تطبیقِ موبایل و کد ملی است و
+  //    هر سه محصول به‌ش تکیه می‌کنند — کالابرگ، ثبت‌نامِ
+  //    مشتری، و ساختِ کارمند.  پشتِ `FEATURE_MODULES` نمی‌رود
+  //    چون آن‌وقت مسیری که به‌ش `enforce` می‌زند در نمایهٔ
+  //    دیگر بی‌صدا احراز را رد می‌کرد.
+  ShahkarModule,
+  // ⚠️ ماژولِ هسته: فهرستِ مشترکِ بارکد بین‌شرکتی است و به
+  //    قابلیتِ خاصی وابسته نیست.
+  CatalogModule,
+  // ⚠️ ماژولِ هسته: اشتراک به محصول وابسته نیست — هر نصبی
+  //    باید بداند چه کسی پول داده.
+  SubscriptionModule,
+  // ⚠️ ماژولِ هسته: تمدیدِ اشتراک باید در **هر** محصولی کار کند، و
+  //    مهم‌تر: باید با اشتراکِ منقضی هم در دسترس باشد.  اگر پشتِ
+  //    قابلیتی می‌رفت، مشتریِ منقضی نمی‌توانست تمدید کند.
+  BillingModule,
+  // ⚠️ ماژولِ هسته: پشتیبانِ ساختار به هیچ قابلیتِ اختیاری وابسته
+  //    نیست و در هر نمایه باید در دسترس باشد.
+  StructureModule,
+  HealthModule,
+];
+
+/**
+ * ماژول‌های محصول فعال.
+ *
+ * مشتری رستوران نباید API عوارض شهرداری را ببیند، حتی اگر هرگز صدایش نزند:
+ * سطح حملهٔ کمتر، Swagger تمیزتر، و راه‌اندازی سبک‌تر.
+ */
+function productModules(): unknown[] {
+  const product = activeProduct();
+
+  return [
+    ...CORE_MODULES,
+    ...product.features.flatMap((feature) => FEATURE_MODULES[feature] ?? []),
+  ];
+}
 
 @Module({
   imports: [
@@ -96,106 +261,58 @@ import { RestaurantModule } from './restaurant/restaurant.module';
       isGlobal: true,
     }),
 
-    // محدودیت تعداد درخواست (Rate Limiting): ۱۲۰ درخواست در دقیقه
+    // محدودیت تعداد درخواست.
+    //
+    // ۱۲۰ در دقیقه برای فروشگاه واقعی کم بود: هر اسکن در صندوق چند
+    // درخواست می‌زند، و چند صندوق همزمان به‌راحتی از آن رد می‌شوند.
+    // نتیجه‌اش خطای گنگ وسط فروش است — و در آزمون‌ها، شکست‌هایی که
+    // ربطی به کد نداشتند.
+    //
+    // دو سطل جدا: «short» جلوی هجوم لحظه‌ای را می‌گیرد، «long» سقف
+    // دقیقه‌ای است.  محدودیتِ سخت روی ورود جداگانه و روی خود مسیر
+    // اعمال می‌شود (به `auth.controller.ts` نگاه کنید) — آنجا سخت‌گیری
+    // لازم است چون هدفِ حدس رمز همان است.
     ThrottlerModule.forRoot([
       {
+        name: 'short',
+        ttl: 1000,
+        limit: Number(process.env.RATE_LIMIT_BURST ?? 50),
+      },
+      {
+        name: 'long',
         ttl: 60000,
-        limit: 120,
+        limit: Number(process.env.RATE_LIMIT ?? 1200),
       },
     ]),
 
-    PrismaModule,
-    I18nModule,
-    N8nModule,
-
-    AuthModule,
-    UsersModule,
-    CompaniesModule,
-    WarehousesModule,
-    ProductsModule,
-    CategoriesModule,
-    InventoryModule,
-    CustomersModule,
-    SuppliersModule,
-    PurchasesModule,
-    SalesModule,
-    PaymentsModule,
-    ExpensesModule,
-    CashBoxModule,
-    AccountingModule,
-    ReportsModule,
-    AiModule,
-    NotificationsModule,
-    TechnicalOfficeModule,
-    FireDepartmentModule,
-    ComplaintsModule,
-    MunicipalFeesModule,
-    ChequesModule,
-    SmsModule,
-    UploadsModule,
-    PosTerminalsModule,
-    TreasuryModule,
-    ContractsModule,
-    PayrollModule,
-    BudgetModule,
-    AssetsModule,
-    TendersModule,
-    AttendanceModule,
-    LeaveRequestsModule,
-    PerformanceModule,
-    ConstructionProjectsModule,
-    FleetModule,
-    ServiceZonesModule,
-    LettersModule,
-    CrmModule,
-    SalesOrdersModule,
-    ApprovalsModule,
-    ECityModule,
-    CemeteryModule,
-    TaxiModule,
-    BusinessLicensesModule,
-    MunicipalPropertiesModule,
-    PropertyAuditModule,
-    CrisisModule,
-    ParkingModule,
-    StreetLightsModule,
-    CouncilModule,
-    HelpdeskModule,
-    TrainingModule,
-    DmsModule,
-    AppointmentsModule,
-    SurveysModule,
-    AuditLogModule,
-    ClinicModule,
-    IotModule,
-    CctvModule,
-    UtilityMetersModule,
-    NewsModule,
-    LoansModule,
-    InvestmentsModule,
-    WebhooksModule,
-    ReturnsModule,
-    ShipmentsModule,
-    SerialNumbersModule,
-    PriceLevelsModule,
-    DiscountRulesModule,
-    ProjectsModule,
-    SalesAgentsModule,
-    QuotationsModule,
-    CustomerTicketsModule,
-    EmailCampaignsModule,
-    ApiKeysModule,
-    HealthModule,
-    RestaurantModule,
+    ...(productModules() as never[]),
   ],
-  controllers: [
-    AppController,
-  ],
+  controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    {
+      // ⚠️ گیتِ نسخهٔ فروش — **اینترسپتور**، نه نگهبان.
+      //
+      //    نگهبانِ سراسری پیش از `JwtAuthGuard`ِ کنترلر اجرا می‌شود، پس
+      //    `request.user` هنوز وجود ندارد و گیت هرگز چیزی را نمی‌بست.
+      //    اینترسپتور پس از همهٔ نگهبان‌هاست.
+      //
+      //    مسیرِ بی‌برچسب را باز می‌گذارد، پس هسته دست‌نخورده می‌ماند؛ و
+      //    چون از `FEATURE_MODULES` برچسب می‌گیرد، کنترلرِ تازه
+      //    خودبه‌خود پوشش می‌گیرد.
+      provide: APP_INTERCEPTOR,
+      useClass: EditionInterceptor,
+    },
+    {
+      // زمینهٔ شرکت را برای RLS برقرار می‌کند — پس از Guardها اجرا می‌شود
+      // چون به req.user نیاز دارد.
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
     },
   ],
 })

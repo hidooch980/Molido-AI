@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BudgetService } from './budget.service';
+import { BudgetCommitmentService } from './commitment.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -11,7 +12,94 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('budget')
 export class BudgetController {
-  constructor(private readonly service: BudgetService) {}
+  constructor(
+    private readonly service: BudgetService,
+    private readonly commitments: BudgetCommitmentService,
+  ) {}
+
+  // ---------- چرخهٔ اعتبار: تخصیص ← تعهد ← هزینهٔ قطعی ----------
+
+  /** ردیف‌های یک بودجه، همراهِ اعتبارِ آزادِ هرکدام. */
+  @Get(':id/lines')
+  lines(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.commitments.lines(user.companyId!, id);
+  }
+
+  @Post(':id/lines')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  createLine(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { title: string; amount: number; allocated?: number },
+  ) {
+    return this.commitments.createLine(user.companyId!, id, dto);
+  }
+
+  /**
+   * به‌روزرسانیِ تخصیص.
+   *
+   * ⚠️ نمی‌تواند کمتر از تعهد و هزینهٔ موجود شود، وگرنه اعتبارِ آزاد
+   *    منفی می‌شد — یعنی سامانه می‌گفت بودجه از سقف رد شده، بی‌آنکه
+   *    کسی تخلفی کرده باشد.
+   */
+  @Patch('lines/:id/allocate')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  allocate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { allocated: number },
+  ) {
+    return this.commitments.allocate(user.companyId!, id, dto?.allocated);
+  }
+
+  /** وضعیتِ یک ردیف: مصوب، تخصیص، تعهد، هزینه و اعتبارِ آزاد. */
+  @Get('lines/:id/status')
+  lineStatus(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.commitments.status(user.companyId!, id);
+  }
+
+  /** دفترِ تعهدهای یک ردیف — بابتِ چه و در چه وضعیتی. */
+  @Get('lines/:id/commitments')
+  ledger(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.commitments.ledger(user.companyId!, id);
+  }
+
+  /**
+   * ثبتِ تعهد.
+   *
+   * ⚠️ اگر از اعتبارِ آزاد رد شود **رد می‌شود**، نه هشدار.  هشدار را
+   *    می‌شود نادیده گرفت و همیشه گرفته می‌شود.
+   */
+  @Post('lines/:id/commit')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  commit(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { amount: number; sourceType: string; sourceId?: string; note?: string },
+  ) {
+    return this.commitments.commit(user.companyId!, id, {
+      ...dto,
+      userId: user.userId,
+    });
+  }
+
+  /** قطعی کردن — مبلغِ کمتر از تعهد، مابه‌التفاوت را آزاد می‌کند. */
+  @Post('commitments/:id/settle')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  settle(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: { actualAmount?: number },
+  ) {
+    return this.commitments.settle(user.companyId!, id, dto?.actualAmount);
+  }
+
+  /** آزادسازی — قرارداد لغو شد و اعتبار برمی‌گردد. */
+  @Post('commitments/:id/release')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  release(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.commitments.release(user.companyId!, id);
+  }
 
   @Get('stats')
   stats(@CurrentUser() user: AuthUser) {

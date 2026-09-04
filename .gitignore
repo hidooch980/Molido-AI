@@ -141,3 +141,19 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+.test-logs/
+
+# تنظیمات MCP رمز دارد
+.mcp.json
+mcp/node_modules/
+
+# بستهٔ استقرار — با هر بار `tar` ساخته می‌شود و ۱٫۲MB است.
+# در مخزن جایی ندارد: از خودِ کد ساخته می‌شود، پس نسخهٔ ذخیره‌شده‌اش
+# فقط می‌تواند کهنه و گمراه‌کننده باشد.
+molido-deploy.tar.gz
+*.deploy.tar.gz
+
+# خروجیِ ساختِ سایت — با ops/build-site.sh ساخته می‌شود.
+dist-site/
+molido-site.zip
+molido-site.tar.gz

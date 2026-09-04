@@ -1,0 +1,4 @@
+services:
+  backend:
+    ports: !override
+      - "3010:3000"

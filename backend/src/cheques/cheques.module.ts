@@ -2,21 +2,24 @@ import { Module } from '@nestjs/common';
 
 import { ChequesController } from './cheques.controller';
 import { ChequesService } from './cheques.service';
+import { ChequePrintController } from './cheque-print.controller';
+import { ChequePrintService } from './cheque-print.service';
 
-import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
-    PrismaModule,
-  ],
+    ],
   controllers: [
     ChequesController,
+    ChequePrintController,
   ],
   providers: [
     ChequesService,
+    ChequePrintService,
   ],
   exports: [
     ChequesService,
+    ChequePrintService,
   ],
 })
 export class ChequesModule {}

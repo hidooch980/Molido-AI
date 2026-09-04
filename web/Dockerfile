@@ -10,6 +10,9 @@ RUN npm ci
 COPY . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:3000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# کدام محصول: store | resto | suite — منوی وب بر اساس آن فیلتر می‌شود
+ARG NEXT_PUBLIC_MOLIDO_PRODUCT=suite
+ENV NEXT_PUBLIC_MOLIDO_PRODUCT=$NEXT_PUBLIC_MOLIDO_PRODUCT
 RUN npm run build
 
 FROM node:22-alpine AS runner

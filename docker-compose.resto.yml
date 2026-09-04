@@ -1,0 +1,51 @@
+# کافه‌رستوران
+#
+#   docker compose -f docker-compose.yml -f docker-compose.resto.yml up -d
+#
+# دیتابیس، پورت‌ها و نام کانتینرها جدا از فروشگاه است، پس هر دو
+# می‌توانند هم‌زمان بالا باشند.
+#
+# ⚠️ `!override` لازم است، نه فهرست ساده.
+#
+# پیش از این، همین فایل در توضیحش می‌گفت «پورت‌ها جدا است» ولی پورتی
+# تعریف نمی‌کرد — فقط `name` و `MOLIDO_PRODUCT`.  سند وعده‌ای می‌داد
+# که فایل انجامش نمی‌داد.
+#
+# و افزودن ساده هم کافی نیست: docker compose فهرست پورت‌ها را
+# **اضافه** می‌کند نه جایگزین، پس هر دو ۳۰۰۰ و ۳۲۰۰ منتشر می‌شدند و
+# باز هم با فروشگاه تصادم می‌کرد.  `!override` فهرست پایه را دور
+# می‌ریزد.
+
+name: molido-resto
+
+services:
+  backend:
+    environment:
+      MOLIDO_PRODUCT: resto
+    ports: !override
+      - "${RESTO_BACKEND_PORT:-3200}:3000"
+
+  migrate:
+    environment:
+      MOLIDO_PRODUCT: resto
+
+  web:
+    # ⚠️ `NEXT_PUBLIC_*` در Next.js هنگام **build** داخل باندل جاسازی
+    #    می‌شود، نه هنگام اجرا.  دادنش فقط در `environment` هیچ اثری
+    #    ندارد: باندلِ ساخته‌شده همچنان به `localhost:3000` (بک‌اندِ
+    #    فروشگاه) وصل می‌شود و همهٔ مسیرهای رستوران ۴۰۴ می‌گیرند —
+    #    بدون هیچ خطای آشکاری، فقط صفحهٔ خالی.
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:${RESTO_BACKEND_PORT:-3200}"
+        NEXT_PUBLIC_MOLIDO_PRODUCT: resto
+    environment:
+      # مرورگر به بک‌اندِ رستوران وصل شود نه فروشگاه.
+      NEXT_PUBLIC_API_URL: "http://localhost:${RESTO_BACKEND_PORT:-3200}"
+      NEXT_PUBLIC_MOLIDO_PRODUCT: resto
+    ports: !override
+      - "${RESTO_WEB_PORT:-3202}:3001"
+
+  n8n:
+    ports: !override
+      - "${RESTO_N8N_PORT:-5878}:5678"

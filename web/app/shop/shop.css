@@ -1,0 +1,1153 @@
+/* =============================================
+   فروشگاه اینترنتی
+
+   متغیرها با پیشوند --s تعریف می‌شوند تا با متغیرهای پنل مدیریت که در
+   globals.css روی :root نشسته‌اند تداخل نکنند.  دامنه‌اش `.shop` است، پس
+   بقیهٔ برنامه دست‌نخورده می‌ماند.
+
+   سبک: تخت (Flat).  به‌جای سایه، مرز و تغییر زمینه.  سایه روی کارت کالا
+   در شبکه‌ای که سی کارت دارد، هم شلوغ دیده می‌شود و هم هر بار هاور،
+   لایه‌بندی صفحه را دوباره می‌سازد.
+   ============================================= */
+
+.shop {
+  /* بنفشِ برند.
+     ⚠️ دو بنفش داریم و تفاوتشان عمدی است.
+
+     `--s-brand` (#7c5cff) رنگِ **دیدنی** است: گرادیان، مرز، تأکید.
+     `--s-primary` (#7048f5) رنگِ **زمینهٔ متن‌دار** است.
+
+     چون #7c5cff با متن سفید کنتراست ۴٫۳۵ می‌دهد — زیر حد ۴٫۵ — و
+     دکمه‌ای که متنش خوانده نشود دکمه نیست.  یک پله تیره‌تر ۵٫۳۴
+     می‌دهد و چشم تفاوتش را به‌سختی می‌بیند.
+
+     همین محاسبه یک بار برای سبزِ قبلی (#059669 → ۳٫۷۷) انجام شده
+     بود؛ رنگ عوض شد، قاعده نه. */
+  --s-brand: #7c5cff;
+  --s-brand-2: #a78bfa;
+  --s-primary: #7048f5;
+  --s-primary-dark: #5b2de0;
+  --s-primary-soft: #f0ebff;
+  --s-accent: #f59e0b;
+  --s-on-primary: #ffffff;
+  /* کهربایی با متن سفید کنتراست ۳ می‌دهد؛ روی نشانِ ۱۲px ناخواناست. */
+  --s-on-accent: #2b1d02;
+  --s-on-danger: #ffffff;
+
+  --s-bg: #f7f5fc;
+  --s-surface: #ffffff;
+  --s-surface-2: #efebf8;
+  --s-border: #e4dff0;
+  --s-text: #140d26;
+  --s-text-dim: #5a5175;
+
+  --s-success: #10b981;
+  --s-danger: #f43f5e;
+
+  /* شعاع بزرگ‌تر و گردتر — امضای بصری این طرح. */
+  --s-radius: 18px;
+  --s-radius-sm: 12px;
+  --s-radius-pill: 999px;
+
+  /* سایه‌ها.
+     نسخهٔ قبلی عمداً بی‌سایه بود («مرز به‌جای سایه»)، چون سایه روی
+     شبکه‌ای با سی کارت شلوغ می‌شود.  طرح تازه سایه دارد ولی فقط در
+     **هاور** — یعنی هم‌زمان بیش از یکی دیده نمی‌شود. */
+  --s-shadow: 0 4px 20px rgba(20, 13, 38, 0.07);
+  --s-shadow-lg: 0 24px 60px rgba(20, 13, 38, 0.18);
+  --s-glow: 0 8px 24px rgba(124, 92, 255, 0.38);
+  --s-glow-strong: 0 14px 34px rgba(124, 92, 255, 0.5);
+
+  /* گرادیانِ برند — روی دکمهٔ اصلی و چیپِ فعال.
+     نقطهٔ شروع روشن‌تر است تا حجم بدهد، و پایان همان رنگی است که
+     کنتراستش سنجیده شده. */
+  --s-brand-grad: linear-gradient(135deg, var(--s-brand-2), var(--s-primary));
+
+  /* فاصله‌ها: مقیاس ۴ پایه‌ای */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-12: 48px;
+
+  min-height: 100vh;
+  background: var(--s-bg);
+  color: var(--s-text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* حالت تاریک.
+   کاربر شب با موبایل خرید می‌کند؛ صفحهٔ سفید در تاریکی آزاردهنده است.
+   زمینه خاکستری-سبز است نه سیاه محض: سیاه مطلق با متن روشن، لبه‌ها را
+   می‌لرزاند و خواندن را سخت می‌کند. */
+@media (prefers-color-scheme: dark) {
+  .shop {
+    /* در تاریکی، بنفشِ روشن‌تر روی زمینهٔ تیره خوانا می‌شود و دیگر
+       نیازی به تیره کردنش نیست؛ متنِ رویش هم تیره می‌شود. */
+    --s-brand: #a78bfa;
+    --s-brand-2: #c4b5fd;
+    --s-primary: #a78bfa;
+    --s-primary-dark: #c4b5fd;
+    --s-primary-soft: #1d1240;
+    --s-accent: #fbbf24;
+    --s-on-primary: #16093a;
+    --s-on-accent: #2b1d02;
+    --s-on-danger: #350808;
+
+    --s-bg: #0a0714;
+    --s-surface: #110d1f;
+    --s-surface-2: #181233;
+    --s-border: #282040;
+    --s-text: #efeafa;
+    --s-text-dim: #a096c0;
+
+    --s-success: #34d399;
+    --s-danger: #fb7185;
+
+    --s-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --s-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7);
+    --s-glow: 0 8px 24px rgba(167, 139, 250, 0.28);
+    --s-glow-strong: 0 14px 34px rgba(167, 139, 250, 0.4);
+  }
+}
+
+/* ---------- سربرگ ---------- */
+
+.shop-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--s-surface);
+  border-bottom: 1px solid var(--s-border);
+}
+
+.shop-header-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.shop-logo {
+  display: inline-flex;
+  align-items: center;
+  /* برند هم لینک است و روی موبایل باید به‌اندازهٔ یک هدف لمسی باشد. */
+  min-height: 44px;
+  gap: var(--s-2);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--s-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shop-search {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+
+.shop-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  /* جای آیکون جستجو در ابتدای خانه باز می‌ماند */
+  padding-inline: 42px var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-pill);
+  background: var(--s-surface-2);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 15px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.shop-search input:focus {
+  background: var(--s-surface);
+  border-color: var(--s-primary);
+}
+
+.shop-search .search-icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--s-text-dim);
+  pointer-events: none;
+}
+
+.shop-main {
+  flex: 1;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-4);
+}
+
+.shop-footer {
+  border-top: 1px solid var(--s-border);
+  background: var(--s-surface);
+  padding: var(--s-6) var(--s-4);
+  text-align: center;
+  color: var(--s-text-dim);
+  font-size: 14px;
+}
+
+/* ---------- دکمه ---------- */
+
+.shop button,
+.shop .btn {
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  border: 1px solid transparent;
+  border-radius: var(--s-radius-pill);
+  /* گرادیان به‌جای رنگِ تخت — امضای بصری این طرح. */
+  /* ⚠️ رنگِ تخت، نه گرادیان.
+     گرادیان دو سر دارد و فقط یکی‌شان سنجیده می‌شد؛ سرِ دوم در پوستهٔ
+     روشن کنتراستِ ۳٫۴۷ می‌داد — زیر حد.  جفتِ `--s-primary` و
+     `--s-on-primary` از قبل در `audit-contrast.mjs` تأیید شده و در هر
+     دو پوسته کار می‌کند. */
+  background: var(--s-primary);
+  color: var(--s-on-primary);
+  box-shadow: var(--s-glow);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  white-space: nowrap;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 220ms ease, background 150ms ease, border-color 150ms ease,
+    color 150ms ease;
+}
+
+.shop button:hover:not(:disabled),
+.shop .btn:hover {
+  /* بالا آمدنِ دو پیکسلی — همان حسِ «فشاردادنی بودن» که طرح مرجع دارد. */
+  transform: translateY(-2px);
+  box-shadow: var(--s-glow-strong);
+}
+
+.shop button:active:not(:disabled),
+.shop .btn:active {
+  transform: translateY(0);
+}
+
+.shop button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.shop button.ghost,
+.shop .btn.ghost {
+  background: transparent;
+  border-color: var(--s-border);
+  color: var(--s-text);
+}
+
+.shop button.ghost:hover:not(:disabled),
+.shop .btn.ghost:hover {
+  background: var(--s-surface-2);
+  border-color: var(--s-text-dim);
+}
+
+/* دکمهٔ فقط-آیکون باید مربع بماند، وگرنه با padding افقی کشیده می‌شود. */
+.shop .icon-only {
+  min-width: 44px;
+  padding: 0;
+}
+
+/* حلقهٔ فوکوس هرگز حذف نمی‌شود — تنها راهنمای کاربر صفحه‌کلید است. */
+.shop :focus-visible {
+  outline: 2px solid var(--s-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- کارت ---------- */
+
+.shop-card {
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  padding: var(--s-4);
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+/* هاور فقط روی دستگاهی که واقعاً اشاره‌گر دارد.
+   روی لمسی، `:hover` پس از ضربه می‌چسبد و کارت تا ضربهٔ بعدی
+   برجسته می‌ماند — که شبیه خرابی است. */
+@media (hover: hover) {
+  .shop-card:hover {
+    box-shadow: var(--s-shadow-lg);
+    border-color: var(--s-brand);
+  }
+}
+
+/* ---------- نوار اطلاع‌رسانی ---------- */
+
+.shop-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  margin-bottom: var(--s-6);
+  border-radius: var(--s-radius);
+  /* ⚠️ گرادیانِ برند به‌جای رنگِ تخت.
+     این نوار تنها عنصرِ تبلیغیِ صفحه است — «ارسال رایگان» چیزی است
+     که خرید را جلو می‌اندازد.  با رنگِ کم‌رنگِ قبلی شبیه یک پیامِ
+     سیستمی بود و چشم از رویش رد می‌شد. */
+  /* ⚠️ رنگِ تخت، نه گرادیان.
+     گرادیان دو سر دارد و فقط یکی‌شان سنجیده می‌شد.  در مرورگر اندازه
+     گرفته شد: در پوستهٔ روشن سرِ دوم کنتراستِ ۳٫۴۷ می‌داد — زیر حد.
+     جفتِ `--s-primary` و `--s-on-primary` را `audit-contrast.mjs` در
+     هر دو پوسته می‌سنجد. */
+  background: var(--s-primary);
+  color: var(--s-on-primary);
+  border: 0;
+  box-shadow: var(--s-shadow);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+/* ⚠️ بازنویسیِ پوستهٔ تیره برداشته شد.
+
+   `color: var(--s-primary)` برای زمینهٔ کم‌رنگِ قبلی نوشته شده بود.
+   روی گرادیانِ برند، بنفش روی بنفش می‌شد — در مرورگر سنجیده شد:
+   زمینه rgb(196,181,253) و متن rgb(167,139,250)، عملاً ناخوانا.
+
+   حالا `--s-on-primary` در هر دو پوسته کار می‌کند، چون خودش
+   پوسته‌آگاه است: سفید در روشن، بنفشِ تیره در تاریک. */
+
+/* ---------- دسته‌بندی ---------- */
+
+/* نوار افقی به‌جای بسته‌بندی چندسطری: با ده دسته، حالت wrap نصف صفحهٔ
+   موبایل را می‌خورد و کالاها زیر خط تا پایین می‌روند. */
+.shop-cats {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  padding-bottom: var(--s-2);
+  margin-bottom: var(--s-6);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shop-cats::-webkit-scrollbar {
+  display: none;
+}
+
+.cat-pill {
+  flex: 0 0 auto;
+  /* ۴۴px حداقل هدف لمسی؛ با ۴۰ در نوار افقی، انگشت روی دستهٔ بغلی
+     می‌نشیند و فیلتر عوض می‌شود. */
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--s-radius-pill);
+  border: 1px solid var(--s-border);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.cat-pill:hover {
+  border-color: var(--s-primary);
+}
+
+.cat-pill.active {
+  background: var(--s-primary);
+  border-color: var(--s-primary);
+  color: var(--s-on-primary);
+}
+
+/* ---------- شبکهٔ کالا ---------- */
+
+.shop-grid {
+  display: grid;
+  /* ۲۰۶ به‌جای ۱۹۰: کارتِ کمی پهن‌تر جا برای نامِ دوخطی و قیمت
+     می‌دهد؛ با ۱۹۰ نامِ بلند بریده می‌شد. */
+  grid-template-columns: repeat(auto-fill, minmax(206px, 1fr));
+  gap: var(--s-4);
+}
+
+.product-card {
+  position: relative;
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* ⚠️ توکن‌های سایه از قبل بودند و هیچ‌جا استفاده نمی‌شدند.
+     کارت‌ها تخت بودند: فقط رنگِ حاشیه عوض می‌شد، که در پوستهٔ تیره
+     تقریباً دیده نمی‌شود. */
+  box-shadow: var(--s-shadow);
+  transition:
+    border-color 150ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.product-card:hover {
+  border-color: var(--s-primary);
+  box-shadow: var(--s-shadow-lg);
+  /* بلند شدنِ کم — دو پیکسل کافی است تا «قابلِ کلیک» حس شود.
+     بیشترش روی شبکه‌ای با ده‌ها کارت، تکان‌دهنده می‌شود. */
+  transform: translateY(-2px);
+}
+
+/* ⚠️ فوکوسِ کیبورد هم باید همان بازخورد را بگیرد.
+   بدون این، کاربری که با Tab می‌گردد نمی‌داند روی کدام کارت است. */
+.product-card:focus-within {
+  border-color: var(--s-primary);
+  box-shadow: var(--s-shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card,
+  .product-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+.product-card:hover {
+  border-color: var(--s-primary);
+}
+
+/* نسبت ثابت: جای تصویر پیش از بارگذاری رزرو می‌شود تا صفحه نپرد. */
+.product-image {
+  position: relative;
+  aspect-ratio: 1;
+  /* تصویر هنگام hover کمی بزرگ می‌شود — ولی داخلِ قابِ خودش، چون
+     کارت `overflow: hidden` دارد.  حسِ زنده بودن می‌دهد بی‌آنکه
+     چیدمان تکان بخورد. */
+  background: var(--s-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--s-text-dim);
+  overflow: hidden;
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 200ms ease;
+}
+
+.product-card:hover .product-image img {
+  transform: scale(1.04);
+}
+
+.product-body {
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  flex: 1;
+}
+
+.product-name {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.45;
+  color: inherit;
+  text-decoration: none;
+  /* دو خط، بعد سه‌نقطه — تا ارتفاع کارت‌ها یکسان بماند */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-price {
+  font-weight: 800;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-1);
+}
+
+.product-price .unit {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--s-text-dim);
+}
+
+/* نشان روی تصویر: ناموجودی باید پیش از خواندن قیمت دیده شود. */
+.product-flag {
+  position: absolute;
+  top: var(--s-2);
+  inset-inline-start: var(--s-2);
+  padding: 3px var(--s-2);
+  border-radius: var(--s-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--s-danger);
+  color: var(--s-on-danger);
+}
+
+.product-flag.low {
+  background: var(--s-accent);
+  color: var(--s-on-accent);
+}
+
+/* کالای ناموجود کم‌رنگ می‌شود ولی حذف نمی‌شود: مشتری باید بداند
+   فروشگاه این کالا را دارد، فقط الان تمام شده. */
+.product-card.sold-out .product-image {
+  opacity: 0.55;
+}
+
+/* ---------- سبد ---------- */
+
+.cart-badge {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: -4px;
+  inset-inline-end: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-accent);
+  color: var(--s-on-accent);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-row {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--s-border);
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-pill);
+  padding: 3px;
+}
+
+.qty-control button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  background: transparent;
+  color: var(--s-text);
+  border: none;
+  font-size: 18px;
+}
+
+.qty-control button:hover:not(:disabled) {
+  background: var(--s-surface-2);
+}
+
+.qty-control span {
+  min-width: 28px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* نوار چسبان تسویه در موبایل.
+   مبلغ و دکمهٔ ادامه همیشه در دسترس‌اند؛ بدون آن مشتری باید تا ته فهرست
+   بلندِ سبد اسکرول کند تا دکمه را پیدا کند. */
+/* روی دسکتاپ، خلاصهٔ سفارش کنار فهرست می‌ماند و همیشه دیده می‌شود. */
+.cart-summary {
+  position: sticky;
+  top: 84px;
+}
+
+/* فقط موبایل: روی دسکتاپ خلاصهٔ چسبان همین کار را می‌کند و دو دکمهٔ
+   «ثبت سفارش» در یک صفحه گیج‌کننده است. */
+.cart-bar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  margin-top: var(--s-6);
+  /* منفیِ padding والد تا نوار تا لبه‌ها کشیده شود */
+  margin-inline: calc(-1 * var(--s-4));
+  background: var(--s-surface);
+  border-top: 1px solid var(--s-border);
+  /* روی آیفون، نوار خانه روی محتوا می‌افتد */
+  padding-bottom: max(var(--s-3), env(safe-area-inset-bottom));
+}
+
+.cart-bar .total {
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- فرم ---------- */
+
+.shop-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin-bottom: var(--s-3);
+}
+
+/* برچسب همیشه دیده می‌شود؛ placeholder به‌تنهایی با شروع تایپ ناپدید
+   می‌شود و کاربر دیگر نمی‌داند این خانه چه می‌خواست. */
+.shop-field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--s-text-dim);
+}
+
+.shop-field input,
+.shop-field textarea,
+.shop-field select {
+  min-height: 44px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 15px;
+  transition: border-color 150ms ease;
+}
+
+.shop-field input:focus,
+.shop-field textarea:focus,
+.shop-field select:focus {
+  border-color: var(--s-primary);
+}
+
+.shop-error {
+  background: color-mix(in srgb, var(--s-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--s-danger) 35%, transparent);
+  color: var(--s-danger);
+  border-radius: var(--s-radius-sm);
+  padding: var(--s-3);
+  margin-bottom: var(--s-4);
+  font-size: 14px;
+}
+
+.shop-empty {
+  text-align: center;
+  padding: var(--s-12) var(--s-4);
+  color: var(--s-text-dim);
+}
+
+.shop-empty h2 {
+  margin: var(--s-3) 0 var(--s-1);
+  color: var(--s-text);
+  font-size: 19px;
+}
+
+.shop-muted {
+  color: var(--s-text-dim);
+  font-size: 14px;
+}
+
+.shop-section-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: var(--s-3);
+}
+
+/* ---------- موبایل ---------- */
+
+@media (max-width: 640px) {
+  .shop-header-inner {
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  .shop-search {
+    order: 3;
+    width: 100%;
+  }
+
+  .shop-main {
+    padding: var(--s-4) var(--s-3);
+  }
+
+  .shop-grid {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: var(--s-3);
+  }
+
+  .cart-bar {
+    display: flex;
+    margin-inline: calc(-1 * var(--s-3));
+  }
+
+  /* خلاصه روی موبایل چسبان نمی‌شود؛ نوار پایین جایش را گرفته. */
+  .cart-summary {
+    position: static;
+  }
+
+  /* `.shop button` هم `display` می‌دهد و ویژگی‌اش بالاتر است؛ بدون
+     `.shop` اینجا، این قاعده بی‌اثر می‌ماند و دو دکمهٔ «ثبت سفارش» در
+     یک صفحه دیده می‌شود. */
+  .shop .mobile-hidden {
+    display: none;
+  }
+
+  /* در موبایل جا نیست؛ آیکون به‌تنهایی معنا را می‌رساند. */
+  .desktop-only {
+    display: none;
+  }
+}
+
+/* کاربری که حرکت را آزاردهنده می‌داند، نباید مجبور به تحملش شود. */
+@media (prefers-reduced-motion: reduce) {
+  .shop *,
+  .shop *::before,
+  .shop *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .product-card:hover .product-image img {
+    transform: none;
+  }
+}
+
+
+/* ---------- کاهش حرکت ---------- */
+
+/*
+ * طرح مرجع حرکت زیاد دارد: دکمه بالا می‌آید، کارت سایه می‌گیرد.
+ *
+ * برای کسی که به حرکت حساس است این آزاردهنده است، و او ترجیحش را در
+ * سیستم‌عامل اعلام کرده.  رنگ و شعاع و گرادیان می‌مانند — چیزی از
+ * هویت بصری کم نمی‌شود، فقط حرکتش.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .shop *,
+  .shop *::before,
+  .shop *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .shop button:hover:not(:disabled),
+  .shop .btn:hover,
+  .shop .btn:active {
+    transform: none;
+  }
+}
+
+/* ---------- صافی و صفحه‌بندی ---------- */
+
+.shop-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  margin-bottom: var(--s-5);
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: var(--s-text-dim);
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 9px var(--s-3);
+  min-height: 40px;
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.filter-group input {
+  width: 8.5rem;
+  /* فلش‌های بالا/پایینِ number روی مبلغی که میلیون است بی‌فایده‌اند و
+     فقط جا می‌گیرند. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.filter-group input::-webkit-outer-spin-button,
+.filter-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.filter-group input:focus-visible,
+.filter-group select:focus-visible {
+  outline: 2px solid var(--s-brand);
+  outline-offset: 1px;
+}
+
+.filter-unit {
+  font-size: 12px;
+  color: var(--s-text-dim);
+}
+
+/* شمارنده به انتهای نوار می‌رود تا صافی‌ها کنار هم بمانند. */
+.filter-count {
+  margin-inline-start: auto;
+  font-size: 13px;
+}
+
+.shop-filters .btn.sm {
+  min-height: 40px;
+  padding: 0 var(--s-4);
+  font-size: 14px;
+}
+
+.shop-more {
+  margin-top: var(--s-6);
+  text-align: center;
+}
+
+/* ---------- چرا اینجا اسکلت بارگذاری نیست ---------- */
+
+/*
+ * `loading.tsx` نوشته شد، کار کرد، و برداشته شد.  اگر دوباره وسوسه‌اش
+ * را داشتید، این را بخوانید تا همان راه را دوباره نروید.
+ *
+ * روی Next 15.3 + React 19، یک `loading.tsx` در سطحِ مسیر روی این
+ * صفحه — که به‌خاطر `searchParams` پویاست — باعث می‌شود کلِ محتوای
+ * صفحه **دو بار** در DOM بماند:
+ *
+ *     HTML سرور:  یک نسخه، درون <div hidden id="S:1">
+ *     DOM مرورگر: دو نسخه — یکی دیدنی از رندرِ کلاینت،
+ *                  و نسخهٔ سرور که در همان div یتیم می‌ماند
+ *
+ * نتیجه‌اش سه شناسهٔ تکراری (`f-min`, `f-max`, `f-sort`) و دو برابر
+ * شدنِ حجمِ DOM بود — که روی کاتالوگِ دویست‌تایی بی‌اهمیت نیست.
+ *
+ * دو فرضیه آزموده و رد شد: نه `Suspense` دور نوار صافی درستش کرد، نه
+ * حذف `useSearchParams()`.  تنها متغیرِ مؤثر خودِ `loading.tsx` بود:
+ * با حذفش، تکرار صفر شد.
+ *
+ * اسکلت خوب است، ولی نه به این بها.
+ */
+
+/* ---------- مسیر راهنما و هشدار موجودی ---------- */
+
+.shop-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+  font-size: 13px;
+  color: var(--s-text-dim);
+}
+
+.shop-crumbs a {
+  color: var(--s-text-dim);
+  text-decoration: none;
+}
+
+.shop-crumbs a:hover {
+  color: var(--s-primary);
+  text-decoration: underline;
+}
+
+/* صفحهٔ جاری لینک نیست و پررنگ‌تر است — مرزِ «کجا بودم» و «کجا هستم». */
+.shop-crumbs [aria-current='page'] {
+  color: var(--s-text);
+  font-weight: 600;
+}
+
+/* ⚠️ هشدار با آیکون می‌آید، نه فقط رنگ.
+   کاربرِ نابینای رنگ (حدود هشت درصدِ مردان) نارنجی را از متنِ عادی
+   تشخیص نمی‌دهد؛ آیکون و متن پیام را مستقل از رنگ می‌رسانند. */
+.stock-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--s-2);
+  padding: 4px 10px;
+  border-radius: var(--s-radius-pill);
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  color: var(--s-accent);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ---------- انتخاب روش پرداخت ---------- */
+
+.pay-choice {
+  border: 0;
+  padding: 0;
+  margin: var(--s-3) 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.pay-choice legend {
+  padding: 0;
+  margin-bottom: var(--s-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--s-text-dim);
+}
+
+.pay-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.pay-choice label:hover {
+  border-color: var(--s-primary);
+}
+
+/* ⚠️ گزینهٔ انتخاب‌شده حاشیه و زمینه می‌گیرد، نه فقط نقطهٔ رادیو.
+   نقطه کوچک است و روی موبایل در یک نگاه دیده نمی‌شود — کاربر مطمئن
+   نمی‌شود کدام را زده و همان تردید، تسویه را رها می‌کند. */
+.pay-choice label.active {
+  border-color: var(--s-primary);
+  background: var(--s-primary-soft);
+}
+
+.pay-choice input {
+  margin-top: 3px;
+  accent-color: var(--s-primary);
+  flex-shrink: 0;
+}
+
+.pay-choice span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+}
+
+.pay-choice small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--s-text-dim);
+}
+
+/* ---------- صفحه‌بندی ---------- */
+
+.shop-pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-6);
+}
+
+.pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ⚠️ ۴۴ پیکسل کفِ هدفِ لمسی است.
+     زیر آن، انگشت روی موبایل شمارهٔ کناری را می‌زند و کاربر به صفحهٔ
+     اشتباه می‌رود — خطایی که آزاردهنده‌تر از کند بودن است. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+  color: var(--s-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.pager-btn:hover {
+  border-color: var(--s-primary);
+}
+
+/* صفحهٔ جاری پر می‌شود، نه فقط پررنگ: تفاوتِ وزنِ فونت در یک ردیف
+   عدد به‌سختی دیده می‌شود. */
+.pager-btn.active {
+  background: var(--s-primary);
+  border-color: var(--s-primary);
+  color: var(--s-on-primary);
+}
+
+/* ---------- نظر و امتیاز ---------- */
+
+/* ⚠️ متنی که فقط صفحه‌خوان می‌خواند.
+   `display:none` کار نمی‌کند — صفحه‌خوان هم آن را نمی‌خواند.  این
+   الگو عنصر را از چشم پنهان می‌کند ولی در درختِ دسترسی نگه می‌دارد. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--s-accent);
+}
+
+.reviews {
+  margin-top: var(--s-8);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--s-border);
+}
+
+.reviews-title {
+  font-size: 17px;
+  margin-bottom: var(--s-4);
+}
+
+.review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s-6);
+  display: grid;
+  gap: var(--s-3);
+}
+
+.review-list li {
+  padding: var(--s-3);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-surface);
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+
+.review-list p {
+  margin: 0;
+  line-height: 1.85;
+  /* نظر ممکن است رشتهٔ بلندِ بی‌فاصله داشته باشد؛ بدونِ این، کارت را
+     می‌شکند و صفحه افقی اسکرول می‌شود. */
+  overflow-wrap: anywhere;
+}
+
+.review-form {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  background: var(--s-surface-2);
+}
+
+.review-form-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.review-done {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--s-radius-sm);
+  background: var(--s-primary-soft);
+  border: 1px solid var(--s-primary);
+  font-weight: 600;
+}
+
+/* انتخابِ ستاره */
+.star-pick {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 2px;
+  color: var(--s-text-dim);
+}
+
+.star-pick label {
+  /* ⚠️ ۴۴ پیکسل کفِ هدفِ لمسی — با ستارهٔ ۲۶ پیکسلی، بدونِ padding
+     انگشت ستارهٔ کناری را می‌زند و کاربر امتیازِ اشتباه می‌دهد. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  transition: color 120ms ease, transform 120ms ease;
+}
+
+.star-pick label.on {
+  color: var(--s-accent);
+}
+
+.star-pick label:active {
+  transform: scale(0.92);
+}
+
+/* رادیو پنهان است ولی حذف نشده: فوکوسِ کیبورد و صفحه‌خوان به آن
+   وابسته‌اند. */
+.star-pick input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.star-pick input:focus-visible + svg {
+  outline: 2px solid var(--s-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

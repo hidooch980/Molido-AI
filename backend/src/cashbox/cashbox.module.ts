@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 
 import { CashBoxController } from './cashbox.controller';
 import { CashBoxService } from './cashbox.service';
+// ⚠️ بدونِ این، واریز و برداشت دوباره بی‌سند می‌شوند.
+import { AccountingModule } from '../accounting/accounting.module';
 
-import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
-    PrismaModule,
+    AccountingModule,
   ],
   controllers: [
     CashBoxController,

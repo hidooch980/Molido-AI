@@ -22,12 +22,38 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * ⚠️ `@Roles` اینجا از یک بازرسی آمد، نه از طراحی اولیه.
+   *
+   *    این مسیر هیچ محافظی نداشت.  در آزمون زنده، کاربرِ نقشِ
+   *    EMPLOYEE فهرستِ کاملِ همکارانش را گرفت: **ایمیل، تلفن، نقش و
+   *    وضعیت** — از جمله ایمیل و نقشِ مدیر.
+   *
+   *    این «فقط افشای اطلاعات» نیست: نشانیِ ایمیلِ مدیر و دانستنِ
+   *    اینکه او مدیر است، دقیقاً همان چیزی است که یک فیشینگِ هدفمند
+   *    لازم دارد.  و کسی که حسابِ کارمند را با رمزِ ضعیف به دست
+   *    آورده، همین را می‌خواهد.
+   *
+   *    تنها مصرف‌کنندهٔ این مسیر صفحهٔ مدیریت کاربران است، که خودش
+   *    فقط برای مدیر باز می‌شود — پس بستنش چیزی را نمی‌شکند.
+   */
   @Get()
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   findAll(@CurrentUser() user: AuthUser) {
     return this.usersService.findAll(user.companyId);
   }
 
+  /**
+   * ⚠️ فیلترِ شرکت اینجا در SQL نیست — RLS آن را می‌دهد.
+   *
+   *    آزموده شد: کاربرِ شرکت ۱ با شناسهٔ کاربرِ شرکت ۲، ۴۰۴ گرفت.
+   *
+   *    ولی تکیهٔ **تنها** بر RLS شکننده است: هر مسیری که بیرون از
+   *    زمینهٔ شرکت اجرا شود، این محافظ را ندارد.  `@Roles` لایهٔ
+   *    دومش است.
+   */
   @Get(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }

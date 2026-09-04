@@ -13,6 +13,26 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    # تست دود و نگهبان drift به PostgreSQL واقعی نیاز دارند — تنها جایی که
+    # SQL دست‌نویس واقعاً تجزیه و اجرا می‌شود.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: molido_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/molido_ci
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,14 +43,28 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
 
       - name: Build
         run: npm run build
 
-      - name: Test
+      - name: Unit tests
         run: npm test -- --passWithNoTests
+
+      - name: Migrate
+        run: npm run db:migrate
+
+      # اگر migration ستونی اضافه کند و schema.generated.ts به‌روز نشود،
+      # BaseCrudService آن ستون را بی‌صدا دور می‌ریزد؛ اینجا شکست می‌خورد.
+      - name: Schema drift guard
+        run: npm run check:schema
+
+      - name: Seed
+        run: npm run seed
+
+      - name: Smoke test
+        run: npm run test:smoke
 
   web:
     name: Web build
@@ -47,6 +81,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       - name: Build
         run: npm run build

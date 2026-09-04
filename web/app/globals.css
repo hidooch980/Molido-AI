@@ -2,7 +2,59 @@
    Molido AI — طراحی مدرن (Glassmorphism + Gradient)
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;800&display=swap');
+/* فونت وزیرمتن به‌صورت محلی سرو می‌شود، نه از Google Fonts.
+   سامانه باید بدون اینترنت هم کامل کار کند — و در بسیاری از شبکه‌های داخلی
+   دسترسی به fonts.googleapis.com اصلاً برقرار نمی‌شود، که نتیجه‌اش افتادن
+   متن فارسی روی Tahoma است. */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  /* swap: متن بلافاصله با فونت جایگزین دیده می‌شود و با آمدن وزیرمتن عوض
+     می‌شود؛ بهتر از صفحهٔ خالی است. */
+  font-display: swap;
+}
 
 :root {
   --bg: #0b1220;
@@ -11,7 +63,11 @@
   --border: rgba(255, 255, 255, 0.1);
   --text: #eef2ff;
   --text-dim: #96a2c0;
-  --primary: #6366f1;
+  /* ⚠️ #6366f1 با متن سفید ۴٫۴۷ می‌داد — سه صدم زیر حد.
+     یک پله تیره‌تر ۵٫۰۸ می‌دهد و خودش روی زمینهٔ تیره ۳٫۶۸ می‌ماند،
+     که برای زمینهٔ دکمه (عنصر غیرمتنی، حد ۳) کافی است.
+     `audit-contrast.mjs` همین را می‌سنجد. */
+  --primary: #5a5ce8;
   --primary-2: #8b5cf6;
   --accent: #22d3ee;
   --success: #34d399;
@@ -19,6 +75,44 @@
   --warning: #fbbf24;
   --radius: 18px;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+
+  /* ---------- توکن‌های پوسته ----------
+     هر مقداری که بین پوسته‌ها فرق می‌کند باید توکن باشد، نه رنگ ثابت.
+     تا امروز بیست‌وچند `rgba` مستقیم در قواعد نشسته بود؛ عوض کردن
+     `--primary` رنگشان را عوض نمی‌کرد و طرح تازه نصفه‌کاره می‌ماند. */
+
+  /* زمینهٔ کل صفحه — هر پوسته شکل خودش را دارد (گرادیان یا تخت) */
+  --app-bg:
+    radial-gradient(1100px 550px at 85% -10%, rgba(99, 102, 241, 0.28), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(34, 211, 238, 0.16), transparent 55%),
+    radial-gradient(700px 400px at 50% 120%, rgba(139, 92, 246, 0.12), transparent 60%),
+    var(--bg);
+
+  /* رنگ متن روی دکمهٔ اصلی؛ در پوستهٔ روشن باید تیره شود */
+  --on-primary: #ffffff;
+
+  /* هالهٔ دکمه و فوکوس */
+  --glow: rgba(99, 102, 241, 0.35);
+  --glow-strong: rgba(99, 102, 241, 0.45);
+  --ring: rgba(99, 102, 241, 0.25);
+
+  /* سطح‌های کمکی */
+  --surface: var(--panel);
+  --surface-2: var(--panel-strong);
+  --sidebar-bg: rgba(10, 16, 30, 0.55);
+  --overlay-bg: rgba(10, 16, 30, 0.92);
+
+  /* حالت فعال ناوبری */
+  --nav-active-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(34, 211, 238, 0.12));
+  --nav-active-border: rgba(99, 102, 241, 0.4);
+
+  /* شدت شیشه‌ای؛ پوستهٔ تخت صفرش می‌کند */
+  --blur: 18px;
+
+  /* فشردگی — کاربر در تنظیمات عوضش می‌کند */
+  --pad-card: 22px;
+  --pad-row: 10px;
+  --font-base: 14px;
 }
 
 * {
@@ -35,11 +129,7 @@ body {
 body {
   font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(1100px 550px at 85% -10%, rgba(99, 102, 241, 0.28), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(34, 211, 238, 0.16), transparent 55%),
-    radial-gradient(700px 400px at 50% 120%, rgba(139, 92, 246, 0.12), transparent 60%),
-    var(--bg);
+  background: var(--app-bg);
   background-attachment: fixed;
 }
 
@@ -52,15 +142,15 @@ button {
   padding: 12px 22px;
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-primary);
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 24px var(--glow);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s;
 }
 
 button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 12px 30px var(--glow-strong);
 }
 
 button:active {
@@ -119,7 +209,7 @@ input::placeholder {
 
 input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 0 3px var(--ring);
 }
 
 /* ---------- کارت‌ها ---------- */
@@ -127,9 +217,9 @@ input:focus {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 26px;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  padding: var(--pad-card);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   box-shadow: var(--shadow);
 }
 
@@ -162,7 +252,7 @@ input:focus {
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, var(--primary), var(--accent));
-  box-shadow: 0 14px 34px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 14px 34px var(--glow-strong);
 }
 
 .brand-title {
@@ -211,7 +301,7 @@ input:focus {
 .lang-pill.active {
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
   color: #fff;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 6px 18px var(--glow);
 }
 
 /* ---------- پیام خطا ---------- */
@@ -232,13 +322,17 @@ input:focus {
 }
 
 .sidebar {
-  width: 250px;
+  /* عرض از متغیر می‌آید تا جمع و باز شدن یک انیمیشن پیوسته باشد، نه
+     پرش ناگهانی بین دو کلاس. */
+  width: var(--sidebar-w, 250px);
   flex-shrink: 0;
   padding: 26px 18px;
+  transition: width 0.18s ease, padding 0.18s ease;
+  overflow: hidden;
   border-inline-end: 1px solid var(--border);
-  background: rgba(10, 16, 30, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -265,6 +359,36 @@ input:focus {
   background: linear-gradient(135deg, var(--primary), var(--accent));
 }
 
+/* ============================================================
+   دسته‌بندی سایدبار
+   ============================================================
+
+   ⚠️ چرا لازم بود؟
+
+      پنجاه‌ودو گزینه در یک فهرستِ تخت بود.  برای پیدا کردنِ «مرجوعی»
+      باید از بالا تا پایین خوانده می‌شد، چون هیچ نشانه‌ای نمی‌گفت کجا
+      یک موضوع تمام می‌شود و بعدی شروع.
+
+      رنگ و سایه این را درست نمی‌کند؛ ساختار می‌کند. */
+
+.nav-group + .nav-group {
+  /* فاصله تنها چیزی است که مرزِ دسته را می‌سازد — خط نمی‌کشیم،
+     چون هشت خطِ افقی خودش شلوغی تازه است. */
+  margin-top: 18px;
+}
+
+.nav-group-title {
+  padding: 0 14px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* کم‌رنگ‌تر از خودِ گزینه‌ها: عنوان راهنماست، نه مقصد.  اگر هم‌وزنِ
+     گزینه‌ها بود، چشم آن را هم گزینه می‌خواند و شمارش را بدتر می‌کرد. */
+  color: var(--text-dim);
+  opacity: 0.62;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -289,9 +413,17 @@ input:focus {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(34, 211, 238, 0.12));
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: var(--nav-active-bg);
+  border: 1px solid var(--nav-active-border);
   color: #fff;
+  /* ⚠️ نوارِ کناری، نه فقط زمینه.
+     در پوستهٔ تیره تفاوتِ زمینهٔ فعال و غیرفعال کم است و گزینهٔ جاری
+     گم می‌شود.  نوارِ رنگی لبه، در هر پوسته‌ای دیده می‌شود. */
+  position: relative;
+  box-shadow: inset 3px 0 0 var(--primary-2);
+}
+[dir='rtl'] .nav-item.active {
+  box-shadow: inset -3px 0 0 var(--primary-2);
 }
 
 .nav-item .soon {
@@ -350,14 +482,14 @@ input:focus {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   transition: transform 0.18s ease, border-color 0.18s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: var(--nav-active-border);
 }
 
 .stat-icon {
@@ -369,13 +501,13 @@ input:focus {
   justify-content: center;
   font-size: 22px;
   margin-bottom: 14px;
-  background: rgba(99, 102, 241, 0.16);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .stat-icon.c2 {
-  background: rgba(34, 211, 238, 0.13);
-  border-color: rgba(34, 211, 238, 0.3);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .stat-icon.c3 {
@@ -421,7 +553,7 @@ input:focus {
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.7);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 .muted {
@@ -498,9 +630,9 @@ a {
   bottom: 0;
   z-index: 40;
   padding-bottom: var(--safe-bottom);
-  background: rgba(10, 16, 30, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--overlay-bg);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   border-top: 1px solid var(--border);
 }
 
@@ -710,10 +842,10 @@ a {
   padding: 14px 16px;
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.97);
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  border: 1px solid var(--nav-active-border);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   animation: fade-in 0.3s ease;
 }
 
@@ -760,7 +892,7 @@ a {
   width: 100%;
   min-width: 560px;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--font-base);
 }
 
 .table-wrap th {
@@ -773,7 +905,7 @@ a {
 }
 
 .table-wrap td {
-  padding: 12px 8px;
+  padding: var(--pad-row) 8px;
   border-top: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -952,5 +1084,1234 @@ a {
 
   .main {
     padding: 0;
+  }
+}
+
+/* ---------- صندوق فروش (POS) ---------- */
+
+.error.success {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+/* اسکنر: هدف لمسی بزرگ، چون صندوق‌دار بدون نگاه کردن کار می‌کند */
+.scanner {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+.scanner input {
+  flex: 1;
+  font-size: 18px;
+  padding: 14px 16px;
+  letter-spacing: 1px;
+}
+
+.scanner button {
+  min-width: 110px;
+  font-size: 16px;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.small {
+  font-size: 12px;
+}
+
+table.cart {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+table.cart th,
+table.cart td {
+  padding: 10px 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+table.cart th {
+  font-size: 12px;
+  color: var(--muted, #94a3b8);
+  font-weight: 500;
+}
+
+table.cart td:first-child {
+  text-align: right;
+}
+
+/* دکمه‌های ±: اندازهٔ انگشت، نه اندازهٔ ماوس */
+td.qty {
+  white-space: nowrap;
+}
+
+td.qty button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+td.qty span {
+  display: inline-block;
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row-between.grand {
+  font-size: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.row-between.change {
+  color: #a7f3d0;
+}
+
+@media (max-width: 520px) {
+  .pay-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   شبکهٔ داده
+
+   برای فهرست‌های بزرگ.  جدول قدیمی برای فروشگاه کوچک بود: ردیف‌های
+   بلند، هشت تا در صفحه.  اینجا هدف عکسش است — هرچه بیشتر ردیف در یک
+   نگاه، بدون اینکه خواندن سخت شود.
+   ============================================================ */
+
+.grid-shell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2, var(--surface));
+}
+
+.grid-toolbar-end {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grid-count {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.grid-note {
+  padding: 28px 16px;
+  text-align: center;
+}
+
+/* ناحیهٔ اسکرول: سربرگ و جمع سر جایشان می‌مانند تا در ردیف هزارم هم
+   معلوم باشد کدام ستون چیست. */
+.grid-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.grid-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.grid-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.grid-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.grid-sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.grid-sort:hover {
+  color: var(--text);
+}
+
+.grid-table tbody td {
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* راه‌راه ملایم: در ردیف چهلم، چشم بدون آن خط را گم می‌کند. */
+.grid-table tbody tr:nth-child(even) {
+  background: rgba(148, 163, 184, 0.045);
+}
+
+.grid-table tbody tr:hover {
+  background: rgba(148, 163, 184, 0.11);
+}
+
+.grid-table tbody tr.is-selected {
+  background: rgba(56, 189, 248, 0.14);
+}
+
+/* ردیف زیر مکان‌نمای صفحه‌کلید باید از هاور قابل تشخیص باشد. */
+.grid-table tbody tr.is-cursor {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---------- ویرایش درجا ---------- */
+
+/* سلول قابل ویرایش باید معلوم باشد، وگرنه کسی دوبار کلیک نمی‌کند. */
+.grid-table td.is-editable {
+  cursor: text;
+  box-shadow: inset 0 -1px 0 rgba(56, 189, 248, 0.35);
+}
+
+.grid-table td.is-editable:hover {
+  background: rgba(56, 189, 248, 0.09);
+}
+
+.grid-edit {
+  width: 100%;
+  min-width: 70px;
+  padding: 3px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: inherit;
+  outline: none;
+}
+
+.grid-error {
+  margin: 0;
+  border-radius: 0;
+}
+
+.grid-columns {
+  position: relative;
+}
+
+.grid-columns-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 20;
+  min-width: 190px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.grid-columns-menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.grid-columns-menu label:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+/* ---------- کلید بخشی ---------- */
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 14px;
+  cursor: pointer;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.seg button + button {
+  border-inline-start: 1px solid var(--border);
+}
+
+.seg button:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text);
+}
+
+.seg button.active {
+  background: var(--accent);
+  color: #04121a;
+  font-weight: 700;
+}
+
+.seg-sm button {
+  padding: 6px 9px;
+  min-height: 32px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+@media (max-width: 640px) {
+  .grid-toolbar-end {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+}
+
+/* ============================================================
+   جدولِ کارت‌شونده — روی گوشی هر ردیف یک کارت می‌شود
+   ============================================================
+
+   ⚠️ چرا لازم بود؟
+
+      انباردار گوشی را با یک دست گرفته و کارتن در دست دیگرش است.
+      جدولِ پنج‌ستونی روی صفحهٔ ۳۷۵ پیکسلی افقی اسکرول می‌شود — یعنی
+      برای اصلاح مقدار باید اول افقی اسکرول کند، که با یک دست عملاً
+      ممکن نیست.
+
+   ⚠️ عنوانِ هر سلول از `data-label` می‌آید، نه از تکرارِ JSX.
+
+      ساختنِ یک نسخهٔ جدا برای موبایل یعنی دو جای مختلف که باید
+      هم‌زمان نگه داشته شوند — و همیشه یکی‌شان عقب می‌ماند. */
+
+@media (max-width: 640px) {
+  .stack-table thead {
+    /* `display: none` صرف، سرستون‌ها را از صفحه‌خوان هم می‌گیرد. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .stack-table,
+  .stack-table tbody,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .stack-table tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2, var(--surface));
+  }
+
+  .stack-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .stack-table td::before {
+    content: attr(data-label);
+    color: var(--text-dim);
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
+
+  /* نامِ کالا تیترِ کارت است، نه یک ردیفِ برچسب‌دار. */
+  .stack-table td[data-primary]::before {
+    content: none;
+  }
+
+  .stack-table td[data-primary] {
+    display: block;
+    font-weight: 700;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ورودی‌ها تا انتهای کارت کشیده شوند — هدفِ لمسیِ بزرگ‌تر. */
+  .stack-table td input {
+    width: 100% !important;
+    max-width: 180px;
+  }
+}
+
+/* ============================================================
+   پالت فرمان — Ctrl+K
+   ============================================================ */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(2, 6, 12, 0.62);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+
+.palette {
+  width: min(640px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.palette-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.palette-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.palette-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.palette-list button.active {
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.palette-list code {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.palette-empty {
+  padding: 26px;
+  text-align: center;
+}
+
+/* راهنمای کلیدها همیشه دیده می‌شود: میان‌بری که کسی از آن خبر ندارد،
+   وجود ندارد. */
+.palette-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+kbd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* ---------- کالابرگ ---------- */
+
+.ration-lookup {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.ration-lookup input {
+  flex: 1;
+}
+
+.ration-box {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+
+/* ---------- ستون تصویر کالا ---------- */
+
+/* برچسب دور خانهٔ فایل: خودِ `input[type=file]` در هر مرورگر شکل دیگری
+   دارد و با جدول جور درنمی‌آید. */
+.cell-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: rgba(148, 163, 184, 0.07);
+  color: var(--text-dim);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 140ms ease;
+}
+
+.cell-image:hover {
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.cell-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cell-image input {
+  display: none;
+}
+
+/* ============================================================
+   پوسته‌ها
+
+   هر پوسته فقط **توکن** را عوض می‌کند، نه قاعده را.  اگر قاعده‌ای رنگ
+   ثابت داشته باشد، در پوستهٔ دیگر از لای طرح بیرون می‌زند — و همان
+   ایرادی است که پیش از این ۱۹ جا داشت.
+
+   انتخاب کاربر در مرورگر خودش می‌ماند: صندوق‌دار شب و مدیرِ گزارش‌خوان
+   دو نیاز متفاوت دارند و یک پوستهٔ واحد به هر دو بد می‌نشیند.
+   ============================================================ */
+
+/* ---------- مینیمال سرد — پیش‌فرض پنل ----------
+   سفید، گرافیتی، آبیِ کنش.  وقتی صفحه سی ردیف داده دارد، هر رنگ اضافه
+   یک حواس‌پرتی است. */
+[data-theme='minimal'] {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --border: #e2e5ea;
+  --text: #16191d;
+  --text-dim: #6b7280;
+  --primary: #1f5eff;
+  --primary-2: #1f5eff;
+  --accent: #1f5eff;
+  --success: #16794a;
+  --danger: #c62828;
+  --warning: #b45309;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.07);
+
+  --app-bg: var(--bg);
+  --on-primary: #ffffff;
+  --glow: transparent;
+  --glow-strong: rgba(31, 94, 255, 0.18);
+  --ring: rgba(31, 94, 255, 0.22);
+  --sidebar-bg: #ffffff;
+  --overlay-bg: rgba(255, 255, 255, 0.97);
+  --nav-active-bg: rgba(31, 94, 255, 0.09);
+  --nav-active-border: rgba(31, 94, 255, 0.35);
+  /* شیشه‌ای روی زمینهٔ روشن فقط محو می‌کند، عمق نمی‌دهد. */
+  --blur: 0px;
+}
+
+/* ---------- شب صندوق ----------
+   تیره با سبز نعنایی.  صندوق‌دار هشت ساعت به این صفحه نگاه می‌کند. */
+[data-theme='night'] {
+  --bg: #0d1412;
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-strong: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e4ecef;
+  --text-dim: #8fa3ab;
+  --primary: #12a67f;
+  --primary-2: #0e8f6c;
+  --accent: #58d6a8;
+  --success: #58d6a8;
+  --danger: #f87171;
+  --warning: #d9a441;
+  --radius: 14px;
+  --shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+
+  --app-bg:
+    radial-gradient(900px 500px at 85% -10%, rgba(18, 166, 127, 0.16), transparent 60%),
+    var(--bg);
+  --on-primary: #04231a;
+  --glow: rgba(18, 166, 127, 0.28);
+  --glow-strong: rgba(18, 166, 127, 0.4);
+  --ring: rgba(88, 214, 168, 0.25);
+  --sidebar-bg: rgba(8, 18, 16, 0.6);
+  --overlay-bg: rgba(8, 18, 16, 0.94);
+  --nav-active-bg: rgba(18, 166, 127, 0.18);
+  --nav-active-border: rgba(88, 214, 168, 0.4);
+  --blur: 16px;
+}
+
+/* ---------- فیروزه ----------
+   همان هویتی که فروشگاه اینترنتی دارد؛ برای یکدست شدن دو بخش. */
+[data-theme='turquoise'] {
+  --bg: #f2f6f5;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --border: #d7e3e0;
+  --text: #12312f;
+  /* #5d7d7a روی سفید ۴.۴۹ می‌داد — مویی زیر حد ۴.۵.  یک پله تیره‌تر،
+     ۵.۲ می‌دهد و همان خاکستریِ فیروزه‌ای می‌ماند. */
+  --text-dim: #55716e;
+  --primary: #047857;
+  --primary-2: #0d8f8a;
+  --accent: #b34e1d;
+  --success: #047857;
+  --danger: #c62828;
+  --warning: #b34e1d;
+  --radius: 14px;
+  --shadow: 0 2px 8px rgba(18, 49, 47, 0.07);
+
+  --app-bg: var(--bg);
+  --on-primary: #ffffff;
+  --glow: transparent;
+  --glow-strong: rgba(4, 120, 87, 0.2);
+  --ring: rgba(4, 120, 87, 0.25);
+  --sidebar-bg: #ffffff;
+  --overlay-bg: rgba(255, 255, 255, 0.97);
+  --nav-active-bg: rgba(4, 120, 87, 0.1);
+  --nav-active-border: rgba(4, 120, 87, 0.35);
+  --blur: 0px;
+}
+
+/* ---------- کاغذ فنی ----------
+   خط‌کشی سیاه، گوشهٔ تیز، قرمز فقط برای خطا.  زبان سند رسمی — برای
+   جایی که خروجی چاپ می‌شود و امضا می‌خورد. */
+[data-theme='paper'] {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #fafafa;
+  --border: #1a1a1a;
+  --text: #111111;
+  --text-dim: #5f5f5f;
+  --primary: #111111;
+  --primary-2: #111111;
+  --accent: #c8102e;
+  --success: #0a6b3d;
+  --danger: #c8102e;
+  --warning: #8a5a00;
+  --radius: 0px;
+  --shadow: none;
+
+  --app-bg: var(--bg);
+  --on-primary: #ffffff;
+  --glow: transparent;
+  --glow-strong: transparent;
+  --ring: rgba(17, 17, 17, 0.3);
+  --sidebar-bg: #ffffff;
+  --overlay-bg: #ffffff;
+  --nav-active-bg: #111111;
+  --nav-active-border: #111111;
+  --blur: 0px;
+}
+
+/* در پوستهٔ کاغذ، ناوبری فعال معکوس می‌شود — تنها جایی که رنگ پر دارد. */
+[data-theme='paper'] .nav-item.active {
+  color: #ffffff;
+}
+
+/* ---------- انتخابگر پوسته ---------- */
+
+.theme-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.theme-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.theme-pill:hover {
+  color: var(--text);
+  transform: none;
+  box-shadow: none;
+}
+
+.theme-pill.active {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+/* نمونهٔ رنگ کنار نام: انتخاب پوسته با دیدن رنگ سریع‌تر از خواندن نام
+   است. */
+.theme-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  flex: 0 0 auto;
+}
+
+/* ---------- انتخاب رنگ اصلی ---------- */
+
+.swatch-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.swatch-btn:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--text-dim);
+}
+
+/* انتخابگر رنگ مرورگر شکل خودش را دارد؛ اینجا فقط اندازه و قاب یکسان
+   می‌شود تا کنار نمونه‌ها ناجور نباشد. */
+.swatch-input {
+  width: 34px;
+  height: 30px;
+  padding: 2px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ---------- صندوق: سبد معلق و تخفیف قلمی ---------- */
+
+.parked-bar {
+  padding: 12px 16px;
+}
+
+.parked-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.parked-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* مقدار تایپی: فلش‌های مرورگر جا می‌گیرند و در ستون تنگ سبد به درد
+   نمی‌خورند — دکمه‌های + و − همان کار را بهتر می‌کنند. */
+.qty-input {
+  width: 64px;
+  margin: 0;
+  padding: 5px 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.line-discount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.line-discount input {
+  width: 82px;
+  margin: 0;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.checkout-actions button {
+  flex: 1;
+}
+
+/* ---------- کد دسترسی پشتیبانی ---------- */
+
+/* بزرگ و با فاصله: کاربر آن را تلفنی می‌خواند. */
+.support-code {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.support-code code {
+  display: block;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  direction: ltr;
+}
+
+/* =============================================
+   کلید سریع صندوق — سه‌بعدی
+   =============================================
+
+   چرا سه‌بعدی و نه تخت: صندوق‌دار با انگشت و بدون نگاه کار می‌کند.
+   دکمه‌ای که لبهٔ محسوس دارد و زیر فشار فرو می‌رود، همان بازخوردی را
+   می‌دهد که کیبورد فیزیکی می‌داد — و خطای لمس را کم می‌کند.
+
+   عمق با `box-shadow` ساخته می‌شود نه `transform` سه‌بعدی: مرورگر
+   تبلت‌های ارزان صندوق، لایهٔ 3D را روی CPU رندر می‌کند و صفحه
+   کند می‌شود. */
+
+.quick-key {
+  position: relative;
+  min-height: 68px;
+  padding: 10px 6px;
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--on-primary);
+  background: linear-gradient(180deg, var(--qk-top, var(--primary)), var(--qk-bottom, var(--primary-2)));
+
+  /* سه لایه: لبهٔ پایینی (ضخامت دکمه)، سایهٔ روی میز، و درخشش داخلی
+     که بالای دکمه را برجسته نشان می‌دهد. */
+  box-shadow:
+    0 4px 0 var(--qk-edge, rgba(0, 0, 0, 0.28)),
+    0 6px 12px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.quick-key:hover {
+  filter: brightness(1.06);
+}
+
+/* فشرده‌شدن: دکمه به اندازهٔ ضخامتش پایین می‌رود و لبه‌اش محو می‌شود —
+   همان چیزی که چشم از یک کلید واقعی انتظار دارد. */
+.quick-key:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 0 0 var(--qk-edge, rgba(0, 0, 0, 0.28)),
+    0 2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.quick-key:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.quick-key .qk-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  /* نام بلند نباید دکمه را بکشد؛ دو خط، بعدش سه‌نقطه. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+
+.quick-key .qk-price {
+  font-size: 11px;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+/* کاربری که حرکت را کم کرده، نباید دکمه‌ای ببیند که می‌پرد. */
+@media (prefers-reduced-motion: reduce) {
+  .quick-key {
+    transition: none;
+  }
+  .quick-key:active {
+    transform: none;
+  }
+}
+
+/* =============================================
+   منوی کشویی — حالت جمع‌شده
+   =============================================
+
+   چرا لازم است: صفحهٔ فروش و انبار جدول‌های پهن دارند و ۲۵۰ پیکسل
+   منو روی نمایشگر ۱۳ اینچی یعنی دو ستون کمتر.  کاربری که مسیرها را
+   حفظ کرده، آیکون برایش کافی است.
+
+   انتخاب ذخیره می‌شود: کسی که منو را بسته، هر بار باز کردن صفحه
+   نمی‌خواهد دوباره ببندد. */
+
+.shell[data-sidebar='collapsed'] {
+  --sidebar-w: 74px;
+}
+
+.shell[data-sidebar='collapsed'] .sidebar {
+  padding-inline: 10px;
+}
+
+/* متن‌ها می‌روند، آیکون‌ها می‌مانند. */
+.shell[data-sidebar='collapsed'] .nav-item span,
+.shell[data-sidebar='collapsed'] .brand-row .brand-text,
+.shell[data-sidebar='collapsed'] .sidebar-logout span {
+  display: none;
+}
+
+.shell[data-sidebar='collapsed'] .nav-item,
+.shell[data-sidebar='collapsed'] .sidebar-logout {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.shell[data-sidebar='collapsed'] .brand-row {
+  justify-content: center;
+  padding: 0;
+}
+
+/* دکمهٔ جمع/باز کردن */
+.sidebar-toggle {
+  margin-top: auto;
+  margin-bottom: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-dim);
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12.5px;
+  min-height: 40px;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text);
+  transform: none;
+  box-shadow: none;
+}
+
+/* روی موبایل سایدبار اصلاً دیده نمی‌شود (کشوی جداگانه دارد)، پس
+   دکمهٔ جمع‌کردن هم آنجا بی‌معناست. */
+@media (max-width: 900px) {
+  .sidebar-toggle {
+    display: none;
+  }
+}
+
+/* ---------- میان‌برهای صفحهٔ اصلی ---------- */
+
+/*
+ * کارت‌های سه‌بعدی.
+ *
+ * ⚠️ عمق اینجا تزئین نیست — نشانهٔ **فشاردادنی بودن** است.
+ *
+ *    کارت روی سطح صفحه بالا ایستاده و با فشار پایین می‌رود، مثل
+ *    کلیدِ واقعی.  همین یک اشاره کافی است؛ چرخشِ تند و پرسپکتیوِ
+ *    اغراق‌شده روی صفحه‌ای که روزی صد بار باز می‌شود، از زیبایی به
+ *    مزاحمت تبدیل می‌شود.
+ *
+ *    عمق با سه لایه ساخته می‌شود:
+ *      ۱) لبهٔ پایینی تیره  -> ضخامتِ خودِ کلید
+ *      ۲) سایهٔ نرم زیرش    -> فاصله از سطح
+ *      ۳) درخششِ بالایی     -> نوری که از بالا می‌تابد
+ */
+
+.sc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+  /* پرسپکتیو روی ظرف است نه تک‌تک کارت‌ها: این‌طور همه از یک نقطه
+     دیده می‌شوند و شبکه یکپارچه به نظر می‌رسد. */
+  perspective: 900px;
+}
+
+.sc-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  /* ۹۶ خیلی بالاتر از حد ۴۴ است — این کارت‌ها روی موبایل با شست زده
+     می‌شوند، اغلب در حال حرکت. */
+  min-height: 96px;
+  padding: 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+  text-decoration: none;
+  transform-style: preserve-3d;
+  box-shadow:
+    /* ضخامتِ کلید */
+    0 4px 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+    /* فاصله از سطح */
+    0 10px 20px rgba(0, 0, 0, 0.22),
+    /* نورِ بالایی */
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  transition:
+    transform 160ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.sc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--sc-tone, var(--primary));
+  color: var(--on-primary);
+  /* آیکون یک پله جلوتر از کارت می‌ایستد — همان چیزی که عمق را
+     باورپذیر می‌کند. */
+  transform: translateZ(14px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sc-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+  transform: translateZ(6px);
+}
+
+/* هاور فقط با اشاره‌گر واقعی — روی لمسی `:hover` پس از ضربه می‌چسبد
+   و کارت تا ضربهٔ بعدی برجسته می‌ماند، که شبیه خرابی است. */
+@media (hover: hover) {
+  .sc-tile:hover {
+    transform: translateY(-4px) rotateX(6deg);
+    border-color: var(--sc-tone, var(--primary));
+    box-shadow:
+      0 8px 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+      0 18px 30px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  }
+}
+
+/* فشار: کارت تا ته پایین می‌رود و ضخامتش صفر می‌شود — حس کلیدِ
+   واقعی که خورده. */
+.sc-tile:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 0 0 var(--sc-edge, rgba(0, 0, 0, 0.28)),
+    0 4px 10px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sc-tile:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* رنگِ لبه فقط برای تشخیصِ سریع است، نه معنا — کسی که رنگ را
+   نمی‌بیند، برچسب را می‌خواند و چیزی از دست نمی‌دهد. */
+.sc-a { --sc-tone: #5a5ce8; }
+.sc-b { --sc-tone: #0e9f6e; }
+.sc-c { --sc-tone: #0b7ea8; }
+.sc-d { --sc-tone: #b45309; }
+.sc-e { --sc-tone: #7c3aed; }
+.sc-f { --sc-tone: #be185d; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-tile {
+    transition: none;
+  }
+
+  /* عمق و رنگ می‌مانند؛ فقط حرکت می‌رود.  چیزی از خواناییِ صفحه کم
+     نمی‌شود. */
+  .sc-tile:hover,
+  .sc-tile:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .sc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+  }
+
+  .sc-tile {
+    min-height: 86px;
+    padding: 12px 8px;
+  }
+
+  .sc-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sc-label {
+    font-size: 12.5px;
   }
 }

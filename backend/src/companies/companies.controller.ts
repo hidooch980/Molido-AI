@@ -27,6 +27,16 @@ export class CompaniesController {
     return this.companiesService.findOne(user.companyId);
   }
 
+  /** واحد پول و قالب نمایش — رابط کاربری با این تنظیم می‌شود. */
+  @Get('currency')
+  currency(@CurrentUser() user: AuthUser) {
+    if (!user.companyId) {
+      throw new BadRequestException('کاربر به شرکتی متصل نیست');
+    }
+
+    return this.companiesService.currency(user.companyId);
+  }
+
   @Patch()
   @Roles('SUPER_ADMIN', 'ADMIN')
   update(@CurrentUser() user: AuthUser, @Body() body: Record<string, string>) {

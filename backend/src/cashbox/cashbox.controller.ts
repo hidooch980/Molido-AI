@@ -43,13 +43,16 @@ export class CashBoxController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'CASHIER')
   deposit(
     @Param('id') id: string,
-    @Body() body: { amount: number },
+    @Body() body: { amount: number; reason?: string; note?: string },
     @CurrentUser() user: AuthUser,
   ) {
     return this.cashBoxService.deposit(
       id,
       user.companyId as string,
       body.amount,
+      body.reason,
+      body.note ?? null,
+      user.userId ?? null,
     );
   }
 
@@ -57,14 +60,29 @@ export class CashBoxController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   withdraw(
     @Param('id') id: string,
-    @Body() body: { amount: number },
+    @Body() body: { amount: number; reason?: string; note?: string },
     @CurrentUser() user: AuthUser,
   ) {
     return this.cashBoxService.withdraw(
       id,
       user.companyId as string,
       body.amount,
+      body.reason,
+      body.note ?? null,
+      user.userId ?? null,
     );
+  }
+
+  /**
+   * ردِ حسابرسیِ صندوق.
+   *
+   * ⚠️ تا امروز چنین چیزی وجود نداشت: واریز و برداشت فقط عدد را عوض
+   *    می‌کردند و هیچ‌کس نمی‌توانست بپرسد چه کسی، کِی، بابتِ چه.
+   */
+  @Get(':id/transactions')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  transactions(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.cashBoxService.transactions(id, user.companyId as string);
   }
 
   @Delete(':id')

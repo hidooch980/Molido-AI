@@ -1,0 +1,30 @@
+# پایان‌خط‌ها — LF اجباری برای هر چیزی که روی لینوکس اجرا می‌شود.
+#
+# ⚠️ `core.autocrlf=true` روی این ماشین روشن است و git صریحاً هشدار داد:
+#    «LF will be replaced by CRLF the next time Git touches it».
+#
+#    یعنی در نخستین clone روی ویندوز، هر اسکریپتِ ops به CRLF تبدیل
+#    می‌شود.  و آن `\r` دیده نمی‌شود: در پوسته تهِ هر متغیر می‌نشیند،
+#    شبیهِ فاصله به نظر می‌رسد، و مقایسه‌ها را بی‌صدا شکست می‌دهد.
+#
+#    بدتر: `ops/create-vendor.sh` فایلِ js را با scp به سرورِ لینوکسی
+#    می‌فرستد.  نسخهٔ CRLF آن‌جا هم می‌رود.
+#
+#    این خرابی فقط پس از clone پیدا می‌شود — و هیچ‌کس آن را به این‌جا
+#    ربط نمی‌دهد.  پس همین‌جا بسته می‌شود، نه با یادآوری به آدم‌ها.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.js   text eol=lf
+*.ts   text eol=lf
+*.sql  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# دودویی‌ها دست نخورند.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.woff  binary
+*.woff2 binary

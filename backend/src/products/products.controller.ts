@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { ProductsService } from './products.service';
+import { ImportService } from './import.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,7 +22,37 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly importService: ImportService,
+  ) {}
+
+  /**
+   * پیش‌نمایش فایل — بدون نوشتن.
+   *
+   * اجباری است: فایلی که ستون‌هایش اشتباه تشخیص داده شده، هزاران
+   * کالای خراب می‌سازد و پاک کردنشان از خودِ ورود سخت‌تر است.
+   */
+  @Post('import/preview')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'INVENTORY')
+  previewImport(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { csv: string },
+  ) {
+    return this.importService.preview(user.companyId as string, dto?.csv);
+  }
+
+  @Post('import')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  runImport(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { csv: string; warehouseId?: string; updateExisting?: boolean },
+  ) {
+    return this.importService.run(user.companyId as string, dto?.csv, {
+      warehouseId: dto?.warehouseId,
+      updateExisting: dto?.updateExisting,
+    });
+  }
 
   @Get()
   findAll(

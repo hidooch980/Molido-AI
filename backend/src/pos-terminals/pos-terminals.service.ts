@@ -1,20 +1,22 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
+import { Params, setClause } from '../database/sql';
 
 /**
  * فهرست بانک‌های ایران برای انتخاب در فرم ثبت کارت‌خوان
  */
 const IRANIAN_BANKS = [
-  'بانک ملی',
+  'بانک ملی ایران',
   'بانک سپه',
   'بانک ملت',
   'بانک تجارت',
-  'بانک صادرات',
+  'بانک صادرات ایران',
   'بانک کشاورزی',
   'بانک مسکن',
   'بانک رفاه کارگران',
@@ -59,10 +61,34 @@ const PSP_PROVIDERS = [
 ];
 
 const POS_STATUSES = ['ACTIVE', 'INACTIVE', 'UNDER_REPAIR', 'RETURNED'];
+const POS_TYPES = ['FIXED', 'MOBILE'];
+
+type Terminal = Record<string, unknown> & { id: string };
+
+const WRITABLE = [
+  'serialNo',
+  'merchantId',
+  'bankName',
+  'pspName',
+  'type',
+  'accountNo',
+  'iban',
+  'holderName',
+  'location',
+  'simNumber',
+  'cashBoxId',
+  'installedAt',
+  'note',
+] as const;
+
+const WITH_CASHBOX = `
+  SELECT t.*, b.name AS "cashBoxName", b.code AS "cashBoxCode"
+  FROM "PosTerminal" t LEFT JOIN "CashBox" b ON b.id = t."cashBoxId"
+`;
 
 @Injectable()
 export class PosTerminalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   banks() {
     return { banks: IRANIAN_BANKS, psps: PSP_PROVIDERS };
@@ -70,60 +96,37 @@ export class PosTerminalsService {
 
   async findAll(
     companyId: string,
-    options?: {
-      type?: string;
-      status?: string;
-      bankName?: string;
-      search?: string;
-    },
+    options?: { type?: string; status?: string; bankName?: string; search?: string },
   ) {
-    return this.prisma.posTerminal.findMany({
-      where: {
-        companyId,
-        ...(options?.type ? { type: options.type as never } : {}),
-        ...(options?.status ? { status: options.status as never } : {}),
-        ...(options?.bankName
-          ? { bankName: { contains: options.bankName } }
-          : {}),
-        ...(options?.search
-          ? {
-              OR: [
-                { terminalNo: { contains: options.search } },
-                { serialNo: { contains: options.search } },
-                { merchantId: { contains: options.search } },
-                {
-                  holderName: {
-                    contains: options.search,
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  location: { contains: options.search, mode: 'insensitive' },
-                },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        cashBox: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const params = new Params();
+    const conditions = [`t."companyId" = ${params.next(companyId)}`];
+    if (options?.type) conditions.push(`t.type = ${params.next(options.type)}`);
+    if (options?.status) conditions.push(`t.status = ${params.next(options.status)}`);
+    if (options?.bankName) {
+      conditions.push(`t."bankName" ILIKE ${params.next(`%${options.bankName}%`)}`);
+    }
+    if (options?.search) {
+      const term = params.next(`%${options.search}%`);
+      conditions.push(
+        `(t."terminalNo" ILIKE ${term} OR t."serialNo" ILIKE ${term}
+          OR t."merchantId" ILIKE ${term} OR t."holderName" ILIKE ${term}
+          OR t.location ILIKE ${term})`,
+      );
+    }
+
+    return this.db.query<Terminal>(
+      `${WITH_CASHBOX} WHERE ${conditions.join(' AND ')} ORDER BY t."createdAt" DESC`,
+      params.values,
+    );
   }
 
   async findOne(id: string, companyId: string) {
-    const terminal = await this.prisma.posTerminal.findFirst({
-      where: { id, companyId },
-      include: {
-        cashBox: { select: { id: true, name: true, code: true } },
-      },
-    });
-
-    if (!terminal) {
-      throw new NotFoundException('کارت‌خوان یافت نشد');
-    }
-
-    return terminal;
+    const rows = await this.db.query<Terminal>(
+      `${WITH_CASHBOX} WHERE t.id = $1 AND t."companyId" = $2`,
+      [id, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException('کارت‌خوان یافت نشد');
+    return rows[0];
   }
 
   async create(
@@ -145,185 +148,137 @@ export class PosTerminalsService {
       note?: string;
     },
   ) {
-    if (!data.terminalNo) {
-      throw new BadRequestException('شماره پایانه (ترمینال) الزامی است');
+    if (!data.terminalNo) throw new BadRequestException('شماره پایانه (ترمینال) الزامی است');
+    if (!data.bankName) throw new BadRequestException('نام بانک الزامی است');
+    this.assertType(data.type);
+
+    const existing = await this.db.query<{ id: string }>(
+      'SELECT id FROM "PosTerminal" WHERE "terminalNo" = $1',
+      [data.terminalNo],
+    );
+    if (existing[0]) {
+      throw new ConflictException('کارت‌خوانی با این شماره پایانه قبلاً ثبت شده است');
     }
 
-    if (!data.bankName) {
-      throw new BadRequestException('نام بانک الزامی است');
-    }
+    await this.assertCashBox(data.cashBoxId, companyId);
 
-    if (data.type && !['FIXED', 'MOBILE'].includes(data.type)) {
-      throw new BadRequestException(
-        'نوع کارت‌خوان باید FIXED (ثابت) یا MOBILE (سیار) باشد',
-      );
-    }
-
-    const existing = await this.prisma.posTerminal.findUnique({
-      where: { terminalNo: data.terminalNo },
-    });
-
-    if (existing) {
-      throw new ConflictException(
-        'کارت‌خوانی با این شماره پایانه قبلاً ثبت شده است',
-      );
-    }
-
-    if (data.cashBoxId) {
-      const cashBox = await this.prisma.cashBox.findFirst({
-        where: { id: data.cashBoxId, companyId },
-      });
-
-      if (!cashBox) {
-        throw new NotFoundException('صندوق مرتبط یافت نشد');
-      }
-    }
-
-    return this.prisma.posTerminal.create({
-      data: {
+    const rows = await this.db.query<Terminal>(
+      `INSERT INTO "PosTerminal"
+         (id, "companyId", "terminalNo", "serialNo", "merchantId", "bankName", "pspName",
+          type, status, "accountNo", iban, "holderName", location, "simNumber",
+          "cashBoxId", "installedAt", note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'ACTIVE', $9, $10, $11, $12, $13, $14, $15, $16)
+       RETURNING *`,
+      [
+        randomUUID(),
         companyId,
-        terminalNo: data.terminalNo,
-        serialNo: data.serialNo,
-        merchantId: data.merchantId,
-        bankName: data.bankName,
-        pspName: data.pspName,
-        type: (data.type ?? 'FIXED') as never,
-        status: 'ACTIVE',
-        accountNo: data.accountNo,
-        iban: data.iban,
-        holderName: data.holderName,
-        location: data.location,
-        simNumber: data.simNumber,
-        cashBoxId: data.cashBoxId,
-        installedAt: data.installedAt ? new Date(data.installedAt) : undefined,
-        note: data.note,
-      },
-    });
+        data.terminalNo,
+        data.serialNo ?? null,
+        data.merchantId ?? null,
+        data.bankName,
+        data.pspName ?? null,
+        data.type ?? 'FIXED',
+        data.accountNo ?? null,
+        data.iban ?? null,
+        data.holderName ?? null,
+        data.location ?? null,
+        data.simNumber ?? null,
+        data.cashBoxId ?? null,
+        data.installedAt ? new Date(data.installedAt) : null,
+        data.note ?? null,
+      ],
+    );
+    return rows[0];
   }
 
-  async update(
-    id: string,
-    companyId: string,
-    data: {
-      serialNo?: string;
-      merchantId?: string;
-      bankName?: string;
-      pspName?: string;
-      type?: string;
-      accountNo?: string;
-      iban?: string;
-      holderName?: string;
-      location?: string;
-      simNumber?: string;
-      cashBoxId?: string | null;
-      installedAt?: string;
-      note?: string;
-    },
-  ) {
+  async update(id: string, companyId: string, data: object) {
     await this.findOne(id, companyId);
 
-    if (data.type && !['FIXED', 'MOBILE'].includes(data.type)) {
-      throw new BadRequestException(
-        'نوع کارت‌خوان باید FIXED (ثابت) یا MOBILE (سیار) باشد',
-      );
-    }
+    const payload: Record<string, unknown> = { ...data };
+    this.assertType(payload.type as string | undefined);
+    await this.assertCashBox(payload.cashBoxId as string | undefined, companyId);
+    if (payload.installedAt) payload.installedAt = new Date(payload.installedAt as string);
 
-    if (data.cashBoxId) {
-      const cashBox = await this.prisma.cashBox.findFirst({
-        where: { id: data.cashBoxId, companyId },
-      });
+    const params = new Params();
+    const assignments = setClause(WRITABLE, payload, params);
+    if (!assignments) return this.findOne(id, companyId);
 
-      if (!cashBox) {
-        throw new NotFoundException('صندوق مرتبط یافت نشد');
-      }
-    }
-
-    return this.prisma.posTerminal.update({
-      where: { id },
-      data: {
-        ...(data.serialNo !== undefined ? { serialNo: data.serialNo } : {}),
-        ...(data.merchantId !== undefined
-          ? { merchantId: data.merchantId }
-          : {}),
-        ...(data.bankName ? { bankName: data.bankName } : {}),
-        ...(data.pspName !== undefined ? { pspName: data.pspName } : {}),
-        ...(data.type ? { type: data.type as never } : {}),
-        ...(data.accountNo !== undefined
-          ? { accountNo: data.accountNo }
-          : {}),
-        ...(data.iban !== undefined ? { iban: data.iban } : {}),
-        ...(data.holderName !== undefined
-          ? { holderName: data.holderName }
-          : {}),
-        ...(data.location !== undefined ? { location: data.location } : {}),
-        ...(data.simNumber !== undefined
-          ? { simNumber: data.simNumber }
-          : {}),
-        ...(data.cashBoxId !== undefined
-          ? { cashBoxId: data.cashBoxId }
-          : {}),
-        ...(data.installedAt
-          ? { installedAt: new Date(data.installedAt) }
-          : {}),
-        ...(data.note !== undefined ? { note: data.note } : {}),
-      },
-    });
+    const rows = await this.db.query<Terminal>(
+      `UPDATE "PosTerminal" SET ${assignments}, "updatedAt" = now()
+       WHERE id = ${params.next(id)} RETURNING *`,
+      params.values,
+    );
+    return rows[0];
   }
 
-  /**
-   * تغییر وضعیت: فعال / غیرفعال / در حال تعمیر / عودت به بانک
-   */
+  /** تغییر وضعیت: فعال / غیرفعال / در حال تعمیر / عودت به بانک */
   async updateStatus(id: string, companyId: string, status: string) {
     if (!POS_STATUSES.includes(status)) {
       throw new BadRequestException(
         `وضعیت نامعتبر است. مقادیر مجاز: ${POS_STATUSES.join(', ')}`,
       );
     }
-
     await this.findOne(id, companyId);
 
-    return this.prisma.posTerminal.update({
-      where: { id },
-      data: { status: status as never },
-    });
+    const rows = await this.db.query<Terminal>(
+      'UPDATE "PosTerminal" SET status = $1, "updatedAt" = now() WHERE id = $2 RETURNING *',
+      [status, id],
+    );
+    return rows[0];
   }
 
   async remove(id: string, companyId: string) {
     await this.findOne(id, companyId);
-
-    await this.prisma.posTerminal.delete({ where: { id } });
-
+    await this.db.execute('DELETE FROM "PosTerminal" WHERE id = $1', [id]);
     return { deleted: true, id };
   }
 
   async stats(companyId: string) {
-    const terminals = await this.prisma.posTerminal.findMany({
-      where: { companyId },
-      select: { type: true, status: true, bankName: true },
-    });
-
-    const typed = terminals as Array<{
-      type: string;
-      status: string;
+    const rows = await this.db.query<{
       bankName: string;
-    }>;
+      status: string;
+      type: string;
+      count: string;
+    }>(
+      `SELECT "bankName", status, type, count(*)::text AS count
+       FROM "PosTerminal" WHERE "companyId" = $1 GROUP BY "bankName", status, type`,
+      [companyId],
+    );
 
     const byBank: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
+    let total = 0;
+    let active = 0;
+    let fixed = 0;
+    let mobile = 0;
+    let underRepair = 0;
 
-    for (const t of typed) {
-      byBank[t.bankName] = (byBank[t.bankName] ?? 0) + 1;
-      byStatus[t.status] = (byStatus[t.status] ?? 0) + 1;
+    for (const row of rows) {
+      const count = Number(row.count);
+      total += count;
+      byBank[row.bankName] = (byBank[row.bankName] ?? 0) + count;
+      byStatus[row.status] = (byStatus[row.status] ?? 0) + count;
+      if (row.status === 'ACTIVE') active += count;
+      if (row.status === 'UNDER_REPAIR') underRepair += count;
+      if (row.type === 'FIXED') fixed += count;
+      if (row.type === 'MOBILE') mobile += count;
     }
 
-    return {
-      total: typed.length,
-      active: typed.filter((t) => t.status === 'ACTIVE').length,
-      fixed: typed.filter((t) => t.type === 'FIXED').length,
-      mobile: typed.filter((t) => t.type === 'MOBILE').length,
-      underRepair: typed.filter((t) => t.status === 'UNDER_REPAIR').length,
-      byBank,
-      byStatus,
-    };
+    return { total, active, fixed, mobile, underRepair, byBank, byStatus };
+  }
+
+  private assertType(type?: string) {
+    if (type && !POS_TYPES.includes(type)) {
+      throw new BadRequestException('نوع کارت‌خوان باید FIXED (ثابت) یا MOBILE (سیار) باشد');
+    }
+  }
+
+  private async assertCashBox(cashBoxId: string | undefined, companyId: string) {
+    if (!cashBoxId) return;
+    const rows = await this.db.query<{ id: string }>(
+      'SELECT id FROM "CashBox" WHERE id = $1 AND "companyId" = $2',
+      [cashBoxId, companyId],
+    );
+    if (!rows[0]) throw new NotFoundException('صندوق مرتبط یافت نشد');
   }
 }

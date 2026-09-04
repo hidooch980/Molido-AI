@@ -1,0 +1,123 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { Pool } from 'pg';
+import { adminDatabaseConfig } from './connection';
+
+const migrationsDir = join(process.cwd(), 'sql', 'migrations');
+
+/**
+ * رمز نقش برنامه را با آنچه در محیط تنظیم شده همگام می‌کند.
+ *
+ * مهاجرت ۰۱۳ نقش `molido_app` را با یک رمز پیش‌فرض می‌سازد، چون فایل SQL
+ * به متغیرهای محیطی دسترسی ندارد.  اگر کاربر `APP_DB_PASSWORD` را در
+ * `.env` عوض کند، بک‌اند با رمز تازه وصل می‌شود ولی رمز نقش هنوز قدیمی
+ * است — و اتصال با خطای احراز هویت می‌شکند، بی‌آنکه علتش روشن باشد.
+ *
+ * این تابع با نقش صاحب (که همین‌جا در دست است) رمز را هر بار می‌نشاند.
+ */
+async function syncAppRolePassword(pool: Pool): Promise<void> {
+  // متغیرهای صریح، نه PGUSER: سرویس migrate خودش با نقش ادمین وصل می‌شود،
+  // پس PGUSER اینجا نقش برنامه نیست.
+  const user = process.env.APP_DB_USER;
+  const password = process.env.APP_DB_PASSWORD;
+
+  if (!user || !password) return;
+
+  const roles = await pool.query<{ rolname: string }>(
+    'SELECT rolname FROM pg_roles WHERE rolname = $1',
+    [user],
+  );
+  if (!roles.rows[0]) return;
+
+  // نه نام نقش و نه رمز در ALTER ROLE پارامتر می‌پذیرند، پس دستور با
+  // `format` در سمت سرور و با نقل‌قول درست ساخته می‌شود — نه با الحاق رشته
+  // در سمت ما.
+  const statement = await pool.query<{ format: string }>(
+    "SELECT format('ALTER ROLE %I WITH PASSWORD %L', $1::text, $2::text)",
+    [user, password],
+  );
+
+  await pool.query(statement.rows[0].format);
+  console.log(`رمز نقش ${user} همگام شد`);
+}
+
+/**
+ * دیتابیس موتور گردش‌کار (n8n) را می‌سازد اگر نباشد.
+ *
+ * n8n جدول‌های خودش را می‌سازد ولی دیتابیس را نه — و اگر دیتابیس نباشد،
+ * فقط در حلقهٔ «database "n8n" does not exist» می‌ماند و هیچ‌جای دیگری
+ * خطا نمی‌دهد.  سرویس در `docker ps` سالم به نظر می‌رسد و کسی متوجه
+ * نمی‌شود که گردش‌کارها اصلاً اجرا نمی‌شوند.
+ *
+ * اسکریپت‌های `/docker-entrypoint-initdb.d` اینجا کافی نیستند: فقط روی
+ * volume خالی اجرا می‌شوند، پس نصب‌هایی که از قبل بالا آمده‌اند را درست
+ * نمی‌کنند.  مهاجرت هر بار اجرا می‌شود، پس جایش همین‌جاست.
+ */
+async function ensureWorkflowDatabase(pool: Pool): Promise<void> {
+  const name = process.env.N8N_DB_NAME || 'n8n';
+
+  const exists = await pool.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
+  if (exists.rows[0]) return;
+
+  // CREATE DATABASE نه پارامتر می‌پذیرد و نه داخل تراکنش اجرا می‌شود؛
+  // نام با `format` در سمت سرور نقل‌قول می‌شود، نه با الحاق رشته.
+  const statement = await pool.query<{ format: string }>(
+    "SELECT format('CREATE DATABASE %I', $1::text)",
+    [name],
+  );
+
+  try {
+    await pool.query(statement.rows[0].format);
+    console.log(`دیتابیس ${name} برای موتور گردش‌کار ساخته شد`);
+  } catch (error) {
+    // مسابقهٔ همزمانی: اگر نمونهٔ دیگری همین لحظه ساختش، مشکلی نیست.
+    if ((error as { code?: string }).code !== '42P04') throw error;
+  }
+}
+
+async function migrate(): Promise<void> {
+  const pool = new Pool(adminDatabaseConfig());
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+
+    const names = (await readdir(migrationsDir))
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    const applied = new Set(
+      (await pool.query<{ name: string }>('SELECT name FROM schema_migrations')).rows.map(
+        (row) => row.name,
+      ),
+    );
+
+    for (const name of names) {
+      if (applied.has(name)) continue;
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(await readFile(join(migrationsDir, name), 'utf8'));
+        await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [name]);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    await syncAppRolePassword(pool);
+    await ensureWorkflowDatabase(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
+migrate().catch((error: unknown) => {
+  console.error('Database migration failed', error);
+  process.exit(1);
+});

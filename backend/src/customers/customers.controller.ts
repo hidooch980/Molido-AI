@@ -28,17 +28,29 @@ export class CustomersController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.customersService.findAll(
-      user.companyId as string,
-      search,
-      page ? Number(page) : undefined,
-      limit ? Number(limit) : undefined,
-    );
+    return this.customersService.findAll(user.companyId as string, { search, page, limit });
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.customersService.findOne(id, user.companyId as string);
+    return this.customersService.findOne(user.companyId as string, id);
+  }
+
+  /** مانده بدهی — پیش از فروش نسیه لازم است، نه بعدش. */
+  /** صورت وضعیت — ریزِ گردش با ماندهٔ جاری. */
+  @Get(':id/statement')
+  statement(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.customersService.statement(user.companyId as string, id, from, to);
+  }
+
+  @Get(':id/balance')
+  balance(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.customersService.balance(user.companyId as string, id);
   }
 
   @Post()
@@ -66,12 +78,12 @@ export class CustomersController {
     @Body() body: Record<string, unknown>,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.customersService.update(id, user.companyId as string, body);
+    return this.customersService.update(user.companyId as string, id, body);
   }
 
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.customersService.remove(id, user.companyId as string);
+    return this.customersService.remove(user.companyId as string, id);
   }
 }

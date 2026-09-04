@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { useI18n } from '../../lib/i18n-context';
 import { api } from '../../lib/api';
+import { amountOnly, loadCurrency } from '../../lib/money';
 
 type Customer = {
   id: string;
@@ -15,12 +17,13 @@ type Customer = {
 };
 
 export default function CustomersPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fa = (v: unknown) => Number(v ?? 0).toLocaleString('fa-IR');
+  const fa = (v: unknown) => amountOnly(v);
 
   const load = useCallback(async (q = '') => {
     setLoading(true);
@@ -33,10 +36,15 @@ export default function CustomersPage() {
       setItems(Array.isArray(result) ? result : (result.data ?? []));
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا در دریافت مشتریان');
+      setError(err instanceof Error ? err.message : t('customersError'));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // واحد پول شرکت یک‌بار خوانده می‌شود تا نماد و اعشار درست باشد
+  useEffect(() => {
+    void loadCurrency();
   }, []);
 
   useEffect(() => {
@@ -44,7 +52,10 @@ export default function CustomersPage() {
   }, [load]);
 
   return (
-    <AppShell title="مشتریان" subtitle={`${fa(items.length)} مشتری`}>
+    <AppShell
+      title={t('customersTitle')}
+      subtitle={`${fa(items.length)} ${t('customersCountLabel')}`}
+    >
       {error ? <div className="error">{error}</div> : null}
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -58,30 +69,30 @@ export default function CustomersPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="جستجوی نام یا شماره تماس…"
+            placeholder={t('searchCustomers')}
             style={{ marginBottom: 0 }}
           />
           <button type="submit" className="btn-sm">
-            جستجو
+            {t('search')}
           </button>
         </form>
       </div>
 
       <div className="card">
         {loading ? (
-          <p className="muted">در حال بارگذاری…</p>
+          <p className="muted">{t('loading')}</p>
         ) : items.length === 0 ? (
-          <p className="muted">مشتری‌ای یافت نشد.</p>
+          <p className="muted">{t('noCustomers')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>نام</th>
-                  <th>تلفن</th>
-                  <th>ایمیل</th>
-                  <th>سقف اعتبار</th>
-                  <th>وضعیت</th>
+                  <th>{t('name')}</th>
+                  <th>{t('phone')}</th>
+                  <th>{t('email')}</th>
+                  <th>{t('creditLimit')}</th>
+                  <th>{t('status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,7 +106,7 @@ export default function CustomersPage() {
                     <td>{fa(item.creditLimit)}</td>
                     <td>
                       <span className="badge">
-                        {item.isActive ? 'فعال' : 'غیرفعال'}
+                        {item.isActive ? t('active') : t('inactive')}
                       </span>
                     </td>
                   </tr>

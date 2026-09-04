@@ -1,50 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from '@nestjs/common';
+import { BaseCrudService } from '../database/base-crud.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
-export class TendersService {
-  constructor(private readonly prisma: PrismaService) {}
+export class TendersService extends BaseCrudService {
+  protected readonly table = 'Tender';
+  protected readonly notFoundMessage = 'مناقصه یافت نشد';
 
-  async findAll(companyId: string, query: any = {}) {
-    return this.prisma.tender.findMany({
-      where: { companyId, ...this.buildFilter(query) },
-      orderBy: { createdAt: 'desc' },
-      take: query.limit ? Number(query.limit) : 50,
-    });
+  constructor(db: DatabaseService) {
+    super(db);
   }
-
-  async findOne(companyId: string, id: string) {
-    const item = await this.prisma.tender.findFirst({ where: { id, companyId } });
-    if (!item) throw new NotFoundException('مناقصه یافت نشد');
-    return item;
-  }
-
-  async create(companyId: string, data: any) {
-    return this.prisma.tender.create({ data: { ...data, companyId } });
-  }
-
-  async update(companyId: string, id: string, data: any) {
-    await this.findOne(companyId, id);
-    return this.prisma.tender.update({ where: { id }, data });
-  }
-
-  async remove(companyId: string, id: string) {
-    await this.findOne(companyId, id);
-    return this.prisma.tender.delete({ where: { id } });
-  }
-
-  async stats(companyId: string) {
-    const total = await this.prisma.tender.count({ where: { companyId } });
-    return { total };
-  }
-
-  private buildFilter(query: any) {
-    const where: any = {};
-    if (query.status) where.status = query.status;
-    if (query.search) {
-      // subclasses override
-    }
-    return where;
-  }
-
 }

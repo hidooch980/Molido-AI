@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { Permission } from '../common/decorators/permission.decorator';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -96,6 +97,7 @@ export class SalesController {
   }
 
   @Patch(':id/cancel')
+  @Permission('sales:cancel')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.salesService.cancel(id, user.companyId as string);

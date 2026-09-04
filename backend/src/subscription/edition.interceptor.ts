@@ -58,6 +58,9 @@ export const Feature = (feature: string) => SetMetadata(FEATURE_KEY, feature);
 
 @Injectable()
 export class EditionInterceptor implements NestInterceptor {
+  /** هر شکاف فقط یک بار لاگ می‌شود؛ وگرنه هر بازدید یک خط می‌سازد. */
+  private static readonly warned = new Set<string>();
+
   constructor(
     private readonly reflector: Reflector,
     private readonly subscription: SubscriptionService,
@@ -77,12 +80,32 @@ export class EditionInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const companyId = request?.user?.companyId;
 
-    // ⚠️ مسیرِ برچسب‌دارِ **عمومی** (بدونِ کاربر) باز می‌ماند.
+    // ⚠️ مسیرِ برچسب‌دارِ **عمومی** (بدونِ کاربر) باز می‌ماند — و این
+    //    یک **شکافِ شناخته‌شده** است، نه تصمیمِ کامل.
     //
-    //    نمونه‌اش کاتالوگِ عمومیِ فروشگاه است: خریدار توکن ندارد.
-    //    بستنش یعنی سایت برای بازدیدکنندهٔ ناشناس از کار بیفتد، در حالی
-    //    که تصمیمِ نسخه دربارهٔ **صاحبِ** نصب است نه بازدیدکننده.
-    if (!companyId) return next.handle();
+    //    `ShopPublicController` (`/shop`) و `SelfOrderController`
+    //    (`/menu/:token`) برچسب دارند ولی هرگز بسته نمی‌شوند، چون
+    //    بازدیدکننده توکن ندارد و شرکت از درخواست درنمی‌آید.
+    //
+    //    یعنی مشتری‌ای که نسخه‌اش پایین آمده، ویترین و منوی QRش
+    //    همچنان سرویس می‌دهد؛ فقط نمی‌تواند تنظیمشان کند.
+    //
+    //    بستنش شدنی است — شرکت را می‌شود از `:token` یا از
+    //    زیردامنه درآورد — ولی انجام نشده.  تا آن روز، این‌جا **لاگ**
+    //    می‌زند تا شکاف دیده شود.
+    //
+    //    یک برچسبِ همیشه‌بی‌اثر، بدتر از نبودِ برچسب است: کد را
+    //    محافظت‌شده نشان می‌دهد در حالی که نیست.
+    if (!companyId) {
+      if (!EditionInterceptor.warned.has(feature)) {
+        EditionInterceptor.warned.add(feature);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[گیت نسخه] مسیرِ عمومیِ «${feature}» گیت نمی‌شود — بدونِ کاربر، شرکت معلوم نیست`,
+        );
+      }
+      return next.handle();
+    }
 
     if (await this.subscription.hasFeature(companyId, feature)) {
       return next.handle();

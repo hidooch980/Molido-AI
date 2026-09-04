@@ -61,6 +61,30 @@ total_pass=0; total_fail=0; broken=""; skipped=""
 MOLIDO_ADMIN_PASSWORD=${MOLIDO_ADMIN_PASSWORD:-admin123}
 export MOLIDO_ADMIN_PASSWORD
 
+# ⚠️ نسخهٔ اشتراکِ شرکتِ آزمون باید بی‌حد باشد.
+#
+#    گیتِ نسخهٔ فروش هر قابلیتِ نخریده را ۴۰۲ می‌دهد.  اگر اشتراکِ
+#    `seed-company` روی BASIC مانده باشد — چون آزمونی یا پروبی دستی
+#    عوضش کرده و برنگردانده — ده‌ها مجموعه یک‌جا قرمز می‌شوند و هیچ‌کدام
+#    اشاره‌ای به علت ندارند.
+#
+#    یک بار همین اتفاق افتاد: ۲۵۰ شکست، و همه از یک `UPDATE` فراموش‌شده.
+#    تشخیصش نیم ساعت طول کشید چون شکست‌ها شبیهِ اشکالِ کد بودند.
+#
+#    پس پیش از اجرا سنجیده و اصلاح می‌شود — نه فقط هشدار، چون هشداری که
+#    اجرا را متوقف نکند در انبوهِ خروجی گم می‌شود.
+_plan=$(docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres   psql -U postgres -d molido_ai -tAq -c   "SELECT plan FROM \"Subscription\" WHERE \"companyId\"='seed-company'" 2>/dev/null | tr -d '
+ ')
+if [ -n "$_plan" ] && [ "$_plan" != "ADVANCED" ]; then
+  printf '⚠️  اشتراکِ آزمون روی %s مانده بود؛ به ADVANCED برگردانده شد.
+' "$_plan"
+  docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres     psql -U postgres -d molido_ai -tAq -c     "UPDATE \"Subscription\" SET plan='ADVANCED', status='ACTIVE', \"updatedAt\"=now()
+      WHERE \"companyId\"='seed-company'" >/dev/null 2>&1
+  # حافظهٔ قابلیت ۳۰ ثانیه است؛ بدونِ این صبر، مجموعه‌های اولِ صف
+  # همچنان ۴۰۲ می‌گیرند.
+  sleep 31
+fi
+
 LOGDIR=${MOLIDO_LOGDIR:-.test-logs}
 mkdir -p "$LOGDIR"
 

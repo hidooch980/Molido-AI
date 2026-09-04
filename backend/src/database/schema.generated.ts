@@ -114,7 +114,7 @@ export const TABLE_COLUMNS: Record<string, readonly string[]> = {
   RestaurantTable: ['id', 'companyId', 'areaId', 'tableNo', 'capacity', 'status', 'qrCode', 'note', 'createdAt', 'updatedAt', 'qrToken'],
   RolePermission: ['id', 'companyId', 'role', 'permission', 'allowed', 'updatedBy', 'createdAt', 'updatedAt'],
   Sale: ['id', 'companyId', 'customerId', 'userId', 'warehouseId', 'invoiceNo', 'status', 'subtotal', 'discount', 'tax', 'total', 'note', 'createdAt', 'updatedAt', 'shiftId', 'rationAccountId', 'rationAmount', 'salesAgentId', 'freightCharge', 'freightCost', 'discountCodeId', 'taxInvoiceId', 'discountBy', 'reference', 'dueDate', 'additions', 'deductions', 'invoiceDate', 'agentCommission'],
-  SaleItem: ['id', 'saleId', 'productId', 'quantity', 'price', 'discount', 'total', 'createdAt', 'returnedQty', 'manualDiscount', 'note', 'taxRate', 'taxAmount', 'serial', 'unitCost'],
+  SaleItem: ['id', 'saleId', 'productId', 'quantity', 'price', 'discount', 'total', 'createdAt', 'returnedQty', 'manualDiscount', 'note', 'taxRate', 'taxAmount', 'serial', 'unitCost', 'consignmentItemId'],
   SalesAgent: ['id', 'companyId', 'name', 'phone', 'territory', 'commissionRate', 'monthlyTarget', 'isActive', 'createdAt', 'updatedAt', 'agentNo', 'userId', 'nationalCode'],
   SalesOrder: ['id', 'companyId', 'orderNo', 'customerId', 'status', 'totalAmount', 'note', 'createdAt', 'updatedAt', 'quotationId', 'saleId', 'warehouseId', 'discount', 'tax'],
   SalesOrderItem: ['id', 'orderId', 'productId', 'name', 'qty', 'unitPrice', 'total', 'shippedQty'],

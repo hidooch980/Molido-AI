@@ -10,6 +10,7 @@ import { DatabaseService } from '../database/database.service';
 import { PostingService } from '../accounting/posting.service';
 import { applyStockDelta } from '../inventory/inventory.service';
 import {
+  ACCOUNTS,
   purchaseReturnEntry,
   returnCogsEntry,
   salesReturnEntry,
@@ -140,6 +141,8 @@ export class ReturnsService {
       const returnId = randomUUID();
       let subtotal = 0;
       let cost = 0;
+      // بهای اقلامِ امانیِ برگشتی — جدا، چون سندِ دیگری می‌خورد.
+      let consignedReturn = 0;
 
       const lines: Array<{
         productId: string;
@@ -166,12 +169,22 @@ export class ReturnsService {
           taxAmount: string;
           /** بهای لحظهٔ فروش؛ تهی برای فاکتورهای پیش از مهاجرت ۰۴۸. */
           unitCost: string | null;
+          /**
+           * ⚠️ پر بودنش یعنی این قلم **هرگز در انبار نبوده**.
+           *
+           *    برگرداندنش به `Inventory` موجودی‌ای می‌سازد که وجود
+           *    ندارد و ترازنامه را با دارایی‌ای که مالِ ما نیست باد
+           *    می‌کند — همان چیزی که کلِ طراحیِ امانی برای پرهیز از
+           *    آن است.
+           */
+          consignmentItemId: string | null;
         }>(
           `UPDATE "SaleItem"
               SET "returnedQty" = "returnedQty" + $1::numeric
             WHERE id = $2 AND "saleId" = $3
               AND "returnedQty" + $1::numeric <= quantity
-            RETURNING "productId", price, discount, quantity, "taxAmount", "unitCost"`,
+            RETURNING "productId", price, discount, quantity, "taxAmount", "unitCost",
+                      "consignmentItemId"`,
           [qty, line.sourceItemId, dto.saleId],
         );
 
@@ -237,12 +250,51 @@ export class ReturnsService {
         //
         //    عقب‌گرد فقط برای فاکتورهای پیش از مهاجرت ۰۴۸ است که
         //    `unitCost` ندارند.
-        cost +=
-          item.unitCost !== null && item.unitCost !== undefined
-            ? Number(item.unitCost) * qty
-            : Number(product?.purchasePrice ?? 0) * qty;
+        // ⚠️ قلمِ امانی از این جمع بیرون است.
+        //
+        //    `SalesReturnCogs` موجودی کالا را **بدهکار** می‌کند (کالا
+        //    به انبار برگشت).  برای امانی هیچ کالایی به انبار برنگشته؛
+        //    آن‌جا باید بدهی به مالک بدهکار شود.  سندش جداست.
+        if (!item.consignmentItemId) {
+          cost +=
+            item.unitCost !== null && item.unitCost !== undefined
+              ? Number(item.unitCost) * qty
+              : Number(product?.purchasePrice ?? 0) * qty;
+        }
 
-        if (product?.trackInventory) {
+        if (item.consignmentItemId) {
+          // ⚠️ قلمِ امانی به **امانی** برمی‌گردد، نه به انبار.
+          //
+          //    `settledQty` کم می‌شود، پس همان مقدار دوباره «فروش‌نرفته»
+          //    می‌شود و می‌تواند به مالک برگردد یا دوباره فروخته شود.
+          //
+          //    و بدهیِ ما به مالک هم باید کم شود — سندش پایین‌تر، در
+          //    `consignedReturn`.
+          await tx.query(
+            `UPDATE "ConsignmentItem"
+                SET "settledQty" = GREATEST("settledQty" - $2::numeric, 0),
+                    "updatedAt" = now()
+              WHERE id = $1 AND "companyId" = $3`,
+            [item.consignmentItemId, qty, companyId],
+          );
+
+          // ⚠️ سندِ `Consignment` اگر با تسویهٔ کامل بسته شده بود، باید
+          //    باز شود؛ وگرنه کالایی که برگشته در هیچ فهرستی دیده
+          //    نمی‌شود و عملاً گم می‌شود.
+          await tx.query(
+            `UPDATE "Consignment" c
+                SET status = 'OPEN', "updatedAt" = now()
+               FROM "ConsignmentItem" ci
+              WHERE ci.id = $1 AND c.id = ci."consignmentId"
+                AND c.status = 'CLOSED'`,
+            [item.consignmentItemId],
+          );
+
+          consignedReturn +=
+            item.unitCost !== null && item.unitCost !== undefined
+              ? Number(item.unitCost) * qty
+              : 0;
+        } else if (product?.trackInventory) {
           // ⚠️ کالای برگشتی با **همان بهایی** که رفته بود برمی‌گردد.
           //
           //    اگر بها پاس نمی‌شد، `avgCost` دست‌نخورده می‌ماند ولی
@@ -362,6 +414,29 @@ export class ReturnsService {
           description: `برگشت از فروش ${returnNo}`,
           userId,
           lines: salesReturnEntry({ subtotal, tax, total, refundMethod }),
+        });
+      }
+
+      if (consignedReturn > 0.005) {
+        // معکوسِ سندِ فروشِ امانی: بدهی به مالک کم می‌شود و بهای
+        // تمام‌شده بستانکار.
+        await this.posting.postAuto(tx, companyId, {
+          sourceType: 'ConsignmentInReturn',
+          sourceId: returnId,
+          description: `برگشت کالای امانی ${returnNo}`,
+          userId,
+          lines: [
+            {
+              accountCode: ACCOUNTS.payable,
+              debit: Math.round(consignedReturn * 100) / 100,
+              description: 'کاهش بدهی به مالک امانی',
+            },
+            {
+              accountCode: ACCOUNTS.cogs,
+              credit: Math.round(consignedReturn * 100) / 100,
+              description: 'برگشت بهای کالای امانی',
+            },
+          ],
         });
       }
 

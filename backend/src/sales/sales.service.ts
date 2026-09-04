@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import {
   BadRequestException,
   Inject,
@@ -12,7 +13,7 @@ import { Params } from '../database/sql';
 import { applyStockDelta } from '../inventory/inventory.service';
 import { RationService } from '../ration/ration.service';
 import { PostingService } from '../accounting/posting.service';
-import { cogsEntry, collectionEntry, saleEntry } from '../accounting/posting-rules';
+import { ACCOUNTS, cogsEntry, collectionEntry, saleEntry } from '../accounting/posting-rules';
 import { N8nService } from '../n8n/n8n.service';
 import { CashierShiftService } from '../retail/cashier-shift.service';
 import { PricingService } from '../pricing/pricing.service';
@@ -46,6 +47,14 @@ function escapeHtml(value: unknown): string {
 
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_INSTALLMENT_INTERVAL_DAYS = 30;
+
+/** نتیجهٔ برداشت از امانیِ گرفته‌شده برای یک سطرِ فروش. */
+type ConsignmentDraw = {
+  /** نخستین سندی که سطر از آن تأمین شد — نشانهٔ «این سطر امانی است». */
+  consignmentItemId: string;
+  /** میانگینِ وزنیِ بدهی به مالک، به ازای هر واحد. */
+  unitCost: number;
+};
 
 @Injectable()
 export class SalesService {
@@ -398,6 +407,16 @@ export class SalesService {
       }
 
       // کاهش موجودی انبار
+      //
+      // ⚠️ سطری که از **امانیِ گرفته‌شده** تأمین شود این‌جا رد می‌شود:
+      //    آن کالا هرگز در `Inventory` نبوده (مالِ ما نیست و نباید در
+      //    ترازنامه بنشیند)، پس کم کردنش موجودیِ منفی می‌سازد.
+      //
+      //    `consignedBy` می‌گوید هر سطر از کجا آمد؛ ستونِ
+      //    `SaleItem."consignmentItemId"` و سندِ حسابداری هر دو از
+      //    همین خوانده می‌شوند.
+      const consignedBy = new Map<string, ConsignmentDraw>();
+
       for (const item of itemsData) {
         const product = productMap.get(item.productId)!;
         if (!product.trackInventory) continue;
@@ -409,9 +428,19 @@ export class SalesService {
           -item.quantity,
           { companyId, reason: 'SALE', refType: 'SALE', refId: saleId, userId },
         );
-        if (!updated) {
+        if (updated) continue;
+
+        // موجودیِ خودی کفاف نداد — شاید امانی داشته باشیم.
+        const draw = await this.drawFromConsignment(
+          tx,
+          companyId,
+          item.productId,
+          item.quantity,
+        );
+        if (!draw) {
           throw new BadRequestException(`موجودی کالای «${product.name}» کافی نیست`);
         }
+        consignedBy.set(item.productId, draw);
       }
 
       // ⚠️ بهای تمام‌شده **همین‌جا** قفل می‌شود، پیش از ثبتِ سطرها.
@@ -573,8 +602,8 @@ export class SalesService {
       const items: SaleItem[] = [];
       for (const item of itemsData) {
         const row = await tx.query<SaleItem>(
-          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total, "manualDiscount", note, "taxRate", "taxAmount", serial, "unitCost")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+          `INSERT INTO "SaleItem" (id, "saleId", "productId", quantity, price, discount, total, "manualDiscount", note, "taxRate", "taxAmount", serial, "unitCost", "consignmentItemId")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
           [
             randomUUID(),
             sale.id,
@@ -590,7 +619,14 @@ export class SalesService {
             item.serial?.trim() || null,
             // بهایی که این فاکتور واقعاً با آن خرج خورد — مرجوعی و
             // گزارشِ سود به همین نگاه می‌کنند، نه به بهای امروز.
-            unitCostOf(item.productId),
+            //
+            // ⚠️ برای سطرِ امانی، بها **بدهیِ ما به مالک** است، نه
+            //    میانگینِ موجودی: میانگینی وجود ندارد چون کالا هرگز
+            //    وارد `Inventory` نشده.  عقب‌گردِ `unitCostOf` به
+            //    `purchasePrice` این‌جا عددِ بی‌ربطی می‌داد.
+            consignedBy.get(item.productId)?.unitCost ??
+              unitCostOf(item.productId),
+            consignedBy.get(item.productId)?.consignmentItemId ?? null,
           ],
         );
         items.push(row.rows[0]);
@@ -656,11 +692,25 @@ export class SalesService {
       //    محاسبهٔ دوبارهٔ اینجا یعنی سندِ حسابداری و ستونِ
       //    `SaleItem."unitCost"` می‌توانستند از هم فاصله بگیرند — و
       //    آن‌وقت مرجوعی هم با هیچ‌کدام جور درنمی‌آمد.
+      // ⚠️ سطرهای امانی از این جمع **بیرون‌اند**.
+      //
+      //    بهای تمام‌شدهٔ آن‌ها در سندِ `ConsignmentInSettle` خورده
+      //    (بدهکار بهای تمام‌شده / بستانکار بدهی به مالک).  اگر این‌جا
+      //    هم بیایند، بهای تمام‌شده **دو بار** ثبت می‌شود و سودِ ناخالص
+      //    به‌اندازهٔ کلِ فروشِ امانی کم گزارش می‌شود.
+      //
+      //    و بستانکارش هم غلط بود: `SaleCogs` موجودی کالا را بستانکار
+      //    می‌کند، در حالی که ما آن موجودی را هرگز نداشتیم.
       const cost = itemsData.reduce(
-        (sum, item) => sum + unitCostOf(item.productId) * item.quantity,
+        (sum, item) =>
+          consignedBy.has(item.productId)
+            ? sum
+            : sum + unitCostOf(item.productId) * item.quantity,
         0,
       );
 
+      // ⚠️ `postAuto` با مبلغِ صفر سندِ خالی نمی‌سازد؛ فاکتوری که همهٔ
+      //    اقلامش امانی باشد `SaleCogs` ندارد و این درست است.
       await this.posting.postAuto(tx, companyId, {
         sourceType: 'SaleCogs',
         sourceId: sale.id,
@@ -668,6 +718,39 @@ export class SalesService {
         userId,
         lines: cogsEntry(Math.round(cost * 100) / 100),
       });
+
+      // بهای تمام‌شده و بدهیِ اقلامِ امانی — سندِ جداگانه، چون
+      // بستانکارش «بدهی به مالکِ امانی» است نه «موجودی کالا».
+      const consignedCost = itemsData.reduce((sum, item) => {
+        const draw = consignedBy.get(item.productId);
+        return draw ? sum + draw.unitCost * item.quantity : sum;
+      }, 0);
+
+      if (consignedCost > 0.005) {
+        await this.posting.postAuto(tx, companyId, {
+          // ⚠️ همان `sourceType`ِ مسیرِ تسویهٔ دستی است، عمداً: گزارشِ
+          //    بدهی به امانت‌دهندگان یک جا را می‌خواند، نه دو جا.
+          //
+          //    `sourceId` شناسهٔ **فاکتور** است تا ابطالِ فاکتور بتواند
+          //    با `reverseBySourceIn` پیدایش کند.
+          sourceType: 'ConsignmentInSettle',
+          sourceId: sale.id,
+          description: `بهای کالای امانیِ فاکتور ${sale.invoiceNo}`,
+          userId,
+          lines: [
+            {
+              accountCode: ACCOUNTS.cogs,
+              debit: Math.round(consignedCost * 100) / 100,
+              description: 'بهای کالای امانی',
+            },
+            {
+              accountCode: ACCOUNTS.payable,
+              credit: Math.round(consignedCost * 100) / 100,
+              description: 'بدهی به مالک امانی',
+            },
+          ],
+        });
+      }
 
       return { ...sale, items, payments: tenders, rationAmount };
     });
@@ -688,6 +771,111 @@ export class SalesService {
    * سازمان می‌خوابید.  فاکتور ثبت می‌شود؛ اگر صف نگرفت، در صفحهٔ مؤدیان
    * زیر «در صف نیست» دیده می‌شود و دستی افزوده می‌شود.
    */
+  /**
+   * موجودیِ خودی کفاف نداد؛ از امانیِ گرفته‌شده برمی‌دارد.
+   *
+   * ---------- قاعده: همه یا هیچ ----------
+   *
+   * ⚠️ سطر یا **کاملاً** از موجودیِ خودی می‌آید یا **کاملاً** از امانی.
+   *
+   *    ترکیب کردنشان وسوسه‌انگیز است (۳ تا از انبار، ۲ تا از امانی) ولی
+   *    یک سطرِ فروش **یک** بهای تمام‌شده دارد و **یک** مقصدِ حسابداری.
+   *    نیمی از آن باید موجودی کالا را بستانکار کند و نیمی بدهی به مالک
+   *    را — که یعنی یک سطر با دو سرنوشت، و مرجوعی‌اش هیچ جوابِ درستی
+   *    ندارد.
+   *
+   *    اگر روزی لازم شد، راهش شکستنِ سطر به دو سطرِ فاکتور است، نه
+   *    شکستنِ حسابداریِ یک سطر.
+   *
+   * ---------- چرا میانگینِ وزنیِ چند سند ----------
+   *
+   * ⚠️ ممکن است دو سندِ امانی از یک مالک، با دو قیمتِ متفاوت، هر کدام
+   *    بخشی از مقدار را داشته باشند.  بهای سطر میانگینِ وزنیِ همان‌هاست
+   *    — همان کاری که میانگین موزون در `Inventory` می‌کند.
+   *
+   * @returns `null` اگر امانیِ کافی نبود؛ صداکننده همان خطای «موجودی
+   *          کافی نیست» را می‌دهد.
+   */
+  private async drawFromConsignment(
+    tx: PoolClient,
+    companyId: string,
+    productId: string,
+    quantity: number,
+  ): Promise<ConsignmentDraw | null> {
+    // ⚠️ `FOR UPDATE` **حیاتی** است.
+    //
+    //    دو صندوق که هم‌زمان آخرین قلمِ امانی را می‌فروشند، بدونِ قفل هر
+    //    دو «موجود است» می‌بینند و هر دو `settledQty` را بالا می‌برند.
+    //    قیدِ `settledQty + returnedQty <= quantity` جلوی دومی را
+    //    می‌گیرد — ولی با خطای پایگاه‌داده در میانهٔ تسویه، نه با پیامِ
+    //    «موجودی کافی نیست».
+    //
+    //    ترتیب `createdAt` یعنی FIFO: قدیمی‌ترین امانی اول تسویه شود،
+    //    چون همان است که مالکش زودتر پولش را می‌خواهد.
+    const lots = await tx.query<{
+      id: string;
+      openQty: string;
+      unitPrice: string;
+    }>(
+      `SELECT ci.id,
+              (ci.quantity - ci."settledQty" - ci."returnedQty")::text AS "openQty",
+              ci."unitPrice"::text AS "unitPrice"
+         FROM "ConsignmentItem" ci
+         JOIN "Consignment" c ON c.id = ci."consignmentId"
+        WHERE ci."companyId" = $1
+          AND ci."productId" = $2
+          AND c.direction = 'IN'
+          AND c.status = 'OPEN'
+          AND ci.quantity - ci."settledQty" - ci."returnedQty" > 0.0005
+        ORDER BY c."createdAt"
+          FOR UPDATE OF ci`,
+      [companyId, productId],
+    );
+
+    const available = lots.rows.reduce(
+      (sum, lot) => sum + Number(lot.openQty),
+      0,
+    );
+    if (available + 0.0005 < quantity) return null;
+
+    let remaining = quantity;
+    let value = 0;
+    let firstLot: string | null = null;
+
+    for (const lot of lots.rows) {
+      if (remaining <= 0.0005) break;
+
+      const take = Math.min(Number(lot.openQty), remaining);
+      remaining -= take;
+      value += take * Number(lot.unitPrice);
+      firstLot ??= lot.id;
+
+      await tx.query(
+        `UPDATE "ConsignmentItem"
+            SET "settledQty" = "settledQty" + $2, "updatedAt" = now()
+          WHERE id = $1`,
+        [lot.id, take],
+      );
+    }
+
+    // ⚠️ سندِ امانی که تمام شد **بسته نمی‌شود** این‌جا.
+    //
+    //    بستنش کارِ `consignment.service` است و شرطش را خودش دارد.  اگر
+    //    این‌جا هم بسته می‌شد، ابطالِ فاکتور سندِ بسته‌ای را باز می‌کرد
+    //    که هیچ‌کس انتظارش را ندارد.
+
+    return {
+      // ⚠️ فقط **نخستین** سند روی سطر می‌نشیند.
+      //
+      //    وقتی سطر از چند سند تأمین شده، این ستون نشانهٔ «این سطر
+      //    امانی است» می‌ماند و برای مرجوعی همان کافی است — مرجوعی به
+      //    همان سندِ نخست برمی‌گردد.  ثبتِ کاملِ سهم‌ها یک جدولِ رابط
+      //    می‌خواهد که تا نیاز نشده ساخته نمی‌شود.
+      consignmentItemId: firstLot as string,
+      unitCost: Math.round((value / quantity) * 100) / 100,
+    };
+  }
+
   private async queueForTax(companyId: string, saleId: string) {
     if (!this.tax) return;
 
@@ -760,6 +948,23 @@ export class SalesService {
       // نمی‌شود تا رد حسابرسی بماند.
       await this.posting.reverseBySourceIn(tx, companyId, 'Sale', id);
       await this.posting.reverseBySourceIn(tx, companyId, 'SaleCogs', id);
+      // ⚠️ بدونِ این، ابطالِ فاکتورِ امانی بدهی به مالک را باقی می‌گذارد:
+      //    فروش خنثی می‌شود ولی ما همچنان بدهکاریم.
+      await this.posting.reverseBySourceIn(
+        tx, companyId, 'ConsignmentInSettle', id,
+      );
+
+      // و مقدارِ تسویه‌شده باید آزاد شود، وگرنه کالای امانی «فروخته»
+      // می‌ماند در حالی که فاکتورش باطل شده.
+      await tx.query(
+        `UPDATE "ConsignmentItem" ci
+            SET "settledQty" = ci."settledQty" - si.quantity,
+                "updatedAt"  = now()
+           FROM "SaleItem" si
+          WHERE si."saleId" = $1
+            AND si."consignmentItemId" = ci.id`,
+        [id],
+      );
 
       const updated = await tx.query<Sale>(
         `UPDATE "Sale" SET status = 'CANCELLED', "updatedAt" = now() WHERE id = $1 RETURNING *`,

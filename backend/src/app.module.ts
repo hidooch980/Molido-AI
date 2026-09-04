@@ -80,6 +80,7 @@ import { GovSsoModule } from './gov-sso/gov-sso.module';
 import { ShahkarModule } from './shahkar/shahkar.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { BillingModule } from './billing/billing.module';
 import { StructureModule } from './structure/structure.module';
 import { SelfOrderModule } from './self-order/self-order.module';
 import { SiteModule } from './site/site.module';
@@ -229,6 +230,10 @@ const CORE_MODULES = [
   // ⚠️ ماژولِ هسته: اشتراک به محصول وابسته نیست — هر نصبی
   //    باید بداند چه کسی پول داده.
   SubscriptionModule,
+  // ⚠️ ماژولِ هسته: تمدیدِ اشتراک باید در **هر** محصولی کار کند، و
+  //    مهم‌تر: باید با اشتراکِ منقضی هم در دسترس باشد.  اگر پشتِ
+  //    قابلیتی می‌رفت، مشتریِ منقضی نمی‌توانست تمدید کند.
+  BillingModule,
   // ⚠️ ماژولِ هسته: پشتیبانِ ساختار به هیچ قابلیتِ اختیاری وابسته
   //    نیست و در هر نمایه باید در دسترس باشد.
   StructureModule,

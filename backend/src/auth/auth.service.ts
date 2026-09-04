@@ -41,6 +41,15 @@ type UserRow = {
   mfaEnabledAt: Date | null;
 };
 
+/**
+ * طولِ دورهٔ آزمایشی، به روز.
+ *
+ * ⚠️ در **کد** است نه در پایگاه‌داده، عمداً: عددی که در `INSERT` جاسازی
+ *    می‌شود و اگر از جدولی بیاید، ورودیِ کاربر می‌شود در یک رشتهٔ SQL.
+ *    مقدارش ثابت و صحیح است، پس درج‌کردنش امن است.
+ */
+const TRIAL_DAYS = 14;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -62,6 +71,31 @@ export class AuthService {
           companyId,
           dto.companyName,
         ]);
+      }
+
+      // ⚠️ شرکتِ تازه **باید** اشتراک بگیرد، حتی آزمایشی.
+      //
+      //    `featuresFor` شرکتِ بدونِ اشتراک را «بی‌حد» می‌گیرد — قاعده‌ای
+      //    که برای نصبِ درون‌سازمانی درست است و برای ثبت‌نامِ اینترنتی
+      //    فاجعه: هر کسی فرم پر می‌کرد و کاملِ نرم‌افزار را رایگان و
+      //    برای همیشه می‌گرفت.
+      //
+      //    خطا نمی‌داد و لاگ نمی‌زد.  فقط هیچ‌کس لازم نبود پول بدهد.
+      //
+      // ⚠️ نسخهٔ آزمایشی **پیشرفته** است، نه پایه.
+      //
+      //    کسی که همه‌چیز را دیده و بعد محدود شده، می‌داند چه می‌خرد.
+      //    کسی که از اول «پایه» گرفته، نمی‌داند چه از دست می‌دهد.
+      //    انقضا در `EditionInterceptor` اعمال می‌شود و پس از آن
+      //    فقط‌خواندنی می‌شود، نه قفل.
+      if (companyId) {
+        await client.query(
+          `INSERT INTO "Subscription"
+             (id, "companyId", plan, status, "endsOn", note)
+           VALUES ($1, $2, 'ADVANCED', 'ACTIVE',
+                   CURRENT_DATE + ${TRIAL_DAYS}, $3)`,
+          [randomUUID(), companyId, 'دورهٔ آزمایشی خودکار'],
+        );
       }
 
       const rows = await client.query<UserRow>(

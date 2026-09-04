@@ -162,6 +162,52 @@ export class SubscriptionService {
   /** پس از هر تغییرِ اشتراک صدا زده می‌شود. */
   invalidateFeatures(companyId: string) {
     this.featureCache.delete(companyId);
+    this.stateCache.delete(companyId);
+  }
+
+  /**
+   * آیا اشتراکِ این شرکت هنوز معتبر است؟
+   *
+   * ⚠️ همان حافظهٔ ۳۰ ثانیه‌ای، با همان دلیل: این روی **هر** درخواست
+   *    اجرا می‌شود، نه فقط روی مسیرهای برچسب‌دار.  بدونِ حافظه، هر
+   *    فراخوانیِ API یک پرس‌وجوی اضافه می‌گیرد.
+   *
+   *    و باطل‌سازیِ صریح در `upsert` هست، پس تمدید فوری اثر می‌کند —
+   *    مشتری‌ای که همین الان پول داده نباید سی ثانیه منتظر بماند.
+   */
+  private stateCache = new Map<
+    string,
+    { at: number; active: boolean; reason: string | null; daysLeft: number | null }
+  >();
+
+  async stateFor(companyId: string): Promise<{
+    active: boolean;
+    reason: string | null;
+    daysLeft: number | null;
+  }> {
+    const hit = this.stateCache.get(companyId);
+    if (hit && Date.now() - hit.at < SubscriptionService.CACHE_MS) {
+      return { active: hit.active, reason: hit.reason, daysLeft: hit.daysLeft };
+    }
+
+    // ⚠️ زمینهٔ مستأجر **این‌جا** برقرار می‌شود — همان دلیلِ `featuresFor`،
+    //    و همان اشکال که یک بار دیگر تکرار شد.
+    //
+    //    مهاجرت ۰۷۳ روی `Subscription` سیاستِ RLS گذاشت (یادداشتِ ۰۷۱
+    //    که می‌گفت «این جدول RLS ندارد» از آن روز نادرست است).
+    //    `EditionInterceptor` پیش از `TenantInterceptor` اجرا می‌شود،
+    //    پس `app.company_id` هنوز نوشته نشده.
+    //
+    //    بدونِ این، پرس‌وجو **صفر سطر** می‌داد، `effective(null)` یعنی
+    //    «اشتراکی ندارد ⇒ فعال»، و انقضا هیچ‌وقت اعمال نمی‌شد.  خطا
+    //    نمی‌داد و لاگ نمی‌زد: فقط هیچ‌کس لازم نبود تمدید کند.
+    const state = this.effective(
+      await runInTenant({ companyId, userId: null, trackCode: null }, () =>
+        this.forCompany(companyId),
+      ),
+    );
+    this.stateCache.set(companyId, { at: Date.now(), ...state });
+    return state;
   }
 
   /** اشتراکِ یک شرکت، یا `null` اگر ندارد. */
@@ -385,7 +431,11 @@ export class SubscriptionService {
         [
           randomUUID(),
           companyId,
-          data.plan ?? 'TRIAL',
+          // ⚠️ 'BASIC' نه 'TRIAL': مهاجرت ۰۷۲ قید را به
+          //    (BASIC, PRO, ADVANCED) تنگ کرد و 'TRIAL' دیگر معتبر
+          //    نیست.  این خط از ۰۷۱ جا مانده بود و هر `upsert`ِ
+          //    بی‌پلن روی شرکتِ تازه با نقضِ قید می‌شکست.
+          data.plan ?? 'BASIC',
           data.status ?? 'ACTIVE',
           data.endsOn ?? null,
           data.maxUsers ?? null,

@@ -51,6 +51,17 @@ import { SubscriptionService } from './subscription.service';
  *    مشکل قرارداد است.
  */
 
+/** روش‌هایی که داده را عوض می‌کنند. */
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * مسیرهایی که حتی با اشتراکِ منقضی هم نوشتنی می‌مانند.
+ *
+ * ⚠️ فهرست عمداً کوتاه است.  هر افزوده‌ای این‌جا یک راهِ فرار از
+ *    انقضاست، پس فقط چیزی می‌آید که بدونش تمدید ناممکن می‌شود.
+ */
+const ALWAYS_WRITABLE = ['/auth', '/subscription', '/billing'];
+
 export const FEATURE_KEY = 'molido:feature';
 
 /** قابلیتی که این کنترلر یا مسیر به آن نیاز دارد. */
@@ -70,15 +81,58 @@ export class EditionInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): Promise<Observable<unknown>> {
+    const request = context.switchToHttp().getRequest();
+    const companyId = request?.user?.companyId;
+
+    // ═══════════ ۱) اشتراکِ منقضی ⇒ فقط‌خواندنی ═══════════
+    //
+    // ⚠️ تا امروز انقضا **هیچ اثری نداشت**.
+    //
+    //    `endsOn` گذشته بود، پنلِ فروشنده «غیرفعال» نشان می‌داد، و
+    //    مشتری بی‌هیچ تفاوتی کار می‌کرد.  یعنی تمدید عملاً داوطلبانه
+    //    بود.
+    //
+    // ⚠️ چرا فقط‌خواندنی و نه قفلِ کامل:
+    //
+    //    قفلِ کامل یعنی مشتری نمی‌تواند وارد شود، صورت‌حسابش را ببیند،
+    //    یا دادهٔ خودش را دربیاورد — و دادهٔ او گروگان نیست.  بستنِ
+    //    نوشتن کافی است: فروش متوقف می‌شود، که همان فشارِ لازم است،
+    //    ولی دفتر باز می‌ماند.
+    if (companyId && WRITE_METHODS.has(String(request?.method ?? 'GET'))) {
+      const path = String(request?.url ?? '').split('?')[0];
+
+      // ⚠️ مسیرهای پرداخت و ورود **همیشه** باز می‌مانند.
+      //
+      //    وگرنه مشتریِ منقضی نمی‌تواند تمدید کند — و آن یعنی انقضا
+      //    یک‌طرفه است و راهِ برگشت ندارد.  دقیقاً همان تله‌ای که
+      //    پشتیبانی را با تماسِ اضطراری پر می‌کند.
+      const exempt = ALWAYS_WRITABLE.some((prefix) => path.startsWith(prefix));
+
+      if (!exempt) {
+        const state = await this.subscription.stateFor(companyId);
+        if (!state.active) {
+          throw new HttpException(
+            {
+              message: state.reason ?? 'اشتراک شما فعال نیست',
+              error: 'Payment Required',
+              statusCode: HttpStatus.PAYMENT_REQUIRED,
+              expired: true,
+              readOnly: true,
+              lang: 'fa',
+            },
+            HttpStatus.PAYMENT_REQUIRED,
+          );
+        }
+      }
+    }
+
+    // ═══════════ ۲) قابلیتِ نخریده ═══════════
     const feature = this.reflector.getAllAndOverride<string | undefined>(
       FEATURE_KEY,
       [context.getHandler(), context.getClass()],
     );
     // مسیرِ بی‌برچسب هسته است و همیشه باز.
     if (!feature) return next.handle();
-
-    const request = context.switchToHttp().getRequest();
-    const companyId = request?.user?.companyId;
 
     // ⚠️ مسیرِ برچسب‌دارِ **عمومی** (بدونِ کاربر) باز می‌ماند — و این
     //    یک **شکافِ شناخته‌شده** است، نه تصمیمِ کامل.

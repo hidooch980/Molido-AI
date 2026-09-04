@@ -9,6 +9,7 @@ import { LANGS, type Lang } from '../lib/i18n';
 import { useI18n } from '../lib/i18n-context';
 import { companyName, loadCompany } from '../lib/company';
 import { hasFeature, type FeatureKey } from '../lib/product';
+import { isVendor } from '../lib/session';
 import {
   autoTheme,
   currentChoice,
@@ -29,6 +30,15 @@ export type NavItem = {
   primary?: boolean;
   /** اگر تعیین شود، فقط در محصولی دیده می‌شود که این قابلیت را دارد */
   feature?: FeatureKey;
+  /**
+   * فقط برای حسابِ فروشنده.
+   *
+   * ⚠️ این پنهان‌کردنِ منوست، نه کنترلِ دسترسی: مسیرِ بک‌اند
+   *    `@Roles('SUPER_ADMIN')` دارد و همان تصمیم می‌گیرد.  اگر روزی
+   *    این پرچم را حذف کنند، بدترین اتفاق این است که کاربر گزینه‌ای
+   *    می‌بیند که ۴۰۳ می‌دهد — نه اینکه چیزی نشت کند.
+   */
+  vendorOnly?: boolean;
   /**
    * دستهٔ منو.
    *
@@ -136,6 +146,7 @@ export const NAV: NavItem[] = [
   { href: '/revenue', group: 'money', label: 'menuRevenue', icon: 'coins' },
   { href: '/insights', group: 'main', label: 'menuInsights', icon: 'chart' },
   { href: '/users', group: 'people', label: 'menuUsers', icon: 'user' },
+  { href: '/vendor', group: 'system', label: 'menuVendor', icon: 'building', vendorOnly: true },
 ];
 
 /**
@@ -242,6 +253,18 @@ export default function AppShell({
     setThemeState(next);
   }
 
+  /**
+   * ⚠️ نقش **پس از** نصب خوانده می‌شود، نه در رندرِ اول.
+   *
+   *    `localStorage` روی سرور وجود ندارد؛ خواندنش در بدنهٔ کامپوننت
+   *    یعنی سرور «فروشنده نیست» می‌سازد و مرورگر «هست» — و React
+   *    ناسازگاریِ hydration می‌دهد.  با `useEffect` هر دو سمت یکسان
+   *    شروع می‌کنند و گزینه یک لحظه بعد اضافه می‌شود.
+   */
+  const [vendor, setVendor] = useState(false);
+
+  useEffect(() => setVendor(isVendor()), []);
+
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   function switchLang(next: Lang) {
@@ -267,7 +290,7 @@ export default function AppShell({
   // وگرنه کاربر روی آن کلیک می‌کند و به ۴۰۴ می‌رسد.
   const visible = NAV.filter(
     (item) => !('feature' in item) || hasFeature(item.feature as FeatureKey),
-  );
+  ).filter((item) => !item.vendorOnly || vendor);
 
   const primary = visible.filter((item) => item.primary);
 

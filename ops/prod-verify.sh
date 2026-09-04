@@ -110,7 +110,7 @@ echo '--- ۳) داده دست‌نخورده مانده ---'
 #   ۰۸۲      → "ChequePrintTemplate"
 #   ۰۸۳      → "ReportDefinition"
 # ۰۷۳، ۰۷۴، ۰۷۷ و ۰۷۸ هیچ CREATE TABLE ندارند (ستون، نمایه، حساب).
-chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "152"
+chk "جدول‌ها" "$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")" "153"
 printf '  —    کالا: %s   مشتری: %s   فاکتور: %s   کاربر: %s\n' \
   "$(q 'SELECT count(*) FROM "Product"')" \
   "$(q 'SELECT count(*) FROM "Customer"')" \

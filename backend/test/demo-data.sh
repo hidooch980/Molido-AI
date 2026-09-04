@@ -92,7 +92,21 @@ OPEN=$(curl -s "${A[@]}" "$API/consignments" \
   | P "import sys,json;d=json.load(sys.stdin);print(sum(1 for c in d if c['direction']=='IN' and c['status']=='OPEN'))")
 chk "دستِ‌کم یک سندِ امانیِ بازِ ورودی" "$([ "${OPEN:-0}" -ge 1 ] && echo ok || echo no)" "ok"
 
-sec "۵) دفتر کل دست‌نخورده ماند"
+sec "۵) دادهٔ رستوران هم ساخته می‌شود"
+# ⚠️ جدول‌های رستوران در **همهٔ** نمایه‌ها هستند، فقط ماژولش در نمایهٔ
+#    فروشگاه بار نمی‌شود.  پس این‌جا از پایگاه‌داده سنجیده می‌شود نه
+#    از API — وگرنه در نمایهٔ فروشگاه ۴۰۴ می‌گیرد و سنجه بی‌معنا
+#    می‌شود.
+QQ() { docker compose $CF exec -T postgres psql -U postgres -d molido_ai -tAq -c "$1" | tr -d ''; }
+chk "شش میز"        "$(QQ "SELECT count(*)::int FROM \"RestaurantTable\" WHERE id LIKE 'demo-%'")" "6"
+chk "پنج قلمِ منو"   "$(QQ "SELECT count(*)::int FROM \"MenuItem\" WHERE id LIKE 'demo-%'")" "5"
+# ⚠️ رسپی همان چیزی است که رستوران را از فروشگاه جدا می‌کند؛ بدونِ
+#    نمونه، صفحهٔ بهای تمام‌شدهٔ غذا خالی باز می‌شود.
+chk "رسپی هست"      "$(QQ "SELECT count(*)::int FROM \"MenuRecipe\" WHERE id LIKE 'demo-%'")" "2"
+# ⚠️ دو ایستگاه، وگرنه صفحهٔ آشپزخانه معنایش را نشان نمی‌دهد.
+chk "دو ایستگاهِ آشپزخانه"   "$(QQ "SELECT count(DISTINCT station)::int FROM \"MenuItem\" WHERE id LIKE 'demo-%'")" "2"
+
+sec "۶) دفتر کل دست‌نخورده ماند"
 # ⚠️ دادهٔ نمونه نباید سند بزند.  سندِ نمایشی در دفتری که اظهارِ
 #    مالیاتی از آن درمی‌آید، چند ماه بعد قابلِ تشخیص نیست.
 chk "هیچ سندی با شناسهٔ demo نیست" \

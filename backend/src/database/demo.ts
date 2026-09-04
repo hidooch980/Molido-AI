@@ -268,6 +268,82 @@ async function main(): Promise<void> {
       ],
     );
 
+    // ─────────────── کافه‌رستوران ───────────────
+    //
+    // ⚠️ جدول‌هایش در **همهٔ** نمایه‌ها ساخته می‌شوند (مهاجرت‌ها مشترک‌اند)،
+    //    فقط ماژولش در نمایهٔ فروشگاه بار نمی‌شود.  پس درج این‌جا
+    //    بی‌خطر است: در فروشگاه هیچ صفحه‌ای نشانش نمی‌دهد و در رستوران
+    //    همه‌چیز پر باز می‌شود.
+    //
+    //    شرطی کردنش بر `MOLIDO_PRODUCT` وسوسه‌انگیز بود، ولی آن‌وقت
+    //    اجرای اسکریپت روی نمایهٔ اشتباه بی‌صدا نیمی از کار را انجام
+    //    می‌داد — و «چرا میزها نیامدند؟» جوابِ روشنی نداشت.
+    await step(
+      'سالنِ رستوران',
+      `INSERT INTO "RestaurantArea" (id, "companyId", name, floor, "isActive", "createdAt", "updatedAt")
+       VALUES ('demo-area-1', $1, 'سالن اصلی', 1, true, now(), now()),
+              ('demo-area-2', $1, 'تراس', 1, true, now(), now())
+       ON CONFLICT (id) DO NOTHING`,
+      [CO],
+    );
+
+    await step(
+      '  شش میز',
+      `INSERT INTO "RestaurantTable"
+         (id, "companyId", "areaId", "tableNo", capacity, status, "createdAt", "updatedAt")
+       VALUES
+         ('demo-tbl-1', $1, 'demo-area-1', '1', 4, 'FREE', now(), now()),
+         ('demo-tbl-2', $1, 'demo-area-1', '2', 4, 'FREE', now(), now()),
+         ('demo-tbl-3', $1, 'demo-area-1', '3', 2, 'FREE', now(), now()),
+         ('demo-tbl-4', $1, 'demo-area-1', '4', 6, 'FREE', now(), now()),
+         ('demo-tbl-5', $1, 'demo-area-2', 'T1', 2, 'FREE', now(), now()),
+         ('demo-tbl-6', $1, 'demo-area-2', 'T2', 4, 'FREE', now(), now())
+       ON CONFLICT (id) DO NOTHING`,
+      [CO],
+    );
+
+    await step(
+      'دسته‌های منو',
+      `INSERT INTO "MenuCategory" (id, "companyId", name, "sortOrder", "isActive", "createdAt", "updatedAt")
+       VALUES ('demo-mcat-1', $1, 'نوشیدنی گرم', 1, true, now(), now()),
+              ('demo-mcat-2', $1, 'نوشیدنی سرد', 2, true, now(), now()),
+              ('demo-mcat-3', $1, 'غذای اصلی',  3, true, now(), now())
+       ON CONFLICT (id) DO NOTHING`,
+      [CO],
+    );
+
+    // ⚠️ `station` تعیین می‌کند قلم روی کدام صفحهٔ آشپزخانه می‌رود.
+    //    اگر همه یک ایستگاه باشند، صفحهٔ KDS معنایش را نشان نمی‌دهد.
+    await step(
+      '  اقلامِ منو (با ایستگاه و زمانِ آماده‌سازی)',
+      `INSERT INTO "MenuItem"
+         (id, "companyId", "categoryId", code, name, price, cost, station,
+          "prepMinutes", "isAvailable", "sortOrder", "createdAt", "updatedAt")
+       VALUES
+         ('demo-mi-1', $1, 'demo-mcat-1', 'ESP', 'اسپرسو',        850000,  250000, 'BAR',     3,  true, 1, now(), now()),
+         ('demo-mi-2', $1, 'demo-mcat-1', 'LAT', 'لاته',         1150000,  380000, 'BAR',     5,  true, 2, now(), now()),
+         ('demo-mi-3', $1, 'demo-mcat-2', 'ICE', 'آیس‌کافی',      1250000,  420000, 'BAR',     5,  true, 1, now(), now()),
+         ('demo-mi-4', $1, 'demo-mcat-3', 'CHK', 'جوجه کباب',    4800000, 2100000, 'KITCHEN', 20, true, 1, now(), now()),
+         ('demo-mi-5', $1, 'demo-mcat-3', 'PST', 'پاستا آلفردو', 3900000, 1500000, 'KITCHEN', 15, true, 2, now(), now())
+       ON CONFLICT (id) DO NOTHING`,
+      [CO],
+    );
+
+    // ⚠️ رسپی همان چیزی است که رستوران را از فروشگاه جدا می‌کند:
+    //    فروشِ یک لاته باید از **موجودی مواد اولیه** کم کند، نه از
+    //    موجودی «لاته».  بدونِ نمونه، صفحهٔ بهای تمام‌شدهٔ غذا خالی
+    //    باز می‌شود و کسی نمی‌فهمد اصلاً چنین چیزی هست.
+    //
+    //    مواد از کالاهای `seed` گرفته می‌شود تا نمونه به کالای تازه
+    //    وابسته نباشد.
+    await step(
+      '  رسپیِ دو قلم (مصرفِ مواد اولیه)',
+      `INSERT INTO "MenuRecipe" (id, "menuItemId", "productId", qty, unit, "wastePct")
+       VALUES ('demo-rec-1', 'demo-mi-2', 'seed-p2', 0.03, 'لیتر', 5),
+              ('demo-rec-2', 'demo-mi-4', 'seed-p1', 0.25, 'کیلو', 8)
+       ON CONFLICT (id) DO NOTHING`,
+    );
+
     // ─────────────── نسخه‌های فروش ───────────────
     //
     // ⚠️ قیمت‌ها **دست نمی‌خورند**.
@@ -281,6 +357,8 @@ async function main(): Promise<void> {
     console.log('   صفحه‌هایی که حالا پر باز می‌شوند:');
     console.log('   /records/consignment · /treasury (تنخواه) · /operations (یادآوری)');
     console.log('   /accounting (الگوی سند) · /reports (گزارش‌ساز) · /tax (گزارش فصلی)');
+    console.log('   و در نمایهٔ رستوران:');
+    console.log('   /restaurant (میز) · /restaurant/menu (منو و رسپی) · /restaurant/kitchen');
   } finally {
     await pool.end();
   }

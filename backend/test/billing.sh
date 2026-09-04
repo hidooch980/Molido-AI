@@ -45,18 +45,28 @@ CO=seed-company
 #    این مجموعه اشتراک را **منقضی** می‌کند تا اعمالِ انقضا را بسنجد.
 #    اگر برنگردد، هر مجموعهٔ بعدی روی نوشتن ۴۰۲ می‌گیرد — یعنی صدها
 #    شکستِ بی‌ربط.  همان تله‌ای که یک بار در `edition.sh` افتاد.
-ORIG=$(Q "SELECT plan||'|'||status||'|'||COALESCE(\"endsOn\"::text,'') FROM \"Subscription\" WHERE \"companyId\"='$CO'")
+ORIG=$(Q "SELECT plan||'|'||status||'|'||COALESCE(\"endsOn\"::text,'')||'|'||\"startsOn\"::text FROM \"Subscription\" WHERE \"companyId\"='$CO'")
 restore() {
   [ -n "$ORIG" ] || return 0
   local p="${ORIG%%|*}" rest="${ORIG#*|}"
-  local st="${rest%%|*}" en="${rest##*|}"
-  if [ -n "$en" ]; then
-    Q "UPDATE \"Subscription\" SET plan='$p', status='$st', \"endsOn\"='$en',
-         \"updatedAt\"=now() WHERE \"companyId\"='$CO'" >/dev/null
-  else
-    Q "UPDATE \"Subscription\" SET plan='$p', status='$st', \"endsOn\"=NULL,
-         \"updatedAt\"=now() WHERE \"companyId\"='$CO'" >/dev/null
-  fi
+  local st="${rest%%|*}" rest2="${rest#*|}"
+  local en="${rest2%%|*}" so="${rest2##*|}"
+
+  # ⚠️ هر دو تاریخ در **یک** دستور نوشته می‌شوند.
+  #
+  #    قیدِ `endsOn >= startsOn` در پایانِ هر دستور سنجیده می‌شود؛ اگر
+  #    `startsOn` جدا نوشته شود، در آن لحظه با `endsOn`ِ دستکاری‌شدهٔ
+  #    آزمون سنجیده می‌شود و ممکن است رد شود — یعنی بازگردانی بی‌صدا
+  #    شکست بخورد، که دقیقاً همان چیزی است که این تابع برای جلوگیری
+  #    از آن نوشته شده.
+  local endexpr="NULL"
+  [ -n "$en" ] && endexpr="'$en'"
+
+  Q "UPDATE \"Subscription\"
+        SET plan='$p', status='$st', \"startsOn\"='$so', \"endsOn\"=$endexpr,
+            \"updatedAt\"=now()
+      WHERE \"companyId\"='$CO'" >/dev/null
+
   Q "DELETE FROM \"SubscriptionInvoice\" WHERE \"companyId\"='$CO'" >/dev/null
 }
 trap 'restore; stop_fake' EXIT
@@ -118,8 +128,15 @@ chk "پیشرفته آنلاین رد شد" "$(POSTCODE /billing/start '{"plan":
 
 # ---------------------------------------------------------------- انقضا
 sec "۴) اشتراکِ منقضی ⇒ فقط‌خواندنی"
-Q "UPDATE \"Subscription\" SET status='ACTIVE', \"endsOn\"=CURRENT_DATE-1,
-     \"updatedAt\"=now() WHERE \"companyId\"='$CO'" >/dev/null
+# ⚠️ `startsOn` هم عقب کشیده می‌شود.
+#
+#    قیدِ `Subscription_dates_check` می‌گوید `endsOn >= startsOn`.  روی
+#    نصبی که اشتراکش **امروز** ساخته شده، `endsOn=CURRENT_DATE-1` قید را
+#    نقض می‌کند، `UPDATE` بی‌صدا رد می‌شود (چون `Q` خطا را فقط به رشته
+#    می‌دهد)، اشتراک فعال می‌ماند، و سنجهٔ بعدی شکست می‌خورد با پیامی
+#    که هیچ ربطی به علت ندارد.
+Q "UPDATE \"Subscription\" SET status='ACTIVE', \"startsOn\"=CURRENT_DATE-30,
+     \"endsOn\"=CURRENT_DATE-1, \"updatedAt\"=now() WHERE \"companyId\"='$CO'" >/dev/null
 # حافظهٔ وضعیت ۳۰ ثانیه است و این‌جا مستقیم در پایگاه نوشتیم.
 sleep 31
 

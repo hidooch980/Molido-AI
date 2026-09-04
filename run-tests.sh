@@ -73,12 +73,24 @@ export MOLIDO_ADMIN_PASSWORD
 #
 #    پس پیش از اجرا سنجیده و اصلاح می‌شود — نه فقط هشدار، چون هشداری که
 #    اجرا را متوقف نکند در انبوهِ خروجی گم می‌شود.
-_plan=$(docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres   psql -U postgres -d molido_ai -tAq -c   "SELECT plan FROM \"Subscription\" WHERE \"companyId\"='seed-company'" 2>/dev/null | tr -d '
+#
+# ⚠️ **انقضا** هم سنجیده می‌شود، نه فقط نسخه.
+#
+#    از وقتی `EditionInterceptor` انقضا را اعمال می‌کند، یک `endsOn`ِ
+#    گذشته که آزمونی جا گذاشته، هر **نوشتنی** را ۴۰۲ می‌کند — یعنی
+#    همان ۲۵۰ شکستِ بی‌ربط، این بار از راهی دیگر.  نگهبانی که فقط
+#    `plan` را ببیند، نیمی از تله را باز می‌گذارد.
+_sub=$(docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres   psql -U postgres -d molido_ai -tAq -c   "SELECT plan||'/'||status||'/'||CASE WHEN \"endsOn\" IS NULL OR \"endsOn\" >= CURRENT_DATE
+            THEN 'ok' ELSE 'expired' END
+       FROM \"Subscription\" WHERE \"companyId\"='seed-company'" 2>/dev/null | tr -d '
  ')
-if [ -n "$_plan" ] && [ "$_plan" != "ADVANCED" ]; then
+_plan="${_sub%%/*}"
+if [ -n "$_sub" ] && [ "$_sub" != "ADVANCED/ACTIVE/ok" ]; then
+  _plan="$_sub"
   printf '⚠️  اشتراکِ آزمون روی %s مانده بود؛ به ADVANCED برگردانده شد.
 ' "$_plan"
-  docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres     psql -U postgres -d molido_ai -tAq -c     "UPDATE \"Subscription\" SET plan='ADVANCED', status='ACTIVE', \"updatedAt\"=now()
+  docker compose -f docker-compose.yml -f docker-compose.store.yml exec -T postgres     psql -U postgres -d molido_ai -tAq -c     "UPDATE \"Subscription\" SET plan='ADVANCED', status='ACTIVE', \"endsOn\"=NULL,
+             \"updatedAt\"=now()
       WHERE \"companyId\"='seed-company'" >/dev/null 2>&1
   # حافظهٔ قابلیت ۳۰ ثانیه است؛ بدونِ این صبر، مجموعه‌های اولِ صف
   # همچنان ۴۰۲ می‌گیرند.

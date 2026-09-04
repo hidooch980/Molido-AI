@@ -174,6 +174,38 @@ const DICT: Record<string, Partial<Record<Lang, string>> & { fa: string }> = {
   add: { fa: 'افزودن', en: 'Add', ar: 'إضافة' },
   search: { fa: 'جستجو', en: 'Search', ar: 'بحث' },
 
+  // ───── اشتراک و تمدید ─────
+  menuBilling: { fa: 'اشتراک و تمدید', en: 'Subscription', ar: 'الاشتراك' },
+  billingTitle: { fa: 'اشتراک و تمدید', en: 'Subscription & renewal', ar: 'الاشتراك والتجديد' },
+  billingSubtitle: {
+    fa: 'نسخهٔ فعلی، تاریخ انقضا و خرید تمدید',
+    en: 'Current edition, expiry and renewal',
+    ar: 'الإصدار الحالي وتاريخ الانتهاء والتجديد',
+  },
+  billingCurrent: { fa: 'وضعیت فعلی', en: 'Current status', ar: 'الحالة الحالية' },
+  billingBuy: { fa: 'خرید تمدید', en: 'Buy renewal', ar: 'شراء التجديد' },
+  billingContactVendor: {
+    fa: 'نسخه‌ای برای خرید آنلاین تعریف نشده است؛ با فروشنده تماس بگیرید',
+    en: 'No online plan is available; please contact the vendor',
+    ar: 'لا توجد باقة للشراء عبر الإنترنت؛ يرجى التواصل مع البائع',
+  },
+  billingGoToGateway: { fa: 'پرداخت و تمدید', en: 'Pay and renew', ar: 'ادفع وجدّد' },
+  billingHistory: { fa: 'صورت‌حساب‌ها', en: 'Invoices', ar: 'الفواتير' },
+  billingTracking: { fa: 'کد پیگیری', en: 'Tracking code', ar: 'رمز التتبع' },
+  billingNoInvoice: { fa: 'صورت‌حسابی ثبت نشده است', en: 'No invoices yet', ar: 'لا توجد فواتير' },
+  billingPaid: { fa: 'پرداخت انجام شد و اشتراک تمدید شد', en: 'Payment received; subscription renewed', ar: 'تم الدفع وتجديد الاشتراك' },
+  billingFailed: { fa: 'پرداخت تأیید نشد', en: 'Payment was not confirmed', ar: 'لم يتم تأكيد الدفع' },
+  billingNoGateway: {
+    fa: 'درگاه پرداخت در دسترس نیست',
+    en: 'Payment gateway is unavailable',
+    ar: 'بوابة الدفع غير متاحة',
+  },
+  billingStatusPENDING: { fa: 'در انتظار پرداخت', en: 'Pending', ar: 'قيد الانتظار' },
+  billingStatusPAID: { fa: 'پرداخت‌شده', en: 'Paid', ar: 'مدفوعة' },
+  billingStatusFAILED: { fa: 'ناموفق', en: 'Failed', ar: 'فاشلة' },
+  billingStatusCANCELLED: { fa: 'لغو شده', en: 'Cancelled', ar: 'ملغاة' },
+  rial: { fa: 'ریال', en: 'IRR', ar: 'ريال' },
+
   // ───── پنل فروشنده ─────
   menuVendor: { fa: 'مشتریان مولیدو', en: 'Molido customers', ar: 'عملاء موليدو' },
   vendorTitle: { fa: 'پنل فروشنده', en: 'Vendor panel', ar: 'لوحة البائع' },

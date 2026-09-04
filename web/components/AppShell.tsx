@@ -146,6 +146,7 @@ export const NAV: NavItem[] = [
   { href: '/revenue', group: 'money', label: 'menuRevenue', icon: 'coins' },
   { href: '/insights', group: 'main', label: 'menuInsights', icon: 'chart' },
   { href: '/users', group: 'people', label: 'menuUsers', icon: 'user' },
+  { href: '/billing', group: 'system', label: 'menuBilling', icon: 'coins' },
   { href: '/vendor', group: 'system', label: 'menuVendor', icon: 'building', vendorOnly: true },
 ];
 

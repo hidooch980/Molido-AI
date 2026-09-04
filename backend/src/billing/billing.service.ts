@@ -150,7 +150,7 @@ export class BillingService {
     const start = await this.gateway.start({
       amount: amountRial,
       orderNo: id.slice(0, 8),
-      callbackUrl: `${base}/settings/billing/callback?invoice=${id}`,
+      callbackUrl: `${base}/billing?invoice=${id}`,
       description: `تمدید اشتراک مولیدو — ${plan} / ${months} ماه`,
     });
 

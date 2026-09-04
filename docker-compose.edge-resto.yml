@@ -40,6 +40,11 @@ services:
       #    سرور همان را می‌بیند.  دو مقدارِ متفاوت برای یک نام، همان
       #    چیزی است که ساعت‌ها وقت می‌گیرد.
       NEXT_PUBLIC_API_URL: https://${MOLIDO_HOST_RESTO}/api
+      # ⚠️ همان دلیلِ `edge-store-ip.yml`: خروجیِ standalone نکست روی
+      #    `HOSTNAME` می‌شنود و داکر آن را شناسهٔ کانتینر می‌گذارد —
+      #    که فقط به شبکهٔ اول حل می‌شود.  از شبکهٔ لبه «connection
+      #    refused» می‌گیرید، در حالی که لاگ «Ready» نوشته.
+      HOSTNAME: 0.0.0.0
     networks:
       molido_net: {}
       molido_edge:

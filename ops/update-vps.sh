@@ -27,6 +27,24 @@ REMOTE="${MOLIDO_REMOTE_DIR:-/opt/molido}"
 #    `molido-store-web` می‌خواست — یعنی ساخت موفق شد و هیچ اثری نداشت.
 CF="-f docker-compose.yml -f docker-compose.store.yml -f docker-compose.vps.yml"
 
+# ⚠️ دام ۱ب: overlayِ **لبه** هم باید بیاید، وگرنه به‌روزرسانی محصولِ
+#    دوم را از دسترس خارج می‌کند.
+#
+#    `up -d --force-recreate` کانتینر را با **همان** فایل‌هایی می‌سازد
+#    که به آن داده‌ای.  اگر `edge-store-ip.yml` نباشد، فروشگاه از
+#    شبکهٔ `molido_edge` بیرون می‌افتد، نامِ مستعارِ `store-web` حل
+#    نمی‌شود، و Caddy برای **هر** درخواست ۵۰۲ می‌دهد.
+#
+#    ساخت موفق گزارش می‌شود، کانتینر سالم است، و سایت می‌خوابد.
+#
+#    اگر روی سرور شبکهٔ لبه ساخته شده باشد، خودکار اضافه می‌شود — پس
+#    نصبِ تک‌محصولی چیزی برای تنظیم ندارد.
+if ssh -o BatchMode=yes "$HOST" 'docker network inspect molido_edge' >/dev/null 2>&1; then
+  for f in docker-compose.edge-store-ip.yml docker-compose.edge-caddy.yml; do
+    ssh -o BatchMode=yes "$HOST" "test -f $REMOTE/$f" 2>/dev/null && CF="$CF -f $f"
+  done
+fi
+
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
 step() { printf '\n── %s\n' "$*"; }
 
@@ -167,7 +185,7 @@ step "۵) راه‌اندازی سرویس‌ها"
 
 # `--force-recreate` چون بدونش کانتینر با ایمیجِ قدیمی می‌ماند وقتی
 # فقط لایه‌های داخلی عوض شده‌اند.
-ssh -o BatchMode=yes "$HOST" "cd $REMOTE && docker compose $CF up -d --force-recreate backend web" 2>&1 | tail -4
+ssh -o BatchMode=yes "$HOST" "cd $REMOTE && docker compose $CF up -d --force-recreate backend web caddy" 2>&1 | tail -4
 
 ssh -o BatchMode=yes "$HOST" "
   for i in \$(seq 1 40); do

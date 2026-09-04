@@ -68,7 +68,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS "SubscriptionInvoice_reference_key"
   ON "SubscriptionInvoice" (gateway, reference)
   WHERE reference IS NOT NULL;
 
--- ⚠️ RLS **ندارد** — عمداً، به همان دلیلِ `Subscription` در ۰۷۱.
+-- ⚠️ [اصلاح — مهاجرت ۰۸۶] یادداشتِ زیر **غلط بود** و همان اشتباهِ
+--    ۰۷۱ را تکرار می‌کرد.  RLS در ۰۸۶ اضافه شد، با همان روزنهٔ
+--    خواندنیِ فروشنده که ۰۷۳ برای `Subscription` ساخت.
+--
+--    نگهبانِ `integration` در همان اجرا گرفتش.
+--
+-- ⚠️ [تاریخی] RLS ندارد — عمداً، به همان دلیلِ `Subscription` در ۰۷۱.
 --
 --    فروشنده باید صورت‌حسابِ همهٔ مشتریان را ببیند و با فیلترِ
 --    `app.company_id` هیچ‌کدام را نمی‌دید.  محافظتش در لایهٔ سرویس

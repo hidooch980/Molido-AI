@@ -1,10 +1,10 @@
 // تولیدشده از خودِ پایگاه‌داده با tools/generate-schema.ts — دست نزنید.
 //
-// WARN پس از هر مهاجرت، `npm run gen:schema` را اجرا کنید.
+// ⚠️ پس از هر مهاجرت، `npm run gen:schema` را اجرا کنید.
 //
-//      `BaseCrudService` ستونی را که این‌جا نباشد بی‌صدا دور می‌ریزد:
-//      فرم پر می‌شود، پاسخ ۲۰۰ می‌آید، و میدان خالی می‌ماند.
-//      نگهبانِ `npm run check:schema` در CI همین را می‌گیرد.
+//    `BaseCrudService` ستونی را که این‌جا نباشد بی‌صدا دور می‌ریزد:
+//    فرم پر می‌شود، پاسخ ۲۰۰ می‌آید، و میدان خالی می‌ماند.
+//    نگهبانِ `npm run check:schema` در CI همین را می‌گیرد.
 
 export const TABLE_COLUMNS: Record<string, readonly string[]> = {
   Account: ['id', 'companyId', 'name', 'code', 'type', 'balance', 'isActive', 'createdAt', 'updatedAt', 'parentId', 'isPostable'],
@@ -85,7 +85,7 @@ export const TABLE_COLUMNS: Record<string, readonly string[]> = {
   PettyCash: ['id', 'companyId', 'name', 'custodianId', 'ceiling', 'isActive', 'note', 'createdAt', 'updatedAt'],
   PettyCashTransaction: ['id', 'companyId', 'pettyCashId', 'type', 'amount', 'description', 'entryId', 'userId', 'occurredAt', 'createdAt'],
   PhoneVerification: ['id', 'companyId', 'phone', 'codeHash', 'attempts', 'expiresAt', 'consumedAt', 'createdAt'],
-  PlanDefault: ['plan', 'title', 'maxUsers', 'maxBranches', 'note', 'features'],
+  PlanDefault: ['plan', 'title', 'maxUsers', 'maxBranches', 'note', 'features', 'priceRial'],
   PosTerminal: ['id', 'companyId', 'terminalNo', 'serialNo', 'merchantId', 'bankName', 'pspName', 'type', 'status', 'accountNo', 'iban', 'holderName', 'location', 'simNumber', 'cashBoxId', 'installedAt', 'note', 'createdAt', 'updatedAt'],
   PriceLevel: ['id', 'companyId', 'name', 'description', 'isDefault', 'createdAt'],
   Product: ['id', 'companyId', 'categoryId', 'name', 'sku', 'barcode', 'description', 'purchasePrice', 'salePrice', 'taxRate', 'unit', 'status', 'trackInventory', 'minStock', 'expiryDate', 'createdAt', 'updatedAt', 'isWeighed', 'scaleCode', 'isRationEligible', 'rationPrice', 'isOnline', 'onlinePrice', 'imageUrl'],
@@ -132,6 +132,7 @@ export const TABLE_COLUMNS: Record<string, readonly string[]> = {
   StockCountLine: ['id', 'countId', 'productId', 'systemQty', 'countedQty', 'note'],
   StockMovement: ['id', 'companyId', 'warehouseId', 'productId', 'delta', 'balance', 'reason', 'refType', 'refId', 'userId', 'note', 'createdAt'],
   Subscription: ['id', 'companyId', 'plan', 'status', 'startsOn', 'endsOn', 'maxUsers', 'maxBranches', 'product', 'note', 'createdAt', 'updatedAt'],
+  SubscriptionInvoice: ['id', 'companyId', 'plan', 'months', 'amountRial', 'status', 'gateway', 'reference', 'trackingCode', 'paidAt', 'note', 'createdAt', 'updatedAt'],
   Supplier: ['id', 'companyId', 'name', 'phone', 'email', 'address', 'isActive', 'createdAt', 'updatedAt', 'nationalCode', 'personType', 'economicCode', 'postalCode'],
   SupplierCall: ['id', 'companyId', 'inquiryId', 'supplierId', 'status', 'channel', 'phone', 'providerId', 'recordingUrl', 'transcript', 'durationSec', 'error', 'note', 'calledAt', 'createdAt', 'updatedAt'],
   SupplierQuote: ['id', 'companyId', 'callId', 'productId', 'unitPrice', 'availableQty', 'leadDays', 'note', 'isSelected', 'createdAt'],
